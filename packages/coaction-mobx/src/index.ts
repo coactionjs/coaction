@@ -26,8 +26,11 @@ const touchObservableTree = (value: unknown, seen = new WeakSet<object>()) => {
     value.forEach((item) => touchObservableTree(item, seen));
     return;
   }
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    const child = (value as Record<string, unknown>)[key];
+  for (const key of Reflect.ownKeys(value as Record<PropertyKey, unknown>)) {
+    if (!Object.prototype.propertyIsEnumerable.call(value, key)) {
+      continue;
+    }
+    const child = (value as Record<PropertyKey, unknown>)[key];
     if (typeof child !== 'function') {
       touchObservableTree(child, seen);
     }

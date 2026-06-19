@@ -4,7 +4,7 @@ import {
   type WorkerMainTransportOptions
 } from 'data-transport';
 import { bindMobx } from '../src';
-import { makeAutoObservable, autorun } from 'mobx';
+import { makeAutoObservable, autorun, observable, runInAction } from 'mobx';
 import { create, type Slices, type Slice } from 'coaction';
 import { isDraft } from 'mutative';
 
@@ -98,6 +98,25 @@ test('subscribe notifies plain listeners on observable changes', () => {
   unsubscribe();
   useStore.getState().increment();
   expect(fn).toHaveBeenCalledTimes(1);
+});
+
+test('subscribe notifies for symbol keyed observable changes', () => {
+  const symbolKey = Symbol('mobx-value');
+  const state = observable({
+    [symbolKey]: 0
+  });
+  const useStore = create(() => bindMobx(state) as any);
+  const fn = jest.fn();
+  const unsubscribe = useStore.subscribe(fn);
+
+  runInAction(() => {
+    state[symbolKey] = 1;
+  });
+
+  expect((useStore.getState() as any)[symbolKey]).toBe(1);
+  expect(fn).toHaveBeenCalledTimes(1);
+
+  unsubscribe();
 });
 
 test('mobx', async () => {
