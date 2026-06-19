@@ -23,11 +23,12 @@ export const createAsyncClientStore = <T extends CreateState>(
   // This store can't be directly executed by any of the store's methods
   // its methods are proxied to the worker or share worker for execution.
   // and the executed patch is sent to the store to be applied to synchronize the state.
+  const isSharedWorker =
+    typeof SharedWorker !== 'undefined' &&
+    asyncStoreClientOption.worker instanceof SharedWorker;
   const transport: ClientTransport = asyncStoreClientOption.worker
     ? createTransport(
-        asyncStoreClientOption.worker instanceof SharedWorker
-          ? 'SharedWorkerClient'
-          : 'WebWorkerClient',
+        isSharedWorker ? 'SharedWorkerClient' : 'WebWorkerClient',
         {
           worker: asyncStoreClientOption.worker as SharedWorker,
           prefix: asyncClientStore.name
