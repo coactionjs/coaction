@@ -69,6 +69,37 @@ test('base', () => {
   `);
 });
 
+test('subscribe notifies plain listeners on observable changes', () => {
+  const useStore = create<{
+    count: number;
+    increment: () => void;
+  }>(
+    (set, get, store) =>
+      makeAutoObservable(
+        bindMobx({
+          count: 0,
+          increment() {
+            this.count += 1;
+          }
+        })
+      ),
+    {
+      name: 'test-plain-subscribe'
+    }
+  );
+  const fn = jest.fn();
+  const unsubscribe = useStore.subscribe(fn);
+
+  expect(fn).not.toHaveBeenCalled();
+
+  useStore.getState().increment();
+  expect(fn).toHaveBeenCalledTimes(1);
+
+  unsubscribe();
+  useStore.getState().increment();
+  expect(fn).toHaveBeenCalledTimes(1);
+});
+
 test('mobx', async () => {
   const state = makeAutoObservable({
     value: 0,

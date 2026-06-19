@@ -332,17 +332,17 @@ test('worker - async', async () => {
   useServerStore.subscribe(() => {
     fn(useServerStore.getState().count);
   });
-  expect(fn).toHaveBeenCalledTimes(1);
+  expect(fn).not.toHaveBeenCalled();
   await useServerStore.getState().increment();
-  expect(fn).toHaveBeenCalledTimes(2);
+  expect(fn).toHaveBeenCalledTimes(1);
   expect(useServerStore.getState()).toMatchInlineSnapshot(`
 {
   "count": 2,
   "increment": [Function],
 }
-`);
+  `);
   await increment();
-  expect(fn).toHaveBeenCalledTimes(3);
+  expect(fn).toHaveBeenCalledTimes(2);
   expect(useServerStore.getState()).toMatchInlineSnapshot(`
 {
   "count": 4,

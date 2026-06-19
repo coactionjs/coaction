@@ -1,6 +1,6 @@
 import { apply } from 'mutability';
 import { type Store, createBinder } from 'coaction';
-import { autorun, runInAction } from 'mobx';
+import { autorun, runInAction, untracked } from 'mobx';
 
 const instancesMap = new WeakMap<object, object>();
 
@@ -11,6 +11,27 @@ type StoreWithSubscriptions = Store<object> & {
 type MobxInternal = {
   toMutableRaw?: (key: object) => object | undefined;
   actMutable?: typeof runInAction;
+};
+
+const touchObservableTree = (value: unknown, seen = new WeakSet<object>()) => {
+  if (typeof value !== 'object' || value === null) {
+    return;
+  }
+  if (seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+  if (Array.isArray(value)) {
+    void value.length;
+    value.forEach((item) => touchObservableTree(item, seen));
+    return;
+  }
+  for (const key of Object.keys(value as Record<string, unknown>)) {
+    const child = (value as Record<string, unknown>)[key];
+    if (typeof child !== 'function') {
+      touchObservableTree(child, seen);
+    }
+  }
 };
 
 const handleStore = (
@@ -24,7 +45,15 @@ const handleStore = (
   store._subscriptions = new Set();
   Object.assign(store, {
     subscribe: (listener: () => void) => {
-      const unsubscribe = autorun(listener);
+      let isInitialRun = true;
+      const unsubscribe = autorun(() => {
+        touchObservableTree(state);
+        if (isInitialRun) {
+          isInitialRun = false;
+          return;
+        }
+        untracked(listener);
+      });
       store._subscriptions!.add(unsubscribe);
       return () => {
         unsubscribe();
