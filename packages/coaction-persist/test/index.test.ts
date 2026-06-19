@@ -251,6 +251,36 @@ test('supports skipHydration and manual rehydrate', async () => {
   expect(storage.getItem('counter')).toBeNull();
 });
 
+test('clearStorage waits for queued persist writes', async () => {
+  const storage = createMemoryStorage();
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        persist({
+          name: 'queued-clear',
+          storage,
+          skipHydration: true
+        })
+      ]
+    }
+  );
+
+  useStore.getState().increment();
+  await (useStore as any).persist.clearStorage();
+  expect(storage.getItem('queued-clear')).toBeNull();
+
+  await nextTick();
+  expect(storage.getItem('queued-clear')).toBeNull();
+});
+
 test('createJSONStorage', () => {
   const map = new Map<string, string>();
   const storage = createJSONStorage(() => ({

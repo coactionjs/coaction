@@ -89,14 +89,14 @@ export const persist =
     let destroyed = false;
     let hasPendingPersist = false;
     let writePromise: Promise<void> = Promise.resolve();
-    const enqueuePersistWrite = (payload: string) => {
+    const enqueuePersistOperation = (operation: () => void | Promise<void>) => {
       writePromise = writePromise
         .catch(() => undefined)
-        .then(async () => {
-          await persistedStorage.setItem(name, payload);
-        });
+        .then(async () => operation());
       return writePromise;
     };
+    const enqueuePersistWrite = (payload: string) =>
+      enqueuePersistOperation(() => persistedStorage.setItem(name, payload));
     const persistState = async () => {
       if (isHydrating || destroyed) {
         return;
@@ -177,7 +177,7 @@ export const persist =
       return hydrationPromise;
     };
     const clearStorage = async () => {
-      await persistedStorage.removeItem(name);
+      await enqueuePersistOperation(() => persistedStorage.removeItem(name));
     };
     const baseSetState = store.setState;
     store.setState = (next, updater) => {
