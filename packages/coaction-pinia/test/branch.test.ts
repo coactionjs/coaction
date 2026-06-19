@@ -43,7 +43,7 @@ test('creates empty getters map when getters are omitted', async () => {
     $subscribe: vi.fn(() => vi.fn())
   });
   expect(options.getters).toEqual({});
-  expect(rawState.name).toBe('counter');
+  expect(rawState.name).toBeUndefined();
 });
 
 test('builds descriptors from own function getters only', async () => {

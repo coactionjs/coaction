@@ -838,6 +838,73 @@ test('create rejects symbol valued state in shared store mode', () => {
   );
 });
 
+test.each([
+  [
+    'BigInt',
+    { value: 1n },
+    'BigInt-valued state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
+  ],
+  [
+    'undefined object value',
+    { value: undefined },
+    'Undefined-valued state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
+  ],
+  [
+    'NaN',
+    { value: Number.NaN },
+    'NaN or infinite number state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
+  ],
+  [
+    'Infinity',
+    { value: Infinity },
+    'NaN or infinite number state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
+  ],
+  [
+    'nested function data',
+    {
+      nested: {
+        fn: () => undefined
+      }
+    },
+    'Function-valued state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at nested.fn.'
+  ],
+  [
+    'Date',
+    { value: new Date('2024-01-01T00:00:00.000Z') },
+    'Non-plain object state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
+  ]
+])('create rejects %s state in shared store mode', (_, state, message) => {
+  expect(() => {
+    create(() => state as any, {
+      clientTransport: {} as any
+    });
+  }).toThrow(message);
+});
+
+test('shared store allows action functions while validating raw JSON state', () => {
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    onConnect: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      count: 0,
+      increment() {
+        set({
+          count: this.count + 1
+        });
+      }
+    }),
+    {
+      transport: transport as any
+    }
+  );
+
+  expect(store.getState().count).toBe(0);
+});
+
 test('shared store rejects runtime symbol keyed state before emitting patches', () => {
   const symbolKey = Symbol('runtime-state');
   const transport = {
@@ -917,6 +984,31 @@ test('shared store validates state again before fullSync serialization', async (
 
   await expect(handlers.get('fullSync')!()).rejects.toThrow(
     'Symbol-valued state is not supported in shared store mode because transport synchronization uses JSON. Found symbol value at value.'
+  );
+});
+
+test('shared store validates BigInt again before fullSync serialization', async () => {
+  const handlers = new Map<string, (...args: any[]) => unknown>();
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn((name: string, handler: (...args: any[]) => unknown) => {
+      handlers.set(name, handler);
+    }),
+    onConnect: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    () => ({
+      value: 0 as number | bigint
+    }),
+    {
+      transport: transport as any
+    }
+  );
+  store.getPureState().value = 1n;
+
+  await expect(handlers.get('fullSync')!()).rejects.toThrow(
+    'BigInt-valued state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
   );
 });
 

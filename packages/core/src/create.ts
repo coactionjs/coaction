@@ -20,7 +20,10 @@ import { wrapStore } from './wrapStore';
 import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
 import { getOwnEnumerableKeys } from './utils';
-import { validateSharedStateSerializable } from './sharedState';
+import {
+  validateSharedActionPaths,
+  validateSharedStateSerializable
+} from './sharedState';
 import { markStoreReady } from './lifecycle';
 
 const namespaceMap = new Map<string, boolean>();
@@ -235,7 +238,7 @@ export const create: Creator = <T extends CreateState>(
       }
       const initialState = getInitialState(store, createState, internal) as T;
       if (share) {
-        validateSharedStateSerializable(initialState);
+        validateSharedActionPaths(initialState);
       }
       store.getInitialState = () => initialState;
       internal.rootState = getRawState(
@@ -244,6 +247,9 @@ export const create: Creator = <T extends CreateState>(
         initialState,
         options
       ) as T;
+      if (share) {
+        validateSharedStateSerializable(internal.rootState);
+      }
       markStoreReady(store);
       return { store, internal };
     } catch (error) {

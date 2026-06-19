@@ -191,7 +191,6 @@ export const bindPinia = createBinder({
       copyState: options as any,
       key: 'actions',
       bind: (state: any) => {
-        rawState.name = state.$id;
         instancesMap.set(rawState, state);
         return rawState;
       }

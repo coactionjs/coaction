@@ -92,7 +92,6 @@ test('base', () => {
   "count": 0,
   "increment": [Function],
   "increment1": [Function],
-  "name": undefined,
 }
 `);
   const fn = jest.fn();
@@ -121,7 +120,6 @@ test('base', () => {
   "count": 1,
   "increment": [Function],
   "increment1": [Function],
-  "name": undefined,
 }
 `);
   increment();
@@ -158,7 +156,6 @@ test('base', () => {
   "count": 2,
   "increment": [Function],
   "increment1": [Function],
-  "name": undefined,
 }
 `);
 
@@ -196,7 +193,6 @@ test('base', () => {
   "count": 3,
   "increment": [Function],
   "increment1": [Function],
-  "name": undefined,
 }
 `);
 });
@@ -287,7 +283,6 @@ test('worker', async () => {
 {
   "count": 0,
   "increment": [Function],
-  "name": undefined,
 }
 `);
   const fn = jest.fn();
@@ -297,7 +292,6 @@ test('worker', async () => {
 {
   "count": 1,
   "increment": [Function],
-  "name": undefined,
 }
 `);
   increment();
@@ -305,7 +299,6 @@ test('worker', async () => {
 {
   "count": 2,
   "increment": [Function],
-  "name": undefined,
 }
 `);
   {
