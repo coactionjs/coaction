@@ -1,5 +1,6 @@
 export { create } from './create';
 export { createBinder, defineExternalStoreAdapter } from './binder';
+export { onStoreReady } from './lifecycle';
 export { createReactiveTracker } from './reactiveTracker';
 export { replaceExternalStoreState } from './replaceExternalStoreState';
 export { replaceOwnEnumerable } from './utils';

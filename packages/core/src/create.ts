@@ -21,6 +21,7 @@ import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
 import { getOwnEnumerableKeys } from './utils';
 import { validateSharedStateSerializable } from './sharedState';
+import { markStoreReady } from './lifecycle';
 
 const namespaceMap = new Map<string, boolean>();
 let hasWarnedAmbiguousFunctionMap = false;
@@ -243,6 +244,7 @@ export const create: Creator = <T extends CreateState>(
         initialState,
         options
       ) as T;
+      markStoreReady(store);
       return { store, internal };
     } catch (error) {
       releaseStoreName();

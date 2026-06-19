@@ -1,4 +1,4 @@
-import type { Middleware, Store } from 'coaction';
+import { onStoreReady, type Middleware, type Store } from 'coaction';
 import * as Y from 'yjs';
 import {
   collectRemoteOperations,
@@ -363,10 +363,14 @@ export const bindYjs = <T extends object>(
 export const yjs =
   <T extends object>(options: YjsBindingOptions = {}): Middleware<T> =>
   (store) => {
-    const binding = bindYjs(store, options);
+    let binding: YjsBinding<T> | undefined;
+    const cancelBinding = onStoreReady(store, () => {
+      binding = bindYjs(store, options);
+    });
     const baseDestroy = store.destroy;
     store.destroy = () => {
-      binding.destroy();
+      cancelBinding();
+      binding?.destroy();
       baseDestroy();
     };
     return store;

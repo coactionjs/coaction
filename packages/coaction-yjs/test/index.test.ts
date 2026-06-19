@@ -240,7 +240,7 @@ test('works as middleware', () => {
   const doc = new Y.Doc();
   const store = create(
     (set) => ({
-      count: 0,
+      count: 1,
       increment() {
         set((draft) => {
           draft.count += 1;
@@ -256,10 +256,37 @@ test('works as middleware', () => {
       ]
     }
   );
-  store.getState().increment();
   expect(readState(doc, 'counter')).toEqual({
     count: 1
   });
+  store.getState().increment();
+  expect(readState(doc, 'counter')).toEqual({
+    count: 2
+  });
+});
+
+test('middleware hydrates from existing yjs state during creation', () => {
+  const doc = new Y.Doc();
+  const root = doc.getMap<any>('counter');
+  const remoteState = new Y.Map<any>();
+  remoteState.set('count', 5);
+  root.set('state', remoteState);
+
+  const store = create(
+    () => ({
+      count: 0
+    }),
+    {
+      middlewares: [
+        yjs({
+          doc,
+          key: 'counter'
+        })
+      ]
+    }
+  );
+
+  expect(store.getState().count).toBe(5);
 });
 
 test('throws in client share mode', () => {
