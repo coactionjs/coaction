@@ -17,7 +17,7 @@ import { uuid } from './utils';
 type CreateLocalActionOptions<T extends CreateState> = {
   fn: (...args: unknown[]) => unknown;
   internal: Internal<T>;
-  key: string;
+  key: PropertyKey;
   options: StoreOptions<T> | ClientStoreOptions<T>;
   store: MiddlewareStore<T>;
   sliceKey?: PropertyKey;
@@ -46,14 +46,14 @@ export const createLocalAction = <T extends CreateState>({
     if (store.trace) {
       actionId = uuid();
       store.trace({
-        method: key,
+        method: String(key),
         parameters: args,
         id: actionId,
         sliceKey
       });
       done = (result: any) => {
         store.trace!({
-          method: key,
+          method: String(key),
           id: actionId!,
           result,
           sliceKey

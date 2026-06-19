@@ -77,10 +77,10 @@ export const getRawState = <T extends CreateState>(
           });
           return;
         }
-        if (typeof key !== 'string') {
-          return;
-        }
         if (store.share === 'client') {
+          if (typeof key !== 'string') {
+            return;
+          }
           descriptor.value = createClientAction({
             clientExecuteSyncTimeoutMs,
             internal,

@@ -168,6 +168,28 @@ describe('State Management Store Tests', () => {
     expect((useStore.getPureState() as any)[counter].count).toBe(2);
   });
 
+  test('should wrap symbol keyed actions with current state binding', () => {
+    const increment = Symbol('increment');
+    const useStore = create((set) => ({
+      count: 0,
+      [increment]() {
+        set({
+          count: this.count + 1
+        });
+      }
+    }));
+    let calls = 0;
+    useStore.subscribe(() => {
+      calls += 1;
+    });
+
+    const action = (useStore.getState() as any)[increment];
+    action();
+
+    expect(useStore.getState().count).toBe(1);
+    expect(calls).toBe(1);
+  });
+
   test('should update state using function', () => {
     store.setState((state: any) => ({ counter: state.counter + 5 }));
     const state = store.getState();
