@@ -89,6 +89,50 @@ const warnAmbiguousFunctionMap = () => {
   );
 };
 
+const formatPropertyPath = (path: PropertyKey[]) =>
+  path
+    .map((key) => (typeof key === 'symbol' ? String(key) : String(key)))
+    .join('.');
+
+const findSymbolKeyPath = (
+  value: unknown,
+  path: PropertyKey[] = [],
+  seen = new WeakSet<object>()
+): PropertyKey[] | undefined => {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+  if (seen.has(value)) {
+    return undefined;
+  }
+  seen.add(value);
+  for (const key of getOwnEnumerableKeys(value)) {
+    const nextPath = [...path, key];
+    if (typeof key === 'symbol') {
+      return nextPath;
+    }
+    const child = (value as Record<PropertyKey, unknown>)[key];
+    if (typeof child === 'function') {
+      continue;
+    }
+    const childPath = findSymbolKeyPath(child, nextPath, seen);
+    if (childPath) {
+      return childPath;
+    }
+  }
+  return undefined;
+};
+
+const validateSharedStateKeys = (state: unknown) => {
+  const symbolPath = findSymbolKeyPath(state);
+  if (!symbolPath) {
+    return;
+  }
+  throw new Error(
+    `Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at ${formatPropertyPath(symbolPath)}.`
+  );
+};
+
 /**
  * Create a local store, the main side of a shared store, or a client mirror of
  * a shared store.
@@ -228,6 +272,9 @@ export const create: Creator = <T extends CreateState>(
         Object.assign(store, middlewareStore);
       }
       const initialState = getInitialState(store, createState, internal) as T;
+      if (share) {
+        validateSharedStateKeys(initialState);
+      }
       store.getInitialState = () => initialState;
       internal.rootState = getRawState(
         store,

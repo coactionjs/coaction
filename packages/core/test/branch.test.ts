@@ -783,6 +783,44 @@ test('create rejects client workerType with transport', () => {
   }).toThrow('client workerType cannot be combined with transport.');
 });
 
+test('create rejects symbol keyed state in main shared store mode', () => {
+  const symbolSlice = Symbol('shared-slice');
+
+  expect(() => {
+    create(
+      {
+        [symbolSlice]: () => ({
+          count: 0
+        })
+      } as any,
+      {
+        workerType: 'WebWorkerInternal'
+      } as any
+    );
+  }).toThrow(
+    'Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at Symbol(shared-slice).'
+  );
+});
+
+test('create rejects nested symbol keyed state in client shared store mode', () => {
+  const symbolKey = Symbol('nested-state');
+
+  expect(() => {
+    create(
+      () => ({
+        nested: {
+          [symbolKey]: 1
+        }
+      }),
+      {
+        clientTransport: {} as any
+      } as any
+    );
+  }).toThrow(
+    'Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at nested.Symbol(nested-state).'
+  );
+});
+
 test('create validates explicit slices mode and supports valid slices mode', () => {
   expect(() => {
     create(
