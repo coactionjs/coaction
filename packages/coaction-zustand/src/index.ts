@@ -14,17 +14,18 @@ type StoreWithDestroyers = Store<object> & {
  */
 export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
   (set, get, zustandStore) => {
-    let coactionStore: StoreWithDestroyers;
+    let coactionStore: StoreWithDestroyers | undefined;
     const internalBindZustand = createBinder<BindZustand>({
       handleStore: (store, rawState, state, internal) => {
-        coactionStore = store as StoreWithDestroyers;
-        if (!coactionStore._destroyers) {
-          coactionStore._destroyers = new Set();
-          const baseDestroy = coactionStore.destroy;
-          coactionStore.destroy = () => {
-            coactionStore._destroyers?.forEach((destroy) => destroy());
-            coactionStore._destroyers?.clear();
-            coactionStore._destroyers = undefined;
+        const boundStore = store as StoreWithDestroyers;
+        coactionStore = boundStore;
+        if (!boundStore._destroyers) {
+          boundStore._destroyers = new Set();
+          const baseDestroy = boundStore.destroy;
+          boundStore.destroy = () => {
+            boundStore._destroyers?.forEach((destroy) => destroy());
+            boundStore._destroyers?.clear();
+            boundStore._destroyers = undefined;
             baseDestroy();
           };
         }
@@ -34,19 +35,19 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         const unsubscribe = zustandStore.subscribe(() => {
           if (!isCoactionUpdated) {
             const nextState = zustandStore.getState() as object;
-            if (coactionStore.share === 'client') {
+            if (boundStore.share === 'client') {
               internal.rootState = nextState;
               throw new Error('client zustand store cannot be updated');
-            } else if (coactionStore.share === 'main') {
+            } else if (boundStore.share === 'main') {
               // emit to all clients
-              coactionStore.setState(nextState);
+              boundStore.setState(nextState);
               return;
             }
             internal.rootState = nextState;
           }
           internal.notifyStateChange();
         });
-        coactionStore._destroyers.add(() => {
+        boundStore._destroyers.add(() => {
           unsubscribe();
         });
         internal.updateImmutable = (state: any) => {
@@ -66,10 +67,15 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
       }
     });
     const state = initializer(
-      (state) => {
-        coactionStore.setState(state);
+      (...args) => {
+        const [state] = args;
+        if (!coactionStore) {
+          (set as (...args: any[]) => void)(...args);
+          return;
+        }
+        coactionStore.setState(state as any);
       },
-      () => coactionStore.getState(),
+      () => (coactionStore ? coactionStore.getState() : get()),
       zustandStore
     );
     return internalBindZustand(state);

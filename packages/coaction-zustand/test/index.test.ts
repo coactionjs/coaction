@@ -84,6 +84,36 @@ test('initializer get callback reads latest state', () => {
   expect(useStore.getState().count).toBe(2);
 });
 
+test('initializer set and get callbacks work before coaction binding', () => {
+  const useStore = create(
+    () =>
+      adapt(
+        createWithZustand(
+          bindZustand((set, get) => {
+            set({
+              count: 1
+            });
+            return {
+              count: get().count,
+              increment() {
+                set({
+                  count: get().count + 1
+                });
+              }
+            };
+          })
+        )
+      ),
+    {
+      name: 'test-initializer-set-get'
+    }
+  );
+
+  expect(useStore.getState().count).toBe(1);
+  useStore.getState().increment();
+  expect(useStore.getState().count).toBe(2);
+});
+
 test('worker main propagates direct zustand mutations', async () => {
   type Counter = {
     count: number;
