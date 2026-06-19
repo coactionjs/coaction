@@ -121,6 +121,18 @@ test('rejects symbol keyed state during binding', () => {
   );
 });
 
+test('rejects symbol valued state during binding', () => {
+  const store = create(() => ({
+    nested: {
+      value: Symbol('yjs-value')
+    }
+  }));
+
+  expect(() => bindYjs(store)).toThrow(
+    'Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at nested.value.'
+  );
+});
+
 test('rejects symbol keyed state during later sync', () => {
   const symbolKey = Symbol('yjs-late-state');
   const store = create(() => ({
@@ -137,6 +149,29 @@ test('rejects symbol keyed state during later sync', () => {
       });
     }).toThrow(
       'Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at nested.Symbol(yjs-late-state).'
+    );
+  } finally {
+    binding.destroy();
+  }
+});
+
+test('rejects symbol valued state during later sync', () => {
+  const store = create(() => ({
+    nested: {
+      value: 0 as number | symbol
+    }
+  }));
+  const binding = bindYjs(store);
+
+  try {
+    expect(() => {
+      store.setState({
+        nested: {
+          value: Symbol('yjs-late-value')
+        }
+      });
+    }).toThrow(
+      'Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at nested.value.'
     );
   } finally {
     binding.destroy();

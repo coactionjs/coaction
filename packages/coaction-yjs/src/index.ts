@@ -25,11 +25,27 @@ const getOwnEnumerableKeys = (value: object) =>
 const formatPropertyPath = (path: PropertyKey[]) =>
   path.map((key) => String(key)).join('.');
 
-const findSymbolKeyPath = (
+type YjsSymbolViolation =
+  | {
+      type: 'key';
+      path: PropertyKey[];
+    }
+  | {
+      type: 'value';
+      path: PropertyKey[];
+    };
+
+const findSymbolViolation = (
   value: unknown,
   path: PropertyKey[] = [],
   seen = new WeakSet<object>()
-): PropertyKey[] | undefined => {
+): YjsSymbolViolation | undefined => {
+  if (typeof value === 'symbol') {
+    return {
+      type: 'value',
+      path
+    };
+  }
   if (typeof value !== 'object' || value === null) {
     return undefined;
   }
@@ -40,27 +56,35 @@ const findSymbolKeyPath = (
   for (const key of getOwnEnumerableKeys(value)) {
     const nextPath = [...path, key];
     if (typeof key === 'symbol') {
-      return nextPath;
+      return {
+        type: 'key',
+        path: nextPath
+      };
     }
     const child = (value as Record<PropertyKey, unknown>)[key];
     if (typeof child === 'function') {
       continue;
     }
-    const childPath = findSymbolKeyPath(child, nextPath, seen);
-    if (childPath) {
-      return childPath;
+    const violation = findSymbolViolation(child, nextPath, seen);
+    if (violation) {
+      return violation;
     }
   }
   return undefined;
 };
 
 const assertYjsSerializableState = (state: unknown) => {
-  const symbolPath = findSymbolKeyPath(state);
-  if (!symbolPath) {
+  const violation = findSymbolViolation(state);
+  if (!violation) {
     return;
   }
+  if (violation.type === 'key') {
+    throw new Error(
+      `Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at ${formatPropertyPath(violation.path)}.`
+    );
+  }
   throw new Error(
-    `Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at ${formatPropertyPath(symbolPath)}.`
+    `Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at ${formatPropertyPath(violation.path)}.`
   );
 };
 
