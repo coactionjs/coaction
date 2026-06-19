@@ -77,6 +77,46 @@ test('mergeObject ignores unknown and inherited slice keys', () => {
   expect((target as any).unknown).toBeUndefined();
 });
 
+test('mergeObject copies enumerable symbol keys and skips non-enumerable keys', () => {
+  const token = Symbol('token');
+  const hidden = Symbol('hidden');
+  const target = {} as Record<PropertyKey, unknown>;
+  const source = {
+    [token]: 1
+  } as Record<PropertyKey, unknown>;
+  Object.defineProperty(source, hidden, {
+    value: 2,
+    enumerable: false
+  });
+
+  mergeObject(target, source);
+
+  expect(target[token]).toBe(1);
+  expect(target[hidden]).toBeUndefined();
+
+  const nestedToken = Symbol('nested-token');
+  const nestedHidden = Symbol('nested-hidden');
+  const sliceTarget = {
+    user: {
+      [nestedToken]: 1
+    } as Record<PropertyKey, unknown>
+  };
+  const sliceSource = {
+    user: {
+      [nestedToken]: 2
+    } as Record<PropertyKey, unknown>
+  };
+  Object.defineProperty(sliceSource.user, nestedHidden, {
+    value: 3,
+    enumerable: false
+  });
+
+  mergeObject(sliceTarget, sliceSource, true);
+
+  expect(sliceTarget.user[nestedToken]).toBe(2);
+  expect(sliceTarget.user[nestedHidden]).toBeUndefined();
+});
+
 test('mergeObject ignores unsafe prototype keys', () => {
   const pollutedKey = '__coactionPolluted__';
   const objectPrototype = Object.prototype as Record<string, unknown>;

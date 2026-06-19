@@ -109,6 +109,33 @@ describe('State Management Store Tests', () => {
     expect(Object.getOwnPropertySymbols(state)).toContain(token);
   });
 
+  test('should preserve and update symbol keyed state members with object updates', () => {
+    const token = Symbol('coaction-symbol-update');
+
+    for (const options of [{}, { enablePatches: true }]) {
+      const useStore = create(
+        () => ({
+          [token]: 1,
+          count: 0
+        }),
+        options
+      );
+
+      useStore.setState({ count: 1 });
+      expect((useStore.getState() as Record<PropertyKey, unknown>)[token]).toBe(
+        1
+      );
+
+      useStore.setState({ [token]: 2 } as any);
+      expect((useStore.getState() as Record<PropertyKey, unknown>)[token]).toBe(
+        2
+      );
+      expect(
+        (useStore.getPureState() as Record<PropertyKey, unknown>)[token]
+      ).toBe(2);
+    }
+  });
+
   test('should update state using function', () => {
     store.setState((state: any) => ({ counter: state.counter + 5 }));
     const state = store.getState();

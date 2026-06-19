@@ -19,16 +19,25 @@ export const setOwnEnumerable = (
   target[key] = value;
 };
 
+export const getOwnEnumerableKeys = (source: unknown) => {
+  if (typeof source !== 'object' || source === null) {
+    return [];
+  }
+  return Reflect.ownKeys(source).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(source, key)
+  );
+};
+
 export const assignOwnEnumerable = (
-  target: Record<string, unknown>,
-  source: Record<string, unknown>
+  target: Record<PropertyKey, unknown>,
+  source: Record<PropertyKey, unknown>
 ) => {
-  for (const key of Object.keys(source)) {
+  for (const key of getOwnEnumerableKeys(source)) {
     setOwnEnumerable(target, key, source[key]);
   }
 };
 
-export const cloneOwnEnumerable = <T extends Record<string, unknown>>(
+export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
   source: T
 ) => {
   const target = {} as T;
@@ -55,8 +64,8 @@ export const areShallowEqualWithArray = (
 export const mergeObject = (target: any, source: any, isSlice?: boolean) => {
   if (isSlice) {
     if (typeof source === 'object' && source !== null) {
-      for (const key of Object.keys(source)) {
-        if (isUnsafeKey(key)) {
+      for (const key of getOwnEnumerableKeys(source)) {
+        if (typeof key === 'string' && isUnsafeKey(key)) {
           continue;
         }
         if (!Object.prototype.hasOwnProperty.call(target, key)) {

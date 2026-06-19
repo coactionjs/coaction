@@ -12,7 +12,12 @@ import type {
   StoreOptions
 } from './interface';
 import type { Internal } from './internal';
-import { cloneOwnEnumerable, mergeObject, setOwnEnumerable } from './utils';
+import {
+  cloneOwnEnumerable,
+  getOwnEnumerableKeys,
+  mergeObject,
+  setOwnEnumerable
+} from './utils';
 import { emit, handleDraft } from './asyncClientStore';
 import { Computed, refreshSignalSlots } from './computed';
 
@@ -135,7 +140,7 @@ export const handleState = <T extends CreateState>(
       } else {
         const copy = cloneOwnEnumerable(internal.rootState as T);
         if (store.isSliceStore) {
-          for (const key of Object.keys(next!)) {
+          for (const key of getOwnEnumerableKeys(next!)) {
             if (!Object.prototype.hasOwnProperty.call(copy, key)) {
               continue;
             }
@@ -148,10 +153,14 @@ export const handleState = <T extends CreateState>(
               continue;
             }
             const sliceCopy = cloneOwnEnumerable(
-              targetValue as Record<string, unknown>
+              targetValue as Record<PropertyKey, unknown>
             );
             mergeObject(sliceCopy, sourceValue);
-            setOwnEnumerable(copy as Record<string, unknown>, key, sliceCopy);
+            setOwnEnumerable(
+              copy as Record<PropertyKey, unknown>,
+              key,
+              sliceCopy
+            );
           }
         } else {
           mergeObject(copy, next);
