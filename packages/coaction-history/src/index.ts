@@ -1,6 +1,11 @@
 import type { Middleware, Store } from 'coaction';
 
-type Snapshot = Record<string, unknown>;
+type Snapshot = Record<PropertyKey, unknown>;
+
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
 
 const toSnapshot = (
   state: unknown,
@@ -21,10 +26,10 @@ const toSnapshot = (
     if (visited.has(state)) {
       return visited.get(state) as Snapshot;
     }
-    const next: Record<string, unknown> = {};
+    const next: Record<PropertyKey, unknown> = {};
     visited.set(state, next);
-    for (const key of Object.keys(state as Record<string, unknown>)) {
-      const value = (state as Record<string, unknown>)[key];
+    for (const key of getOwnEnumerableKeys(state)) {
+      const value = (state as Record<PropertyKey, unknown>)[key];
       if (typeof value === 'function') {
         continue;
       }
@@ -70,10 +75,10 @@ const isEqual = (
     return true;
   }
   seenTargets.add(b);
-  const aObject = a as Record<string, unknown>;
-  const bObject = b as Record<string, unknown>;
-  const aKeys = Object.keys(aObject);
-  const bKeys = Object.keys(bObject);
+  const aObject = a as Record<PropertyKey, unknown>;
+  const bObject = b as Record<PropertyKey, unknown>;
+  const aKeys = getOwnEnumerableKeys(aObject);
+  const bKeys = getOwnEnumerableKeys(bObject);
   if (aKeys.length !== bKeys.length) {
     return false;
   }
@@ -89,18 +94,18 @@ const isEqual = (
 };
 
 const applySnapshot = (
-  target: Record<string, unknown>,
+  target: Record<PropertyKey, unknown>,
   nextState: object,
   currentState: object
 ) => {
-  const next = nextState as Record<string, unknown>;
-  const current = currentState as Record<string, unknown>;
-  for (const key of Object.keys(current)) {
+  const next = nextState as Record<PropertyKey, unknown>;
+  const current = currentState as Record<PropertyKey, unknown>;
+  for (const key of getOwnEnumerableKeys(current)) {
     if (!Object.prototype.hasOwnProperty.call(next, key)) {
       delete target[key];
     }
   }
-  for (const key of Object.keys(next)) {
+  for (const key of getOwnEnumerableKeys(next)) {
     target[key] = toSnapshot(next[key]);
   }
 };
@@ -165,7 +170,7 @@ export const history =
         try {
           baseSetState((draft) => {
             applySnapshot(
-              draft as unknown as Record<string, unknown>,
+              draft as unknown as Record<PropertyKey, unknown>,
               previous,
               current
             );
@@ -186,7 +191,7 @@ export const history =
         try {
           baseSetState((draft) => {
             applySnapshot(
-              draft as unknown as Record<string, unknown>,
+              draft as unknown as Record<PropertyKey, unknown>,
               next,
               current
             );

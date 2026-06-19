@@ -95,6 +95,36 @@ test('undo and redo restore array truncation', () => {
   expect(useStore.getState().list).toEqual([1, 2]);
 });
 
+test('undo and redo track symbol keyed state', () => {
+  const token = Symbol('history-token');
+  const useStore = create(
+    (set) => ({
+      [token]: 1,
+      setToken(value: number) {
+        set({
+          [token]: value
+        } as any);
+      }
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().setToken(2);
+
+  expect(api.canUndo()).toBeTruthy();
+  expect(api.getPast()[0][token]).toBe(1);
+  expect((useStore.getState() as any)[token]).toBe(2);
+
+  expect(api.undo()).toBeTruthy();
+  expect((useStore.getState() as any)[token]).toBe(1);
+
+  expect(api.redo()).toBeTruthy();
+  expect((useStore.getState() as any)[token]).toBe(2);
+});
+
 test('respects history limit', () => {
   const useStore = create(
     (set) => ({
