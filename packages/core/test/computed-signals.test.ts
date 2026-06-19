@@ -126,3 +126,20 @@ test('manual get dependencies use signal-backed computed caching', () => {
   expect(store.getState().double).toBe(2);
   expect(selectorCalls).toBe(2);
 });
+
+test('manual get dependencies compute on first read with empty deps', () => {
+  let selectorCalls = 0;
+  const store = create<{ readonly answer: number }>((_, get) => ({
+    answer: get(
+      () => [],
+      () => {
+        selectorCalls += 1;
+        return 42;
+      }
+    )
+  }));
+
+  expect(store.getState().answer).toBe(42);
+  expect(store.getState().answer).toBe(42);
+  expect(selectorCalls).toBe(1);
+});

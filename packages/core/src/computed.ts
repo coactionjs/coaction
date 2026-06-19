@@ -27,7 +27,10 @@ export class Computed {
     const fallbackReceiver = {};
     const evaluate = (receiver: object) => {
       const args = this.deps(internal.module as Store<T>['getState']);
-      if (!areShallowEqualWithArray(lastArgs.get(receiver) ?? [], args)) {
+      if (
+        !lastArgs.has(receiver) ||
+        !areShallowEqualWithArray(lastArgs.get(receiver)!, args)
+      ) {
         lastResult.set(receiver, this.fn.apply(receiver, args));
       }
       lastArgs.set(receiver, args);
@@ -106,7 +109,10 @@ const defaultMemoize = (func: (...args: any) => any) => {
   const lastArgs: WeakMap<any, IArguments | null> = new WeakMap();
   const lastResult: WeakMap<any, unknown> = new WeakMap();
   return function (this: ThisType<unknown>) {
-    if (!areShallowEqualWithArray(lastArgs.get(this) ?? [], arguments)) {
+    if (
+      !lastArgs.has(this) ||
+      !areShallowEqualWithArray(lastArgs.get(this)!, arguments)
+    ) {
       lastResult.set(this, func.apply(this, arguments as any));
     }
     lastArgs.set(this, arguments);
