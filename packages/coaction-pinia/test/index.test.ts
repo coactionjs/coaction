@@ -201,6 +201,48 @@ test('base', () => {
 `);
 });
 
+test('apply exact replacement removes stale data keys without deleting actions', () => {
+  type Counter = {
+    a: number;
+    b?: number;
+    replaceA: () => void;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-exact-replace',
+          bindPinia({
+            state: () => ({
+              a: 1,
+              b: 2
+            }),
+            actions: {
+              replaceA() {
+                this.a = 4;
+              }
+            }
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-exact-replace'
+    }
+  );
+  const piniaStore = useStore.getPureState() as any;
+
+  useStore.apply({
+    a: 3
+  } as any);
+
+  expect(useStore.getState().a).toBe(3);
+  expect((useStore.getState() as any).b).toBeUndefined();
+  expect(piniaStore.b).toBeUndefined();
+  expect(typeof useStore.getState().replaceA).toBe('function');
+  useStore.getState().replaceA();
+  expect(useStore.getState().a).toBe(4);
+});
+
 test('worker', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);
@@ -285,7 +327,6 @@ test('worker', async () => {
 {
   "count": 2,
   "increment": [Function],
-  "name": undefined,
 }
 `);
     const fn = jest.fn();
@@ -295,7 +336,6 @@ test('worker', async () => {
 {
   "count": 3,
   "increment": [Function],
-  "name": undefined,
 }
 `);
     increment();
@@ -303,7 +343,6 @@ test('worker', async () => {
 {
   "count": 4,
   "increment": [Function],
-  "name": undefined,
 }
 `);
   }

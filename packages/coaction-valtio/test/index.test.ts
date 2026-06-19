@@ -61,8 +61,12 @@ test('apply handles object replacement and patches', () => {
   const state = proxy(
     bindValtio({
       count: 0,
+      stale: 1,
       nested: {
         value: 1
+      },
+      increment() {
+        this.count += 1;
       }
     })
   );
@@ -78,11 +82,17 @@ test('apply handles object replacement and patches', () => {
   expect(useStore.getState()).toMatchInlineSnapshot(`
 {
   "count": 5,
+  "increment": [Function],
   "nested": {
     "value": 10,
   },
 }
 `);
+  expect((useStore.getState() as any).stale).toBeUndefined();
+  expect((state as any).stale).toBeUndefined();
+  expect(typeof useStore.getState().increment).toBe('function');
+  useStore.getState().increment();
+  expect(useStore.getState().count).toBe(6);
   useStore.apply(useStore.getState(), [
     {
       op: 'replace',

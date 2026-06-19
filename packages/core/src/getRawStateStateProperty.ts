@@ -33,6 +33,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
       set: (value) => {
         internal.mutableInstance[key] = value;
       },
+      configurable: true,
       enumerable: true
     });
   } else if (!isComputed) {

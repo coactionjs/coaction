@@ -134,6 +134,32 @@ test('base', () => {
 `);
 });
 
+test('apply exact replacement removes stale data keys without deleting actions', () => {
+  const state = makeAutoObservable(
+    bindMobx({
+      a: 1,
+      b: 2,
+      replaceA() {
+        this.a = 4;
+      }
+    })
+  );
+  const useStore = create(() => state, {
+    name: 'test-mobx-exact-replace'
+  });
+
+  useStore.apply({
+    a: 3
+  } as any);
+
+  expect(useStore.getState().a).toBe(3);
+  expect((useStore.getState() as any).b).toBeUndefined();
+  expect((state as any).b).toBeUndefined();
+  expect(typeof useStore.getState().replaceA).toBe('function');
+  useStore.getState().replaceA();
+  expect(useStore.getState().a).toBe(4);
+});
+
 test('worker', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);

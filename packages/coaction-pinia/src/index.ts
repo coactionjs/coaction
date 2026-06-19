@@ -20,12 +20,48 @@ type PiniaStoreInstance = {
 };
 
 type PiniaInternal = {
+  rootState?: object;
   toMutableRaw?: (key: object) => PiniaStoreInstance | undefined;
 };
 
 type StoreWithSubscriptions = Store<object> & {
   _subscriptions?: Set<SubscriptionCallback>;
   _destroyers?: Set<() => void>;
+};
+
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
+const replaceMutableState = (
+  rawState: Record<PropertyKey, unknown>,
+  mutableState: Record<PropertyKey, unknown>,
+  publicState: Record<PropertyKey, unknown>,
+  source: Record<PropertyKey, unknown>
+) => {
+  const nextKeys = new Set<PropertyKey>();
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (typeof source[key] === 'function') {
+      continue;
+    }
+    nextKeys.add(key);
+  }
+  for (const key of getOwnEnumerableKeys(rawState)) {
+    if (typeof rawState[key] === 'function') {
+      continue;
+    }
+    if (!nextKeys.has(key)) {
+      delete rawState[key];
+      delete mutableState[key];
+      delete publicState[key];
+    }
+  }
+  nextKeys.forEach((key) => {
+    rawState[key] = source[key];
+    mutableState[key] = source[key];
+    publicState[key] = source[key];
+  });
 };
 
 type FunctionKeys<T> = {
@@ -63,6 +99,7 @@ const handleStore = (
   _: object,
   internal: PiniaInternal
 ) => {
+  const rawState = state as Record<PropertyKey, unknown>;
   if (!internal.toMutableRaw) {
     internal.toMutableRaw = (key: object) =>
       instancesMap.get(key) as PiniaStoreInstance | undefined;
@@ -87,13 +124,25 @@ const handleStore = (
       store._destroyers!.forEach((destroy) => destroy());
       store._destroyers = undefined;
     };
-    store.apply = (state = store.getState(), patches) => {
+    store.apply = (nextState = store.getState(), patches) => {
       if (!patches) {
-        if (state === store.getState()) return;
-        Object.assign(store.getState(), state);
+        if (nextState === store.getState()) return;
+        const currentRawState = (internal.rootState ?? rawState) as Record<
+          PropertyKey,
+          unknown
+        >;
+        replaceMutableState(
+          currentRawState,
+          internal.toMutableRaw!(rawState) as unknown as Record<
+            PropertyKey,
+            unknown
+          >,
+          store.getState() as Record<PropertyKey, unknown>,
+          nextState as Record<PropertyKey, unknown>
+        );
         return;
       }
-      apply(state, patches);
+      apply(nextState, patches);
     };
   }
   const mutableStore = internal.toMutableRaw(state);
