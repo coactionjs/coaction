@@ -31,7 +31,7 @@ test('supports svelte subscribe contract', () => {
 `);
 });
 
-test('preserves coaction listener subscribe', () => {
+test('supports no-argument svelte subscriber', () => {
   const store = create<{
     count: number;
     increment: () => void;
@@ -51,7 +51,7 @@ test('preserves coaction listener subscribe', () => {
   store.getState().increment();
   unsubscribe();
 
-  expect(listener).toHaveBeenCalledTimes(1);
+  expect(listener).toHaveBeenCalledTimes(2);
 });
 
 test('supports selector readable', () => {
@@ -103,8 +103,8 @@ test('calls invalidate callback for svelte subscribe signature', () => {
     (state: { count: number }) => {
       values.push(state.count);
     },
-    () => {
-      invalidates.push(1);
+    (state) => {
+      invalidates.push(state?.count ?? -1);
     }
   );
 

@@ -12,7 +12,6 @@ import type {
 export * from 'coaction';
 
 type Unsubscriber = () => void;
-type Listener = () => void;
 
 type Readable<T> = {
   subscribe: (
@@ -21,29 +20,20 @@ type Readable<T> = {
   ) => Unsubscriber;
 };
 
-export type StoreReturn<T extends object> = Store<T> & {
+export type StoreReturn<T extends object> = Omit<Store<T>, 'subscribe'> & {
   (): T;
   <P>(selector: (state: T) => P): Readable<P>;
-  subscribe: {
-    (listener: Listener): Unsubscriber;
-    (run: (value: T) => void, invalidate?: (value?: T) => void): Unsubscriber;
-  };
+  subscribe: Readable<T>['subscribe'];
   select: <P>(selector: (state: T) => P) => Readable<P>;
 };
 
 export type StoreWithAsyncFunction<
   T extends object,
   D extends true | false = false
-> = Store<Asyncify<T, D>> & {
+> = Omit<Store<Asyncify<T, D>>, 'subscribe'> & {
   (): Asyncify<T, D>;
   <P>(selector: (state: Asyncify<T, D>) => P): Readable<P>;
-  subscribe: {
-    (listener: Listener): Unsubscriber;
-    (
-      run: (value: Asyncify<T, D>) => void,
-      invalidate?: (value?: Asyncify<T, D>) => void
-    ): Unsubscriber;
-  };
+  subscribe: Readable<Asyncify<T, D>>['subscribe'];
   select: <P>(selector: (state: Asyncify<T, D>) => P) => Readable<P>;
 };
 
@@ -70,12 +60,15 @@ export type Creator = {
 
 const createReadable = <T extends object, P>(
   store: Store<T>,
-  selector: (state: T) => P
+  selector: (state: T) => P,
+  subscribeStore: Store<T>['subscribe'] = store.subscribe.bind(store)
 ): Readable<P> => ({
-  subscribe(run) {
+  subscribe(run, invalidate) {
     run(selector(store.getState()));
-    return store.subscribe(() => {
-      run(selector(store.getState()));
+    return subscribeStore(() => {
+      const value = selector(store.getState());
+      invalidate?.(value);
+      run(value);
     });
   }
 });
@@ -84,19 +77,15 @@ export const create: Creator = (createState: any, options: any) => {
   const store = createVanilla(createState, options);
   const baseSubscribe = store.subscribe.bind(store);
   function select<P>(selector: (state: any) => P) {
-    return createReadable(store as Store<any>, selector);
+    return createReadable(store as Store<any>, selector, baseSubscribe);
   }
-  const subscribe = ((listener: any, invalidate?: any) => {
-    if (typeof invalidate === 'function') {
-      invalidate();
-    }
-    if (typeof listener === 'function' && listener.length > 0) {
-      listener(store.getState());
-      return baseSubscribe(() => {
-        listener(store.getState());
-      });
-    }
-    return baseSubscribe(listener);
+  const subscribe = ((run: any, invalidate?: any) => {
+    run(store.getState());
+    return baseSubscribe(() => {
+      const state = store.getState();
+      invalidate?.(state);
+      run(state);
+    });
   }) as StoreReturn<any>['subscribe'];
   Object.assign(store, {
     subscribe,
