@@ -66,49 +66,87 @@ const createAutoSelector = <T extends object>(
   store: Store<T>,
   getVersion: Accessor<number>
 ) => {
+  const getPathValue = (path: PropertyKey[]) => {
+    let current: unknown = store.getState();
+    for (const key of path) {
+      if (
+        (typeof current !== 'object' && typeof current !== 'function') ||
+        current === null
+      ) {
+        return undefined;
+      }
+      current = (current as Record<PropertyKey, unknown>)[key];
+    }
+    return current;
+  };
+  const createAction = (path: PropertyKey[]) =>
+    ((...args: unknown[]) => {
+      const fn = getPathValue(path);
+      if (typeof fn !== 'function') {
+        return undefined;
+      }
+      const receiverPath = path.slice(0, -1);
+      const receiver = receiverPath.length
+        ? getPathValue(receiverPath)
+        : store.getState();
+      return fn.apply(receiver, args);
+    }) as (...args: unknown[]) => unknown;
+  const createNode = (
+    path: PropertyKey[],
+    value: unknown,
+    ancestors: object[] = []
+  ): any => {
+    if (typeof value === 'function') {
+      return createAction(path);
+    }
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return () => {
+        getVersion();
+        return getPathValue(path);
+      };
+    }
+    if (ancestors.includes(value)) {
+      return () => {
+        getVersion();
+        return getPathValue(path);
+      };
+    }
+    const node = {} as Record<PropertyKey, any>;
+    const nextAncestors = [...ancestors, value];
+    const descriptors = Object.getOwnPropertyDescriptors(value) as Record<
+      PropertyKey,
+      PropertyDescriptor
+    >;
+    for (const key of Reflect.ownKeys(descriptors)) {
+      node[key] = createNode(
+        [...path, key],
+        (value as Record<PropertyKey, unknown>)[key],
+        nextAncestors
+      );
+    }
+    return node;
+  };
   const state = store.getState() as Record<PropertyKey, any>;
+  const autoSelector = {} as Record<PropertyKey, any>;
   if (!store.isSliceStore) {
-    const autoSelector = {} as Record<PropertyKey, any>;
     const descriptors = Object.getOwnPropertyDescriptors(state) as Record<
       PropertyKey,
       PropertyDescriptor
     >;
     for (const key of Reflect.ownKeys(descriptors)) {
-      const descriptor = descriptors[key];
-      if (typeof descriptor.value === 'function') {
-        autoSelector[key] = descriptor.value.bind(state);
-      } else {
-        autoSelector[key] = () => {
-          getVersion();
-          return store.getState()[key as keyof T];
-        };
-      }
+      autoSelector[key] = createNode(
+        [key],
+        (state as Record<PropertyKey, unknown>)[key]
+      );
     }
     return autoSelector;
   }
-  const autoSelector = {} as Record<PropertyKey, any>;
   for (const sliceKey of Reflect.ownKeys(state)) {
     const slice = state[sliceKey];
     if (typeof slice !== 'object' || slice === null) {
       continue;
     }
-    const sliceAutoSelector = {} as Record<PropertyKey, any>;
-    const descriptors = Object.getOwnPropertyDescriptors(slice) as Record<
-      PropertyKey,
-      PropertyDescriptor
-    >;
-    for (const key of Reflect.ownKeys(descriptors)) {
-      const descriptor = descriptors[key];
-      if (typeof descriptor.value === 'function') {
-        sliceAutoSelector[key] = descriptor.value.bind(slice);
-      } else {
-        sliceAutoSelector[key] = () => {
-          getVersion();
-          return (store.getState() as Record<PropertyKey, any>)[sliceKey][key];
-        };
-      }
-    }
-    autoSelector[sliceKey] = sliceAutoSelector;
+    autoSelector[sliceKey] = createNode([sliceKey], slice);
   }
   return autoSelector;
 };

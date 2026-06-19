@@ -61,6 +61,31 @@ test('autoSelector', () => {
   });
 });
 
+test('autoSelector supports nested object selectors', () => {
+  const useStore = create<{
+    nested: {
+      count: number;
+    };
+    increment: () => void;
+  }>((set) => ({
+    nested: {
+      count: 0
+    },
+    increment() {
+      set((draft) => {
+        draft.nested.count += 1;
+      });
+    }
+  }));
+  createRoot((dispose) => {
+    const selectors = useStore({ autoSelector: true });
+    expect(selectors.nested.count()).toBe(0);
+    selectors.increment();
+    expect(selectors.nested.count()).toBe(1);
+    dispose();
+  });
+});
+
 test('autoSelector includes symbol keyed state and slices', () => {
   const valueKey = Symbol('solid-value');
   const sliceKey = Symbol('solid-slice');

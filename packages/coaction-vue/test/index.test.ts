@@ -63,6 +63,32 @@ test('autoSelector', () => {
   scope.stop();
 });
 
+test('autoSelector supports nested object selectors', () => {
+  const useStore = create<{
+    nested: {
+      count: number;
+    };
+    increment: () => void;
+  }>((set) => ({
+    nested: {
+      count: 0
+    },
+    increment() {
+      set((draft) => {
+        draft.nested.count += 1;
+      });
+    }
+  }));
+  const scope = effectScope();
+  scope.run(() => {
+    const selectors = useStore({ autoSelector: true });
+    expect(selectors.nested.count.value).toBe(0);
+    selectors.increment();
+    expect(selectors.nested.count.value).toBe(1);
+  });
+  scope.stop();
+});
+
 test('autoSelector includes symbol keyed state and slices', () => {
   const valueKey = Symbol('vue-value');
   const sliceKey = Symbol('vue-slice');
