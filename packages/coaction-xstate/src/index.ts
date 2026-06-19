@@ -1,4 +1,4 @@
-import { createBinder } from 'coaction';
+import { createBinder, replaceExternalStoreState } from 'coaction';
 
 export * from 'xstate';
 
@@ -26,28 +26,22 @@ export const bindXState = createBinder<
     send: (event: TEvent) => void;
   }
 >({
-  handleStore: (store, rawState) => {
+  handleStore: (store, rawState, _state, internal) => {
     const actor = actorMap.get(rawState);
     if (!actor) {
       throw new Error('xstate actor is not found');
     }
-    let isFromActor = false;
-    const baseSetState = store.setState;
-    store.setState = (next, updater) => {
-      if (!isFromActor) {
-        throw new Error(
-          'setState is not supported with xstate binding. Please use actor events.'
-        );
-      }
-      return baseSetState(next, updater);
+    store.setState = () => {
+      throw new Error(
+        'setState is not supported with xstate binding. Please use actor events.'
+      );
     };
     const subscription = actor.subscribe((snapshot) => {
-      isFromActor = true;
-      try {
-        baseSetState(snapshot.context as any);
-      } finally {
-        isFromActor = false;
-      }
+      replaceExternalStoreState(
+        store,
+        internal,
+        snapshot.context as Record<PropertyKey, unknown>
+      );
     });
     const baseDestroy = store.destroy;
     store.destroy = () => {

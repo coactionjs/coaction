@@ -128,6 +128,39 @@ test('external redux updates do not merge binder symbols into state', () => {
   expect(Object.getOwnPropertySymbols(useStore.getPureState())).toEqual([]);
 });
 
+test('external redux replacement removes stale coaction state keys', () => {
+  const reduxStore = configureStore({
+    reducer: withCoactionReducer(
+      (
+        state = {
+          a: 1,
+          b: 2
+        },
+        action: { type: string }
+      ) => {
+        if (action.type === 'replace-a') {
+          return {
+            a: 3
+          };
+        }
+        return state;
+      }
+    )
+  });
+  const useStore = create(() => adapt(bindRedux(reduxStore)), {
+    name: 'test-redux-exact-replace'
+  });
+
+  reduxStore.dispatch({
+    type: 'replace-a'
+  });
+
+  expect(useStore.getPureState()).toEqual({
+    a: 3
+  });
+  expect(useStore.getState().dispatch).toBeInstanceOf(Function);
+});
+
 describe('Slices', () => {
   test('base - unsupported', () => {
     const counterSlice = createSlice({

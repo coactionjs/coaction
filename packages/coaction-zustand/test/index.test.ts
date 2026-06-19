@@ -189,6 +189,50 @@ test('base direct zustand mutation syncs without forwarding', () => {
   expect(useStore.getState().count).toBe(3);
 });
 
+test('base direct zustand replacement removes stale data keys without copying actions', () => {
+  type State = {
+    a?: number;
+    b?: number;
+    replaceA: () => void;
+  };
+  const external = createWithZustand<State>(
+    bindZustand((set) => ({
+      a: 1,
+      b: 2,
+      replaceA() {
+        set(
+          {
+            a: 3
+          } as State,
+          true
+        );
+      }
+    }))
+  );
+  const useStore = create(() => adapt(external), {
+    name: 'test-zustand-exact-replace'
+  });
+
+  external.setState(
+    {
+      a: 3,
+      replaceA: external.getState().replaceA
+    } as State,
+    true
+  );
+
+  expect(useStore.getPureState()).toEqual({
+    a: 3
+  });
+  expect(typeof useStore.getState().replaceA).toBe('function');
+  expect(useStore.getPureState().replaceA).toBeUndefined();
+
+  useStore.setState({
+    a: 4
+  });
+  expect(typeof external.getState().replaceA).toBe('function');
+});
+
 test('direct zustand mutations refresh signal-backed dependencies', () => {
   type Counter = {
     count: number;

@@ -143,6 +143,27 @@ test('hydrates store from existing yjs state', () => {
   binding.destroy();
 });
 
+test('hydrates existing yjs state as an exact replacement', () => {
+  const doc = new Y.Doc();
+  const map = doc.getMap<any>('counter');
+  const state = new Y.Map<any>();
+  state.set('a', 3);
+  map.set('state', state);
+  const store = create((set) => ({
+    a: 1,
+    b: 2
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+
+  expect(store.getPureState()).toEqual({
+    a: 3
+  });
+  binding.destroy();
+});
+
 test('works as middleware', () => {
   const doc = new Y.Doc();
   const store = create(

@@ -42,6 +42,39 @@ test('base', () => {
   );
 });
 
+test('actor snapshots replace stale context keys', () => {
+  let listener!: (snapshot: { context: { a: number } }) => void;
+  const actor = {
+    getSnapshot: () => ({
+      context: {
+        a: 1,
+        b: 2
+      }
+    }),
+    subscribe: (observer: typeof listener) => {
+      listener = observer;
+      return {
+        unsubscribe: () => undefined
+      };
+    },
+    send: () => undefined
+  };
+  const useStore = create(() => adapt(bindXState(actor as any)), {
+    name: 'test-xstate-exact-replace'
+  });
+
+  listener({
+    context: {
+      a: 3
+    }
+  });
+
+  expect(useStore.getPureState()).toEqual({
+    a: 3
+  });
+  expect(useStore.getState().send).toBeInstanceOf(Function);
+});
+
 describe('Slices', () => {
   test('base - unsupported', () => {
     const machine = createMachine({

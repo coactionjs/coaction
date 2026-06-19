@@ -37,6 +37,30 @@ export const assignOwnEnumerable = (
   }
 };
 
+export const replaceOwnEnumerable = (
+  target: Record<PropertyKey, unknown>,
+  source: Record<PropertyKey, unknown>
+) => {
+  const nextKeys = new Set<PropertyKey>();
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (typeof key === 'string' && isUnsafeKey(key)) {
+      continue;
+    }
+    if (typeof source[key] === 'function') {
+      continue;
+    }
+    nextKeys.add(key);
+  }
+  for (const key of getOwnEnumerableKeys(target)) {
+    if (!nextKeys.has(key)) {
+      delete target[key];
+    }
+  }
+  nextKeys.forEach((key) => {
+    setOwnEnumerable(target, key, source[key]);
+  });
+};
+
 export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
   source: T
 ) => {

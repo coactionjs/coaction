@@ -1,4 +1,9 @@
-import { areShallowEqualWithArray, mergeObject, uuid } from '../src/utils';
+import {
+  areShallowEqualWithArray,
+  mergeObject,
+  replaceOwnEnumerable,
+  uuid
+} from '../src/utils';
 
 test('areShallowEqualWithArray handles null, NaN and signed zero', () => {
   expect(areShallowEqualWithArray(null, [1] as any)).toBeFalsy();
@@ -115,6 +120,27 @@ test('mergeObject copies enumerable symbol keys and skips non-enumerable keys', 
 
   expect(sliceTarget.user[nestedToken]).toBe(2);
   expect(sliceTarget.user[nestedHidden]).toBeUndefined();
+});
+
+test('replaceOwnEnumerable replaces data keys without copying functions or unsafe keys', () => {
+  const token = Symbol('token');
+  const target = {
+    stale: true,
+    keep: 1
+  } as Record<PropertyKey, unknown>;
+  const source = JSON.parse(
+    '{"keep":2,"__proto__":{"polluted":true}}'
+  ) as Record<PropertyKey, unknown>;
+  source[token] = 3;
+  source.action = () => undefined;
+
+  replaceOwnEnumerable(target, source);
+
+  expect(target.keep).toBe(2);
+  expect(target[token]).toBe(3);
+  expect(target.stale).toBeUndefined();
+  expect(target.action).toBeUndefined();
+  expect((target as Record<string, unknown>).polluted).toBeUndefined();
 });
 
 test('mergeObject ignores unsafe prototype keys', () => {

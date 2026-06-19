@@ -1,4 +1,4 @@
-import { createBinder } from 'coaction';
+import { createBinder, replaceExternalStoreState } from 'coaction';
 import type { AnyAction, Reducer, Store as ReduxStore } from '@reduxjs/toolkit';
 
 export * from '@reduxjs/toolkit';
@@ -77,8 +77,14 @@ export const bindRedux = <S extends object, A extends AnyAction = AnyAction>(
         }
         isReduxUpdating = true;
         try {
-          coactionStore.setState(originalGetState() as any);
-          internal.listeners.forEach((listener) => listener());
+          replaceExternalStoreState(
+            coactionStore,
+            internal,
+            originalGetState() as Record<PropertyKey, unknown>,
+            {
+              syncImmutable: false
+            }
+          );
         } finally {
           isReduxUpdating = false;
         }

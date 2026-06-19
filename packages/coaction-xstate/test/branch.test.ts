@@ -4,6 +4,7 @@ const loadBinding = async () => {
   vi.resetModules();
   let capturedHandleStore: any;
   let capturedHandleState: any;
+  const replaceExternalStoreState = vi.fn();
   vi.doMock('coaction', () => ({
     createBinder: ({
       handleStore,
@@ -15,12 +16,14 @@ const loadBinding = async () => {
       capturedHandleStore = handleStore;
       capturedHandleState = handleState;
       return (input: unknown) => input;
-    }
+    },
+    replaceExternalStoreState
   }));
   await import('../src');
   return {
     capturedHandleStore,
-    capturedHandleState
+    capturedHandleState,
+    replaceExternalStoreState
   };
 };
 
@@ -45,7 +48,11 @@ test('throws when actor is not registered in actorMap', async () => {
 });
 
 test('supports actor-driven updates and unsubscribes on destroy', async () => {
-  const { capturedHandleStore, capturedHandleState } = await loadBinding();
+  const {
+    capturedHandleStore,
+    capturedHandleState,
+    replaceExternalStoreState
+  } = await loadBinding();
   const unsubscribe = vi.fn();
   let observer: ((snapshot: { context: { count: number } }) => void) | null =
     null;
@@ -67,27 +74,28 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
   };
   const { copyState, bind } = capturedHandleState(actor);
   const rawState = bind(copyState);
-  let hasReentered = false;
-  const baseSetState = vi.fn((_next: { count: number }) => {
-    if (!hasReentered) {
-      hasReentered = true;
-      store.setState({
-        count: 2
-      });
-    }
-  });
   const baseDestroy = vi.fn();
+  const internal = {};
   const store: any = {
-    setState: baseSetState,
+    setState: vi.fn(),
     destroy: baseDestroy
   };
-  capturedHandleStore(store as any, rawState, copyState, {});
+  capturedHandleStore(store as any, rawState, copyState, internal);
   observer!({
     context: {
       count: 1
     }
   });
-  expect(baseSetState).toHaveBeenCalledTimes(2);
+  expect(replaceExternalStoreState).toHaveBeenCalledWith(store, internal, {
+    count: 1
+  });
+  expect(() =>
+    store.setState({
+      count: 2
+    })
+  ).toThrow(
+    'setState is not supported with xstate binding. Please use actor events.'
+  );
   store.destroy();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(baseDestroy).toHaveBeenCalledTimes(1);

@@ -75,7 +75,8 @@ export const bindYjs = <T extends object>(
     const next = clone(state);
     syncingFromYjs = true;
     try {
-      store.setState(next as Partial<T>);
+      store.setState(null);
+      store.apply(next as T);
       const pureState = clone(store.getPureState());
       lastSyncedState = isPlainObject(pureState) ? pureState : {};
     } finally {

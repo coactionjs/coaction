@@ -1,4 +1,9 @@
-import { type Store, createBinder } from 'coaction';
+import {
+  type Store,
+  createBinder,
+  replaceExternalStoreState,
+  replaceOwnEnumerable
+} from 'coaction';
 import type { StateCreator, StoreApi } from 'zustand';
 
 type BindZustand = <T>(
@@ -32,18 +37,59 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         if (zustandStore.getState() === internal.rootState) return;
         let isCoactionUpdated = false;
         internal.rootState = zustandStore.getState() as object;
+        const replaceRootState = (nextState: object) => {
+          const nextRootState = {};
+          replaceOwnEnumerable(
+            nextRootState,
+            nextState as Record<PropertyKey, unknown>
+          );
+          internal.rootState = nextRootState;
+        };
+        const replaceCoactionState = (nextState: object) => {
+          replaceExternalStoreState(
+            boundStore,
+            internal,
+            nextState as Record<PropertyKey, unknown>,
+            {
+              syncImmutable: false
+            }
+          );
+        };
+        const mergeWithCurrentActions = (state: object) => {
+          const nextState = {};
+          replaceOwnEnumerable(
+            nextState,
+            state as Record<PropertyKey, unknown>
+          );
+          const currentState = zustandStore.getState() as Record<
+            PropertyKey,
+            unknown
+          >;
+          for (const key of Reflect.ownKeys(currentState)) {
+            if (
+              Object.prototype.propertyIsEnumerable.call(currentState, key) &&
+              typeof currentState[key] === 'function'
+            ) {
+              (nextState as Record<PropertyKey, unknown>)[key] =
+                currentState[key];
+            }
+          }
+          return nextState;
+        };
         const unsubscribe = zustandStore.subscribe(() => {
           if (!isCoactionUpdated) {
             const nextState = zustandStore.getState() as object;
             if (boundStore.share === 'client') {
-              internal.rootState = nextState;
+              replaceRootState(nextState);
+              internal.notifyStateChange();
               throw new Error('client zustand store cannot be updated');
             } else if (boundStore.share === 'main') {
               // emit to all clients
-              boundStore.setState(nextState);
+              replaceCoactionState(nextState);
               return;
             }
-            internal.rootState = nextState;
+            replaceCoactionState(nextState);
+            return;
           }
           internal.notifyStateChange();
         });
@@ -53,7 +99,10 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         internal.updateImmutable = (state: any) => {
           isCoactionUpdated = true;
           try {
-            zustandStore.setState(state, true);
+            (zustandStore.setState as (state: object, replace: true) => void)(
+              mergeWithCurrentActions(state),
+              true
+            );
           } finally {
             isCoactionUpdated = false;
           }
