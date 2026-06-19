@@ -1,6 +1,6 @@
 # @coaction/yjs
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/yjs.svg)](https://www.npmjs.com/package/@coaction/yjs)
 ![license](https://img.shields.io/npm/l/@coaction/yjs)
 
@@ -138,4 +138,4 @@ Middleware wrapper around `bindYjs`. It also wires cleanup into `store.destroy()
 
 ## Documentation
 
-You can find the project documentation [here](https://github.com/unadlib/coaction).
+You can find the project documentation [here](https://github.com/coactionjs/coaction).

@@ -8,7 +8,7 @@
 
 > **createBinder**\<`F`\>(`__namedParameters`): `F`
 
-Defined in: [packages/core/src/binder.ts:89](https://github.com/unadlib/coaction/blob/main/packages/core/src/binder.ts#L89)
+Defined in: [packages/core/src/binder.ts:89](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L89)
 
 Build an adapter helper for bridging an external store implementation into
 Coaction.

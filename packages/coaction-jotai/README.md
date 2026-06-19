@@ -1,6 +1,6 @@
 # @coaction/jotai
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/jotai.svg)](https://www.npmjs.com/package/@coaction/jotai)
 ![license](https://img.shields.io/npm/l/@coaction/jotai)
 
@@ -47,4 +47,4 @@ const store = create(() =>
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

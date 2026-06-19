@@ -1,6 +1,6 @@
 # @coaction/valtio
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/valtio.svg)](https://www.npmjs.com/package/@coaction/valtio)
 ![license](https://img.shields.io/npm/l/@coaction/valtio)
 
@@ -40,4 +40,4 @@ store.getState().increment();
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

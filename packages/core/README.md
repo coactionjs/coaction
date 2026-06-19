@@ -1,6 +1,6 @@
 # coaction
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction)
 ![license](https://img.shields.io/npm/l/coaction)
 
@@ -80,8 +80,8 @@ increment();
 
 ## API Reference
 
-- [Generated core API index](https://github.com/unadlib/coaction/blob/main/docs/api/core/index.md)
-- [Core API notes](https://github.com/unadlib/coaction/blob/main/docs/api/core/documents/core-api-notes.md)
+- [Generated core API index](https://github.com/coactionjs/coaction/blob/main/docs/api/core/index.md)
+- [Core API notes](https://github.com/coactionjs/coaction/blob/main/docs/api/core/documents/core-api-notes.md)
 
 ### Store Shape Mode (`sliceMode`)
 
@@ -103,4 +103,4 @@ create({ counter: (set) => ({ count: 0 }) }, { sliceMode: 'slices' });
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

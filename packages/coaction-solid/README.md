@@ -1,6 +1,6 @@
 # @coaction/solid
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/solid.svg)](https://www.npmjs.com/package/@coaction/solid)
 ![license](https://img.shields.io/npm/l/@coaction/solid)
 
@@ -34,4 +34,4 @@ console.log(count());
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

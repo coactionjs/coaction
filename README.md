@@ -1,13 +1,13 @@
 <div align="center">
 
-<a href="https://github.com/unadlib/coaction" target="_blank"><img src="./logo.png" height="120" alt="Coaction Logo" /></a>
+<a href="https://github.com/coactionjs/coaction" target="_blank"><img src="./logo.png" height="120" alt="Coaction Logo" /></a>
 
 # Coaction
 
 **An efficient and flexible state management library for building<br/>high-performance, multithreading web applications.**
 
-[![CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)](https://github.com/unadlib/coaction/actions)
-[![Coverage](https://coveralls.io/repos/github/unadlib/coaction/badge.svg?branch=main)](https://coveralls.io/github/unadlib/coaction?branch=main)
+[![CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)](https://github.com/coactionjs/coaction/actions)
+[![Coverage](https://coveralls.io/repos/github/coactionjs/coaction/badge.svg?branch=main)](https://coveralls.io/github/coactionjs/coaction?branch=main)
 [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction)
 [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
 

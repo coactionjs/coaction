@@ -12,7 +12,7 @@
   "authors": [
     "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
   ],
-  "homepage": "https://github.com/unadlib/coaction/tree/main/packages/coaction-vue#readme",
+  "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-vue#readme",
   "license": "MIT",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -32,7 +32,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/unadlib/coaction.git",
+    "url": "https://github.com/coactionjs/coaction.git",
     "directory": "packages/coaction-vue"
   },
   "scripts": {
@@ -42,7 +42,7 @@
     "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
   },
   "bugs": {
-    "url": "https://github.com/unadlib/coaction/issues"
+    "url": "https://github.com/coactionjs/coaction/issues"
   },
   "peerDependencies": {
     "coaction": "^2.0.0",

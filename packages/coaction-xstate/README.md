@@ -1,6 +1,6 @@
 # @coaction/xstate
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/xstate.svg)](https://www.npmjs.com/package/@coaction/xstate)
 ![license](https://img.shields.io/npm/l/@coaction/xstate)
 
@@ -54,4 +54,4 @@ store.getState().send({ type: 'increment' });
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

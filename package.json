@@ -39,13 +39,13 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/unadlib/coaction.git"
+    "url": "git+https://github.com/coactionjs/coaction.git"
   },
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/unadlib/coaction/issues"
+    "url": "https://github.com/coactionjs/coaction/issues"
   },
-  "homepage": "https://github.com/unadlib/coaction#readme",
+  "homepage": "https://github.com/coactionjs/coaction#readme",
   "config": {
     "commitizen": {
       "path": "cz-conventional-changelog"

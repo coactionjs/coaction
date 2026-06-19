@@ -1,6 +1,6 @@
 # @coaction/vue
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/vue.svg)](https://www.npmjs.com/package/@coaction/vue)
 ![license](https://img.shields.io/npm/l/@coaction/vue)
 
@@ -50,4 +50,4 @@ console.log(selectors.count.value);
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

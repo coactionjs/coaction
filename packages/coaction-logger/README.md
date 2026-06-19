@@ -1,6 +1,6 @@
 # @coaction/logger
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/logger.svg)](https://www.npmjs.com/package/@coaction/logger)
 ![license](https://img.shields.io/npm/l/@coaction/logger)
 
@@ -40,4 +40,4 @@ const useStore = create(
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

@@ -8,7 +8,7 @@
 
 > **ExternalStoreAdapterOptions**\<`F`\> = `object`
 
-Defined in: [packages/core/src/binder.ts:5](https://github.com/unadlib/coaction/blob/main/packages/core/src/binder.ts#L5)
+Defined in: [packages/core/src/binder.ts:5](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L5)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [packages/core/src/binder.ts:5](https://github.com/unadlib/coaction/
 
 > **handleState**: \<`T`\>(`state`) => `object`
 
-Defined in: [packages/core/src/binder.ts:10](https://github.com/unadlib/coaction/blob/main/packages/core/src/binder.ts#L10)
+Defined in: [packages/core/src/binder.ts:10](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L10)
 
 Normalize a third-party store instance into a raw state object plus the
 binding hook used during initialization.
@@ -77,7 +77,7 @@ the third-party store.
 
 > **handleStore**: (`store`, `rawState`, `state`, `internal`, `key?`) => `void`
 
-Defined in: [packages/core/src/binder.ts:31](https://github.com/unadlib/coaction/blob/main/packages/core/src/binder.ts#L31)
+Defined in: [packages/core/src/binder.ts:31](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L31)
 
 Wire Coaction's store lifecycle to the external store implementation.
 

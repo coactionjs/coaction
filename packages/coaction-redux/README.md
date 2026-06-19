@@ -1,6 +1,6 @@
 # @coaction/redux
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/redux.svg)](https://www.npmjs.com/package/@coaction/redux)
 ![license](https://img.shields.io/npm/l/@coaction/redux)
 
@@ -51,4 +51,4 @@ store.getState().dispatch(counterSlice.actions.increment());
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).

@@ -8,7 +8,7 @@
 
 > **defineExternalStoreAdapter**\<`F`\>(`options`): `F`
 
-Defined in: [packages/core/src/binder.ts:107](https://github.com/unadlib/coaction/blob/main/packages/core/src/binder.ts#L107)
+Defined in: [packages/core/src/binder.ts:107](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L107)
 
 Define a whole-store adapter for integrating an external state runtime with
 Coaction.

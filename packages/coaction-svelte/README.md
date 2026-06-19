@@ -1,6 +1,6 @@
 # @coaction/svelte
 
-![Node CI](https://github.com/unadlib/coaction/workflows/Node%20CI/badge.svg)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
 [![npm](https://img.shields.io/npm/v/@coaction/svelte.svg)](https://www.npmjs.com/package/@coaction/svelte)
 ![license](https://img.shields.io/npm/l/@coaction/svelte)
 
@@ -36,4 +36,4 @@ count.subscribe((value) => {
 
 ## Documentation
 
-You can find the documentation [here](https://github.com/unadlib/coaction).
+You can find the documentation [here](https://github.com/coactionjs/coaction).
