@@ -103,6 +103,31 @@ test('replace action ignores inherited payload properties', () => {
   expect(next.inherited).toBeUndefined();
 });
 
+test('external redux updates do not merge binder symbols into state', () => {
+  const counterSlice = createSlice({
+    name: 'counter',
+    initialState: {
+      count: 0
+    },
+    reducers: {
+      increment(state) {
+        state.count += 1;
+      }
+    }
+  });
+  const reduxStore = configureStore({
+    reducer: withCoactionReducer(counterSlice.reducer)
+  });
+  const useStore = create(() => adapt(bindRedux(reduxStore)), {
+    name: 'test-no-redux-binder-symbol'
+  });
+
+  reduxStore.dispatch(counterSlice.actions.increment());
+
+  expect(useStore.getState().count).toBe(1);
+  expect(Object.getOwnPropertySymbols(useStore.getPureState())).toEqual([]);
+});
+
 describe('Slices', () => {
   test('base - unsupported', () => {
     const counterSlice = createSlice({
