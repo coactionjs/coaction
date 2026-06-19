@@ -38,7 +38,7 @@ const createCounterStore = (middlewares: any[]) =>
     }
   );
 
-test('persisted undo depends on whether history wraps persist', async () => {
+test('persist observes history undo regardless of middleware order', async () => {
   const storage = createMemoryStorage();
   const historyInsidePersist = createCounterStore([
     history(),
@@ -54,7 +54,7 @@ test('persisted undo depends on whether history wraps persist', async () => {
   await nextTick();
 
   expect(historyInsidePersist.getState().count).toBe(0);
-  expect(storage.getItem('history-inside-persist')).toContain('"count":1');
+  expect(storage.getItem('history-inside-persist')).toContain('"count":0');
 
   const persistInsideHistory = createCounterStore([
     persist({

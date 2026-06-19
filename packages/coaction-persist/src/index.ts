@@ -1,4 +1,4 @@
-import type { Middleware, Store } from 'coaction';
+import { onStoreReady, type Middleware, type Store } from 'coaction';
 
 export type PersistStorage = {
   getItem: (name: string) => string | null | Promise<string | null>;
@@ -179,14 +179,33 @@ export const persist =
     const clearStorage = async () => {
       await enqueuePersistOperation(() => persistedStorage.removeItem(name));
     };
-    const baseSetState = store.setState;
-    store.setState = (next, updater) => {
-      const result = baseSetState(next, updater);
+    let isSetStatePersisting = false;
+    let unsubscribeStore: (() => void) | undefined;
+    const persistAfterChange = () => {
       void persistState().catch((error) => {
         if (process.env.NODE_ENV === 'development') {
           console.error(error);
         }
       });
+    };
+    const cancelReadySubscription = onStoreReady(store, () => {
+      unsubscribeStore = store.subscribe(() => {
+        if (isSetStatePersisting) {
+          return;
+        }
+        persistAfterChange();
+      });
+    });
+    const baseSetState = store.setState;
+    store.setState = (next, updater) => {
+      isSetStatePersisting = true;
+      let result: ReturnType<typeof baseSetState>;
+      try {
+        result = baseSetState(next, updater);
+      } finally {
+        isSetStatePersisting = false;
+      }
+      persistAfterChange();
       return result;
     };
     const persistApi: PersistApi = {
@@ -200,6 +219,8 @@ export const persist =
     const baseDestroy = store.destroy;
     store.destroy = () => {
       destroyed = true;
+      cancelReadySubscription();
+      unsubscribeStore?.();
       baseDestroy();
     };
     if (!skipHydration) {

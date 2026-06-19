@@ -1,5 +1,9 @@
 import { create } from 'coaction';
+import { makeAutoObservable } from 'mobx';
 import { vi } from 'vitest';
+import { createStore as createZustandStore } from 'zustand/vanilla';
+import { bindMobx } from '../../coaction-mobx/src';
+import { adapt as adaptZustand, bindZustand } from '../../coaction-zustand/src';
 import { createJSONStorage, persist, PersistStorage } from '../src';
 
 const nextTick = async () => {
@@ -60,6 +64,77 @@ test('persist and rehydrate', async () => {
   );
   await nextTick();
   expect(rehydratedStore.getState().count).toBe(1);
+});
+
+test('persists mutable adapter updates from final store subscription', async () => {
+  const writes: Array<{ state: { count: number } }> = [];
+  const storage: PersistStorage = {
+    getItem: () => null,
+    setItem: (_name, value) => {
+      writes.push(JSON.parse(value));
+    },
+    removeItem: () => undefined
+  };
+  const useStore = create(
+    () =>
+      makeAutoObservable(
+        bindMobx({
+          count: 0,
+          increment() {
+            this.count += 1;
+          }
+        })
+      ),
+    {
+      middlewares: [
+        persist({
+          name: 'mobx-counter',
+          storage,
+          skipHydration: true
+        })
+      ]
+    }
+  );
+
+  useStore.getState().increment();
+  await nextTick();
+
+  expect(writes).toHaveLength(1);
+  expect(writes[0].state.count).toBe(1);
+});
+
+test('persists direct external zustand updates', async () => {
+  const writes: Array<{ state: { count: number } }> = [];
+  const storage: PersistStorage = {
+    getItem: () => null,
+    setItem: (_name, value) => {
+      writes.push(JSON.parse(value));
+    },
+    removeItem: () => undefined
+  };
+  const external = createZustandStore(
+    bindZustand(() => ({
+      count: 0
+    }))
+  );
+  const useStore = create(() => adaptZustand(external), {
+    middlewares: [
+      persist({
+        name: 'zustand-counter',
+        storage,
+        skipHydration: true
+      })
+    ]
+  });
+
+  external.setState({
+    count: 7
+  });
+  await nextTick();
+
+  expect(useStore.getState().count).toBe(7);
+  expect(writes).toHaveLength(1);
+  expect(writes[0].state.count).toBe(7);
 });
 
 test('does not overwrite storage before automatic hydration runs', async () => {

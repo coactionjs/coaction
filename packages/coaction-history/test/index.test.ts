@@ -1,4 +1,6 @@
 import { create } from 'coaction';
+import { makeAutoObservable } from 'mobx';
+import { bindMobx } from '../../coaction-mobx/src';
 import { history } from '../src';
 
 test('undo and redo', () => {
@@ -31,6 +33,35 @@ test('undo and redo', () => {
   expect(api.redo()).toBeTruthy();
   expect(useStore.getState().count).toBe(2);
   expect(api.redo()).toBeFalsy();
+});
+
+test('records mutable adapter updates from final store subscription', () => {
+  const useStore = create(
+    () =>
+      makeAutoObservable(
+        bindMobx({
+          count: 0,
+          increment() {
+            this.count += 1;
+          }
+        })
+      ),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().increment();
+
+  expect(api.canUndo()).toBeTruthy();
+  expect(api.getPast()).toEqual([
+    {
+      count: 0
+    }
+  ]);
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().count).toBe(0);
 });
 
 test('undo and redo restore deleted object keys', () => {

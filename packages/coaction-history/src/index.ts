@@ -1,4 +1,4 @@
-import type { Middleware, Store } from 'coaction';
+import { onStoreReady, type Middleware, type Store } from 'coaction';
 
 type Snapshot = Record<PropertyKey, unknown>;
 
@@ -137,6 +137,9 @@ export const history =
     const past: object[] = [];
     const future: object[] = [];
     let isTimeTraveling = false;
+    let isSetStateRecording = false;
+    let lastSnapshot: object | undefined;
+    let unsubscribeStore: (() => void) | undefined;
     const getSnapshot = () => toSnapshot(partialize(store.getPureState()));
     const pushPast = (snapshot: object) => {
       past.push(snapshot);
@@ -144,18 +147,40 @@ export const history =
         past.shift();
       }
     };
-    const baseSetState = store.setState;
-    store.setState = (next, updater) => {
-      const previous = getSnapshot();
-      const result = baseSetState(next, updater);
-      if (isTimeTraveling) {
-        return result;
-      }
-      const current = getSnapshot();
+    const recordChange = (previous: object, current: object) => {
       if (!isEqual(previous, current)) {
         pushPast(previous);
         future.length = 0;
       }
+      lastSnapshot = current;
+    };
+    const cancelReadySubscription = onStoreReady(store, () => {
+      lastSnapshot = getSnapshot();
+      unsubscribeStore = store.subscribe(() => {
+        const current = getSnapshot();
+        if (isSetStateRecording || isTimeTraveling) {
+          lastSnapshot = current;
+          return;
+        }
+        recordChange(lastSnapshot ?? current, current);
+      });
+    });
+    const baseSetState = store.setState;
+    store.setState = (next, updater) => {
+      const previous = getSnapshot();
+      isSetStateRecording = true;
+      let result: ReturnType<typeof baseSetState>;
+      try {
+        result = baseSetState(next, updater);
+      } finally {
+        isSetStateRecording = false;
+      }
+      if (isTimeTraveling) {
+        lastSnapshot = getSnapshot();
+        return result;
+      }
+      const current = getSnapshot();
+      recordChange(previous, current);
       return result;
     };
     const api: HistoryApi<T> = {
@@ -213,5 +238,13 @@ export const history =
     Object.assign(store, {
       history: api
     });
+    if (typeof store.destroy === 'function') {
+      const baseDestroy = store.destroy;
+      store.destroy = () => {
+        cancelReadySubscription();
+        unsubscribeStore?.();
+        baseDestroy();
+      };
+    }
     return store;
   };
