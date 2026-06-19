@@ -274,6 +274,70 @@ test('observer disposes tracker after committed subscription is released', async
   expect(dispose).toHaveBeenCalledTimes(1);
 });
 
+test('observer syncs active tracker snapshot when resubscribing after missed update', async () => {
+  vi.useFakeTimers();
+  vi.resetModules();
+  let trackerSnapshot = 0;
+  let unsubscribe: (() => void) | undefined;
+  let subscribeFromHook!: (listener: () => void) => () => void;
+  let getSnapshotFromHook!: () => unknown;
+  const initialListener = vi.fn();
+  const dispose = vi.fn();
+  const trackerListeners = new Set<() => void>();
+  const tracker = {
+    dispose,
+    getSnapshot: () => trackerSnapshot,
+    subscribe: vi.fn((listener: () => void) => {
+      trackerListeners.add(listener);
+      return () => {
+        trackerListeners.delete(listener);
+      };
+    }),
+    track: (fn: () => unknown) => fn()
+  };
+  vi.doMock('coaction', async () => ({
+    ...(await vi.importActual<object>('coaction')),
+    createReactiveTracker: () => tracker
+  }));
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore: vi.fn(
+      (
+        subscribe: (listener: () => void) => () => void,
+        getSnapshot: () => unknown,
+        _getServerSnapshot?: () => unknown
+      ) => {
+        subscribeFromHook = subscribe;
+        getSnapshotFromHook = getSnapshot;
+        unsubscribe ??= subscribe(initialListener);
+        return getSnapshot();
+      }
+    )
+  }));
+
+  const React = await import('react');
+  const { render } = await import('@testing-library/react');
+  const { observer } = await import('../src');
+  const Counter = observer(() => React.createElement('span', null, 'count'));
+
+  render(React.createElement(Counter) as any);
+  expect(tracker.subscribe).toHaveBeenCalledTimes(1);
+  expect(trackerListeners.size).toBe(1);
+  expect(getSnapshotFromHook()).toBe(0);
+
+  unsubscribe?.();
+  expect(trackerListeners.size).toBe(0);
+
+  trackerSnapshot = 1;
+  const resubscribeListener = vi.fn();
+  const unsubscribeAgain = subscribeFromHook(resubscribeListener);
+
+  expect(tracker.subscribe).toHaveBeenCalledTimes(2);
+  expect(resubscribeListener).toHaveBeenCalledTimes(1);
+  expect(getSnapshotFromHook()).toBe(1);
+
+  unsubscribeAgain();
+});
+
 test('handles non-object slice state defensively', async () => {
   vi.resetModules();
   const mockStore = {

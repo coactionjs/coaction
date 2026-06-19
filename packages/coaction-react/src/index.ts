@@ -74,6 +74,7 @@ const getObserverDisplayName = (Component: ObserverRender<object>) =>
 const createObserverTrackerState = (): ObserverTrackerState => {
   let activeTracker: ReactiveTracker | undefined;
   let activeUnsubscribe: (() => void) | undefined;
+  let activeSnapshot: number | undefined;
   let latestRender: TrackedRender | undefined;
   let version = 0;
   let disposed = false;
@@ -83,12 +84,24 @@ const createObserverTrackerState = (): ObserverTrackerState => {
     ReturnType<typeof setTimeout>
   >();
 
-  const notify = () => {
+  const notify = (snapshot?: number) => {
     if (disposed) {
       return;
     }
+    if (activeTracker) {
+      activeSnapshot = snapshot ?? activeTracker.getSnapshot();
+    }
     version += 1;
     listeners.forEach((listener) => listener());
+  };
+  const syncActiveSnapshot = () => {
+    if (!activeTracker || activeSnapshot === undefined) {
+      return;
+    }
+    const snapshot = activeTracker.getSnapshot();
+    if (snapshot !== activeSnapshot) {
+      notify(snapshot);
+    }
   };
   const clearTrackerCleanup = (tracker: ReactiveTracker) => {
     const cleanupHandle = cleanupHandles.get(tracker);
@@ -112,6 +125,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
         activeUnsubscribe?.();
         activeUnsubscribe = undefined;
         activeTracker = undefined;
+        activeSnapshot = undefined;
       }
       if (latestRender?.tracker === tracker) {
         latestRender = undefined;
@@ -131,6 +145,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
       return;
     }
     activeUnsubscribe = activeTracker.subscribe(notify);
+    syncActiveSnapshot();
   };
   const dispose = () => {
     if (disposed) {
@@ -152,6 +167,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
       trackers.add(latestRender.tracker);
     }
     activeTracker = undefined;
+    activeSnapshot = undefined;
     latestRender = undefined;
     trackers.forEach((tracker) => tracker.dispose());
   };
@@ -189,6 +205,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
         const previousTracker = activeTracker;
         unsubscribeActiveTracker();
         activeTracker = tracker;
+        activeSnapshot = snapshot;
         subscribeActiveTracker();
         if (listeners.size === 0) {
           scheduleTrackerCleanup(tracker);
@@ -197,9 +214,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
           disposeTracker(previousTracker);
         }
       }
-      if (tracker.getSnapshot() !== snapshot) {
-        notify();
-      }
+      syncActiveSnapshot();
     },
     track<T>(render: () => T) {
       if (disposed || !canTrackObserverRender()) {
