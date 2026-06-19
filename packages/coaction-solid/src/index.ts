@@ -66,11 +66,14 @@ const createAutoSelector = <T extends object>(
   store: Store<T>,
   getVersion: Accessor<number>
 ) => {
-  const state = store.getState() as Record<string, any>;
+  const state = store.getState() as Record<PropertyKey, any>;
   if (!store.isSliceStore) {
-    const autoSelector = {} as Record<string, any>;
-    const descriptors = Object.getOwnPropertyDescriptors(state);
-    for (const key of Object.keys(descriptors)) {
+    const autoSelector = {} as Record<PropertyKey, any>;
+    const descriptors = Object.getOwnPropertyDescriptors(state) as Record<
+      PropertyKey,
+      PropertyDescriptor
+    >;
+    for (const key of Reflect.ownKeys(descriptors)) {
       const descriptor = descriptors[key];
       if (typeof descriptor.value === 'function') {
         autoSelector[key] = descriptor.value.bind(state);
@@ -83,22 +86,25 @@ const createAutoSelector = <T extends object>(
     }
     return autoSelector;
   }
-  const autoSelector = {} as Record<string, any>;
-  for (const sliceKey of Object.keys(state)) {
+  const autoSelector = {} as Record<PropertyKey, any>;
+  for (const sliceKey of Reflect.ownKeys(state)) {
     const slice = state[sliceKey];
     if (typeof slice !== 'object' || slice === null) {
       continue;
     }
-    const sliceAutoSelector = {} as Record<string, any>;
-    const descriptors = Object.getOwnPropertyDescriptors(slice);
-    for (const key of Object.keys(descriptors)) {
+    const sliceAutoSelector = {} as Record<PropertyKey, any>;
+    const descriptors = Object.getOwnPropertyDescriptors(slice) as Record<
+      PropertyKey,
+      PropertyDescriptor
+    >;
+    for (const key of Reflect.ownKeys(descriptors)) {
       const descriptor = descriptors[key];
       if (typeof descriptor.value === 'function') {
         sliceAutoSelector[key] = descriptor.value.bind(slice);
       } else {
         sliceAutoSelector[key] = () => {
           getVersion();
-          return (store.getState() as Record<string, any>)[sliceKey][key];
+          return (store.getState() as Record<PropertyKey, any>)[sliceKey][key];
         };
       }
     }
@@ -120,7 +126,7 @@ export const create: Creator = (createState: any, options: any) => {
     unsubscribe();
     baseDestroy();
   };
-  let autoSelector: Record<string, any> | undefined;
+  let autoSelector: Record<PropertyKey, any> | undefined;
   return wrapStore(store, (selector: any) => {
     if (typeof selector === 'function') {
       return () => {

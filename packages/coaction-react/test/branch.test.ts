@@ -117,6 +117,47 @@ test('autoSelector option returns cached selector map without subscribing', asyn
   expect(useSyncExternalStore).not.toHaveBeenCalled();
 });
 
+test('autoSelector includes symbol keyed state and slices', async () => {
+  vi.resetModules();
+  const useSyncExternalStore = vi.fn(
+    (
+      _subscribe: () => () => void,
+      getSnapshot: () => unknown,
+      getServerSnapshot?: () => unknown
+    ) => (getServerSnapshot ? getServerSnapshot() : getSnapshot())
+  );
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore
+  }));
+
+  const { create } = await import('../src');
+  const valueKey = Symbol('react-value');
+  const sliceKey = Symbol('react-slice');
+  const store = create(() => ({
+    [valueKey]: 1,
+    count: 0
+  })) as any;
+  const sliceStore = create(
+    {
+      [sliceKey]: () => ({
+        count: 2
+      })
+    } as any,
+    {
+      sliceMode: 'slices'
+    }
+  ) as any;
+
+  const selectors = store.auto();
+  const sliceSelectors = sliceStore.auto();
+
+  expect(Object.getOwnPropertySymbols(selectors)).toContain(valueKey);
+  expect(selectors[valueKey](store.getState())).toBe(1);
+  expect(Object.getOwnPropertySymbols(sliceSelectors)).toContain(sliceKey);
+  expect(sliceSelectors[sliceKey].count(sliceStore.getState())).toBe(2);
+  expect(useSyncExternalStore).not.toHaveBeenCalled();
+});
+
 test('autoSelector stops expanding recursive references', async () => {
   vi.resetModules();
   const useSyncExternalStore = vi.fn(

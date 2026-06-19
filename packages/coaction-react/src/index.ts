@@ -333,8 +333,8 @@ export type Creator = {
   ): StoreWithAsyncFunction<T>;
 };
 
-const getPathValue = (state: unknown, path: string[]) => {
-  let current = state as Record<string, unknown> | undefined;
+const getPathValue = (state: unknown, path: PropertyKey[]) => {
+  let current = state as Record<PropertyKey, unknown> | undefined;
   for (const key of path) {
     if (
       (typeof current !== 'object' && typeof current !== 'function') ||
@@ -342,13 +342,13 @@ const getPathValue = (state: unknown, path: string[]) => {
     ) {
       return undefined;
     }
-    current = current[key] as Record<string, unknown> | undefined;
+    current = current[key] as Record<PropertyKey, unknown> | undefined;
   }
   return current;
 };
 
 const createSelectorNode = <T extends object>(
-  path: string[],
+  path: PropertyKey[],
   value: unknown,
   ancestors: object[] = []
 ): AutoSelector<T, unknown> => {
@@ -362,12 +362,16 @@ const createSelectorNode = <T extends object>(
     return selector;
   }
   const nextAncestors = [...ancestors, value];
-  const childDescriptors: PropertyDescriptorMap = {};
-  for (const key of Object.keys(Object.getOwnPropertyDescriptors(value))) {
+  const childDescriptors = {} as Record<PropertyKey, PropertyDescriptor>;
+  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<
+    PropertyKey,
+    PropertyDescriptor
+  >;
+  for (const key of Reflect.ownKeys(descriptors)) {
     childDescriptors[key] = {
       value: createSelectorNode<T>(
         [...path, key],
-        (value as Record<string, unknown>)[key],
+        (value as Record<PropertyKey, unknown>)[key],
         nextAncestors
       ),
       enumerable: true
@@ -381,11 +385,15 @@ const createAutoSelectors = <T extends object>(store: Store<T>) => {
   if (typeof state !== 'object' || state === null) {
     return {} as AutoSelectors<T>;
   }
-  const selectors = {} as Record<string, AutoSelector<T, unknown>>;
-  for (const key of Object.keys(Object.getOwnPropertyDescriptors(state))) {
+  const selectors = {} as Record<PropertyKey, AutoSelector<T, unknown>>;
+  const descriptors = Object.getOwnPropertyDescriptors(state) as Record<
+    PropertyKey,
+    PropertyDescriptor
+  >;
+  for (const key of Reflect.ownKeys(descriptors)) {
     selectors[key] = createSelectorNode<T>(
       [key],
-      (state as Record<string, unknown>)[key]
+      (state as Record<PropertyKey, unknown>)[key]
     );
   }
   return selectors as AutoSelectors<T>;
@@ -403,8 +411,8 @@ const touchState = (value: unknown, seen = new WeakSet<object>()) => {
     value.forEach((item) => touchState(item, seen));
     return;
   }
-  for (const key of Object.keys(value as Record<string, unknown>)) {
-    touchState((value as Record<string, unknown>)[key], seen);
+  for (const key of Reflect.ownKeys(value as Record<PropertyKey, unknown>)) {
+    touchState((value as Record<PropertyKey, unknown>)[key], seen);
   }
 };
 

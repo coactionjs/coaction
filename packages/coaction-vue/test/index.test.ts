@@ -63,6 +63,36 @@ test('autoSelector', () => {
   scope.stop();
 });
 
+test('autoSelector includes symbol keyed state and slices', () => {
+  const valueKey = Symbol('vue-value');
+  const sliceKey = Symbol('vue-slice');
+  const useStore = create(() => ({
+    [valueKey]: 1,
+    count: 0
+  })) as any;
+  const useSliceStore = create(
+    {
+      [sliceKey]: () => ({
+        count: 2
+      })
+    } as any,
+    {
+      sliceMode: 'slices'
+    }
+  ) as any;
+  const scope = effectScope();
+  scope.run(() => {
+    const selectors = useStore({ autoSelector: true });
+    const sliceSelectors = useSliceStore({ autoSelector: true });
+
+    expect(Object.getOwnPropertySymbols(selectors)).toContain(valueKey);
+    expect(selectors[valueKey].value).toBe(1);
+    expect(Object.getOwnPropertySymbols(sliceSelectors)).toContain(sliceKey);
+    expect(sliceSelectors[sliceKey].count.value).toBe(2);
+  });
+  scope.stop();
+});
+
 test('slices autoSelector', () => {
   const useStore = create(
     {

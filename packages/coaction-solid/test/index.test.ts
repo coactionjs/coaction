@@ -61,6 +61,35 @@ test('autoSelector', () => {
   });
 });
 
+test('autoSelector includes symbol keyed state and slices', () => {
+  const valueKey = Symbol('solid-value');
+  const sliceKey = Symbol('solid-slice');
+  const useStore = create(() => ({
+    [valueKey]: 1,
+    count: 0
+  })) as any;
+  const useSliceStore = create(
+    {
+      [sliceKey]: () => ({
+        count: 2
+      })
+    } as any,
+    {
+      sliceMode: 'slices'
+    }
+  ) as any;
+  createRoot((dispose) => {
+    const selectors = useStore({ autoSelector: true });
+    const sliceSelectors = useSliceStore({ autoSelector: true });
+
+    expect(Object.getOwnPropertySymbols(selectors)).toContain(valueKey);
+    expect(selectors[valueKey]()).toBe(1);
+    expect(Object.getOwnPropertySymbols(sliceSelectors)).toContain(sliceKey);
+    expect(sliceSelectors[sliceKey].count()).toBe(2);
+    dispose();
+  });
+});
+
 test('slices autoSelector', () => {
   const useStore = create(
     {
