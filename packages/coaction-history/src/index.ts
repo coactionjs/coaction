@@ -105,6 +105,9 @@ const applySnapshot = (
   }
 };
 
+const cloneSnapshotList = (snapshots: object[]) =>
+  snapshots.map((snapshot) => toSnapshot(snapshot));
+
 export type HistoryOptions<T extends object> = {
   limit?: number;
   partialize?: (state: T) => object;
@@ -199,8 +202,8 @@ export const history =
       },
       canUndo: () => past.length > 0,
       canRedo: () => future.length > 0,
-      getPast: () => [...past],
-      getFuture: () => [...future]
+      getPast: () => cloneSnapshotList(past),
+      getFuture: () => cloneSnapshotList(future)
     };
     Object.assign(store, {
       history: api

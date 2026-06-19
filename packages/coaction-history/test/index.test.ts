@@ -203,7 +203,37 @@ test('snapshot strips functions and keeps array structure', () => {
     ],
   },
 ]
-`);
+  `);
+});
+
+test('history snapshot getters do not expose mutable internal stacks', () => {
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      setCount(count: number) {
+        set({
+          count
+        });
+      }
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().setCount(1);
+  const past = api.getPast();
+  past[0].count = 999;
+
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().count).toBe(0);
+
+  const future = api.getFuture();
+  future[0].count = 999;
+
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getState().count).toBe(1);
 });
 
 test('time traveling setState does not clear redo stack', () => {
