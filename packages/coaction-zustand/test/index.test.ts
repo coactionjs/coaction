@@ -233,6 +233,40 @@ test('base direct zustand replacement removes stale data keys without copying ac
   expect(typeof external.getState().replaceA).toBe('function');
 });
 
+test('initializer set replace removes stale data keys without deleting actions', () => {
+  type State = {
+    a?: number;
+    b?: number;
+    replaceA: () => void;
+  };
+  const external = createWithZustand<State>(
+    bindZustand((set) => ({
+      a: 1,
+      b: 2,
+      replaceA() {
+        set(
+          {
+            a: 3
+          } as State,
+          true
+        );
+      }
+    }))
+  );
+  const useStore = create(() => adapt(external), {
+    name: 'test-zustand-initializer-replace'
+  });
+
+  useStore.getState().replaceA();
+
+  expect(useStore.getPureState()).toEqual({
+    a: 3
+  });
+  expect((external.getState() as any).b).toBeUndefined();
+  expect(typeof useStore.getState().replaceA).toBe('function');
+  expect(typeof external.getState().replaceA).toBe('function');
+});
+
 test('direct zustand mutations refresh signal-backed dependencies', () => {
   type Counter = {
     count: number;

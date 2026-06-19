@@ -117,9 +117,17 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
     });
     const state = initializer(
       (...args) => {
-        const [state] = args;
+        const [state, replace] = args;
         if (!coactionStore) {
           (set as (...args: any[]) => void)(...args);
+          return;
+        }
+        if (replace) {
+          const nextState =
+            typeof state === 'function'
+              ? state(coactionStore.getState())
+              : state;
+          coactionStore.apply(nextState as any);
           return;
         }
         coactionStore.setState(state as any);
