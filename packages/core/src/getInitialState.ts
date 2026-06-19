@@ -1,6 +1,7 @@
 import { bindSymbol } from './constant';
 import type { CreateState, ISlices, Slice, Store } from './interface';
 import { Internal } from './internal';
+import { getOwnEnumerableKeys, isUnsafeKey, setOwnEnumerable } from './utils';
 
 type StateFactory<T extends CreateState> = (
   setState: Store<T>['setState'],
@@ -20,7 +21,7 @@ type BoundState = {
       rawState: object,
       state: object,
       internal: Internal<object>,
-      key?: string
+      key?: PropertyKey
     ) => void;
   };
 };
@@ -43,16 +44,19 @@ const hasBindState = (value: unknown): value is object & BoundState =>
 const formatInvalidStateMessage = (
   type: 'value' | 'result',
   stateOrFn: unknown,
-  key?: string
+  key?: PropertyKey
 ) =>
-  `Invalid state ${type} encountered in makeState: ${key ? `for key ${key}, ` : ''}${typeof stateOrFn}`;
+  `Invalid state ${type} encountered in makeState: ${typeof key !== 'undefined' ? `for key ${String(key)}, ` : ''}${typeof stateOrFn}`;
 
 export const getInitialState = <T extends CreateState>(
   store: Store<T>,
   createState: Slice<T> | T,
   internal: Internal<T>
 ) => {
-  const makeState = (stateOrFn: StateFactory<T> | object, key?: string) => {
+  const makeState = (
+    stateOrFn: StateFactory<T> | object,
+    key?: PropertyKey
+  ) => {
     let state: unknown;
     if (isStateFactory<T>(stateOrFn)) {
       // It's a slice creator function or a function returning state
@@ -104,13 +108,21 @@ export const getInitialState = <T extends CreateState>(
     }
     return state as object;
   };
-  return store.isSliceStore
-    ? Object.entries(createState).reduce(
-        (stateTree, [key, value]) =>
-          Object.assign(stateTree, {
-            [key]: makeState(value as Slice<any>, key)
-          }),
-        {} as ISlices<Slice<any>>
-      )
-    : makeState(createState as Slice<any> | object);
+  if (!store.isSliceStore) {
+    return makeState(createState as Slice<any> | object);
+  }
+  return getOwnEnumerableKeys(createState as object).reduce(
+    (stateTree, key) => {
+      if (typeof key === 'string' && isUnsafeKey(key)) {
+        return stateTree;
+      }
+      setOwnEnumerable(
+        stateTree as Record<PropertyKey, unknown>,
+        key,
+        makeState((createState as Record<PropertyKey, Slice<any>>)[key], key)
+      );
+      return stateTree;
+    },
+    {} as ISlices<Slice<any>>
+  );
 };

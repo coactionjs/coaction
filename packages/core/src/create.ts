@@ -19,6 +19,7 @@ import { applyMiddlewares } from './applyMiddlewares';
 import { wrapStore } from './wrapStore';
 import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
+import { getOwnEnumerableKeys } from './utils';
 
 const namespaceMap = new Map<string, boolean>();
 let hasWarnedAmbiguousFunctionMap = false;
@@ -178,7 +179,9 @@ export const create: Creator = <T extends CreateState>(
         internal.rootState as T;
       const isFunctionMapObject = () => {
         if (typeof createState === 'object' && createState !== null) {
-          const values = Object.values(createState);
+          const values = getOwnEnumerableKeys(createState).map(
+            (key) => (createState as Record<PropertyKey, unknown>)[key]
+          );
           return (
             values.length > 0 &&
             values.every((value) => typeof value === 'function')

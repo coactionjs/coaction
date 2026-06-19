@@ -48,7 +48,7 @@ export type ExternalStoreAdapterOptions<F = (...args: any[]) => any> = {
     /**
      * Optional nested key returned by `handleState`.
      */
-    key?: string
+    key?: PropertyKey
   ) => void;
   /**
    * This phantom field lets callers pin the returned adapter function type

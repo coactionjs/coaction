@@ -136,6 +136,38 @@ describe('State Management Store Tests', () => {
     }
   });
 
+  test('should support symbol keyed slices', () => {
+    const counter = Symbol('counter-slice');
+    const useStore = create({
+      [counter]: (set) => ({
+        count: 0,
+        increment() {
+          set({
+            [counter]: {
+              count: 1
+            }
+          } as any);
+        }
+      })
+    } as any);
+
+    expect(useStore.isSliceStore).toBeTruthy();
+    expect(Object.getOwnPropertySymbols(useStore.getState())).toContain(
+      counter
+    );
+    expect((useStore.getState() as any)[counter].count).toBe(0);
+
+    (useStore.getState() as any)[counter].increment();
+    expect((useStore.getState() as any)[counter].count).toBe(1);
+
+    useStore.setState({
+      [counter]: {
+        count: 2
+      }
+    } as any);
+    expect((useStore.getPureState() as any)[counter].count).toBe(2);
+  });
+
   test('should update state using function', () => {
     store.setState((state: any) => ({ counter: state.counter + 5 }));
     const state = store.getState();

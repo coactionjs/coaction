@@ -35,7 +35,7 @@ type CreateClientActionOptions<T extends CreateState> = {
   internal: Internal<T>;
   key: string;
   store: MiddlewareStore<T>;
-  sliceKey?: string;
+  sliceKey?: PropertyKey;
 };
 
 export const createClientAction = <T extends CreateState>({
@@ -87,7 +87,13 @@ export const createClientAction = <T extends CreateState>({
         throw error;
       }
     };
-    const keys = sliceKey ? [sliceKey, key] : [key];
+    if (typeof sliceKey === 'symbol') {
+      throw new Error(
+        'Symbol-keyed slice actions are not supported in client store mode.'
+      );
+    }
+    const keys =
+      typeof sliceKey !== 'undefined' ? [String(sliceKey), key] : [key];
     // emit the action to worker or main thread execute
     return traceAction(() =>
       store

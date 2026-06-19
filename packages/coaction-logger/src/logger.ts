@@ -18,6 +18,9 @@ export const timer =
 const traceTimeMap = new Map<string, number>();
 const loggerStoreMap = new WeakMap<MiddlewareStore<any>, boolean>();
 
+const formatSlicePrefix = (sliceKey: PropertyKey | undefined) =>
+  typeof sliceKey === 'undefined' ? '' : `${String(sliceKey)}.`;
+
 export interface Logger {
   log: (...args: any[]) => void;
   group: (...args: any[]) => void;
@@ -82,7 +85,7 @@ export const logger: (options?: {
           [
             verbose ? `%c${date} ` : '%c',
             verbose ? `[Share: ${store.share}]` : '',
-            `${verbose ? `[Store: ${store.name}]` : ''}[Method: ${options.sliceKey ? `${options.sliceKey}.` : ''}${options.method}]`,
+            `${verbose ? `[Store: ${store.name}]` : ''}[Method: ${formatSlicePrefix(options.sliceKey)}${options.method}]`,
             verbose ? ` [UUID: ${options.id}]` : '',
             ` Parameters:`
           ].join('%c'),
@@ -103,7 +106,7 @@ export const logger: (options?: {
           [
             verbose ? `%c${date} ` : '%c',
             verbose ? `[Share: ${store.share}]` : '',
-            `${verbose ? `[Store: ${store.name}]` : ''}[Method: ${options.sliceKey ? `${options.sliceKey}.` : ''}${options.method}]`,
+            `${verbose ? `[Store: ${store.name}]` : ''}[Method: ${formatSlicePrefix(options.sliceKey)}${options.method}]`,
             ` ${verbose ? `[UUID: ${options.id}] ` : ''}(${(timer.now() - start).toFixed(3)} ms)`,
             ` Result:`
           ].join('%c'),

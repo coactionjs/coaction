@@ -25,10 +25,10 @@ export type StoreWithAsyncFunction<
   select: <P>(selector: (state: Asyncify<T, D>) => P) => Signal<P>;
 };
 
-export type CreateState = ISlices | Record<string, Slice<any>>;
+export type CreateState = ISlices | Record<PropertyKey, Slice<any>>;
 
 export type Creator = {
-  <T extends Record<string, Slice<any>>>(
+  <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: StoreOptions<T>
   ): StoreReturn<SliceState<T>>;
@@ -36,7 +36,7 @@ export type Creator = {
     createState: Slice<T>,
     options?: StoreOptions<T>
   ): StoreReturn<T>;
-  <T extends Record<string, Slice<any>>>(
+  <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: ClientStoreOptions<T>
   ): StoreWithAsyncFunction<SliceState<T>, true>;

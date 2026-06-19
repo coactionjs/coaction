@@ -20,14 +20,16 @@ type CreateLocalActionOptions<T extends CreateState> = {
   key: string;
   options: StoreOptions<T> | ClientStoreOptions<T>;
   store: MiddlewareStore<T>;
-  sliceKey?: string;
+  sliceKey?: PropertyKey;
 };
 
 const getActionTarget = <T extends CreateState>(
   store: MiddlewareStore<T>,
-  sliceKey?: string
+  sliceKey?: PropertyKey
 ) => {
-  return sliceKey ? store.getState()[sliceKey] : store.getState();
+  return typeof sliceKey !== 'undefined'
+    ? store.getState()[sliceKey]
+    : store.getState();
 };
 
 export const createLocalAction = <T extends CreateState>({

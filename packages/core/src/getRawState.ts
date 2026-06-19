@@ -11,7 +11,7 @@ import {
   prepareAccessorDescriptor,
   prepareStateDescriptor
 } from './getRawStateStateProperty';
-import { isUnsafeKey, setOwnEnumerable } from './utils';
+import { getOwnEnumerableKeys, isUnsafeKey, setOwnEnumerable } from './utils';
 
 const defaultClientExecuteSyncTimeoutMs = 1500;
 
@@ -37,8 +37,12 @@ export const getRawState = <T extends CreateState>(
   options: StoreOptions<T> | ClientStoreOptions<T>
 ) => {
   const clientExecuteSyncTimeoutMs = getClientExecuteSyncTimeoutMs(options);
-  const rawState = {} as Record<string, any>;
-  const handle = (_rawState: any, _initialState: any, sliceKey?: string) => {
+  const rawState = {} as Record<PropertyKey, any>;
+  const handle = (
+    _rawState: any,
+    _initialState: any,
+    sliceKey?: PropertyKey
+  ) => {
     internal.mutableInstance = internal.toMutableRaw?.(_initialState);
     const safeDescriptors: PropertyDescriptorMap = {};
     const descriptors = Object.getOwnPropertyDescriptors(_initialState);
@@ -102,16 +106,20 @@ export const getRawState = <T extends CreateState>(
   };
   if (store.isSliceStore) {
     internal.module = {} as T;
-    Object.entries(initialState).forEach(([key, value]) => {
-      if (isUnsafeKey(key)) {
+    getOwnEnumerableKeys(initialState).forEach((key) => {
+      if (typeof key === 'string' && isUnsafeKey(key)) {
         return;
       }
       const sliceRawState = {};
       setOwnEnumerable(rawState, key, sliceRawState);
       setOwnEnumerable(
-        internal.module as Record<string, unknown>,
+        internal.module as Record<PropertyKey, unknown>,
         key,
-        handle(sliceRawState, value, key)
+        handle(
+          sliceRawState,
+          (initialState as Record<PropertyKey, unknown>)[key],
+          key
+        )
       );
     });
   } else {

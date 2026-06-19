@@ -4,7 +4,7 @@ import type { Draft, Patches } from 'mutative';
 /**
  * Generic object shape used by stores and slices.
  */
-export type ISlices<T = any> = Record<string, T>;
+export type ISlices<T = any> = Record<PropertyKey, T>;
 
 /**
  * Recursive partial object accepted by {@link Store.setState} when merging a
@@ -42,7 +42,7 @@ export interface StoreTraceEvent {
   /**
    * The slice key.
    */
-  sliceKey?: string;
+  sliceKey?: PropertyKey;
   /**
    * The parameters of the method.
    */
@@ -267,7 +267,7 @@ export type Middleware<T extends CreateState> = (
  * Derived state object produced by mapping slice factories to their return
  * types.
  */
-export type SliceState<T extends Record<string, Slice<any>>> = {
+export type SliceState<T extends Record<PropertyKey, Slice<any>>> = {
   [K in keyof T]: ReturnType<T[K]>;
 };
 
@@ -408,7 +408,7 @@ export type StoreReturn<T extends object> = Store<T> & ((...args: any[]) => T);
  * This can be either a single store factory/object or a map of slice
  * factories.
  */
-export type CreateState = ISlices | Record<string, Slice<any>>;
+export type CreateState = ISlices | Record<PropertyKey, Slice<any>>;
 
 /**
  * Overload set for {@link create}.
@@ -423,7 +423,7 @@ export type CreateState = ISlices | Record<string, Slice<any>>;
  * `sliceMode` to avoid ambiguous inference.
  */
 export type Creator = {
-  <T extends Record<string, Slice<any>>>(
+  <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: StoreOptions<T>
   ): StoreReturn<SliceState<T>>;
@@ -431,7 +431,7 @@ export type Creator = {
     createState: Slice<T>,
     options?: StoreOptions<T>
   ): StoreReturn<T>;
-  <T extends Record<string, Slice<any>>>(
+  <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: ClientStoreOptions<T>
   ): StoreWithAsyncFunction<SliceState<T>, true>;

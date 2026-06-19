@@ -12,7 +12,7 @@ type PrepareStateDescriptorOptions<T extends CreateState> = {
   internal: Internal<T>;
   key: PropertyKey;
   rawState: Record<PropertyKey, any>;
-  sliceKey?: string;
+  sliceKey?: PropertyKey;
 };
 
 export const prepareStateDescriptor = <T extends CreateState>({
@@ -24,7 +24,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
 }: PrepareStateDescriptorOptions<T>) => {
   const isComputed = descriptor.value instanceof Computed;
   const readStateValue = () =>
-    sliceKey
+    typeof sliceKey !== 'undefined'
       ? (internal.rootState as any)[sliceKey][key]
       : (internal.rootState as any)[key];
   if (internal.mutableInstance) {
@@ -46,7 +46,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
     descriptor.get = (descriptor.value as Computed).createGetter({
       internal
     });
-  } else if (sliceKey) {
+  } else if (typeof sliceKey !== 'undefined') {
     const read = createTrackedStateReader(
       internal,
       readStateValue,
