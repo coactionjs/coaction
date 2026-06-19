@@ -20,6 +20,7 @@ import {
 } from './utils';
 import { emit, handleDraft } from './asyncClientStore';
 import { Computed, refreshSignalSlots } from './computed';
+import { validateSharedStateSerializable } from './sharedState';
 
 export const handleState = <T extends CreateState>(
   store: MiddlewareStore<T>,
@@ -75,6 +76,9 @@ export const handleState = <T extends CreateState>(
             enablePatches: true
           }
         );
+        if (store.share === 'main') {
+          validateSharedStateSerializable(result[0]);
+        }
         patches = result[1];
         inversePatches = result[2];
       } finally {
@@ -181,6 +185,9 @@ export const handleState = <T extends CreateState>(
         handleDraft(store, internal);
       }
       result = updater(next);
+      if (store.share === 'main') {
+        validateSharedStateSerializable(internal.rootState);
+      }
       if (isDrafted) {
         internal.backupState = internal.rootState;
         const [draft, finalize] = createWithMutative(

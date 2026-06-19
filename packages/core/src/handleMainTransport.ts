@@ -7,6 +7,7 @@ import type {
   StoreTransport
 } from './interface';
 import type { Internal } from './internal';
+import { validateSharedStateSerializable } from './sharedState';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -78,6 +79,7 @@ export const handleMainTransport = <T extends CreateState>(
     }
   });
   transport.listen('fullSync', async () => {
+    validateSharedStateSerializable(internal.rootState);
     return {
       state: JSON.stringify(internal.rootState),
       sequence: internal.sequence

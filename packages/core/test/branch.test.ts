@@ -821,6 +821,105 @@ test('create rejects nested symbol keyed state in client shared store mode', () 
   );
 });
 
+test('create rejects symbol valued state in shared store mode', () => {
+  expect(() => {
+    create(
+      () => ({
+        nested: {
+          value: Symbol('nested-value')
+        }
+      }),
+      {
+        clientTransport: {} as any
+      } as any
+    );
+  }).toThrow(
+    'Symbol-valued state is not supported in shared store mode because transport synchronization uses JSON. Found symbol value at nested.value.'
+  );
+});
+
+test('shared store rejects runtime symbol keyed state before emitting patches', () => {
+  const symbolKey = Symbol('runtime-state');
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    onConnect: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      count: 0,
+      addSymbol() {
+        set({
+          [symbolKey]: 1
+        } as any);
+      }
+    }),
+    {
+      transport: transport as any
+    }
+  );
+
+  expect(() => store.getState().addSymbol()).toThrow(
+    'Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at Symbol(runtime-state).'
+  );
+  expect(Object.getOwnPropertySymbols(store.getPureState())).toHaveLength(0);
+  expect(transport.emit).not.toHaveBeenCalled();
+});
+
+test('shared store rejects runtime symbol valued state before emitting patches', () => {
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    onConnect: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      value: 0 as number | symbol,
+      setSymbol() {
+        set({
+          value: Symbol('runtime-value')
+        });
+      }
+    }),
+    {
+      transport: transport as any
+    }
+  );
+
+  expect(() => store.getState().setSymbol()).toThrow(
+    'Symbol-valued state is not supported in shared store mode because transport synchronization uses JSON. Found symbol value at value.'
+  );
+  expect(store.getPureState().value).toBe(0);
+  expect(transport.emit).not.toHaveBeenCalled();
+});
+
+test('shared store validates state again before fullSync serialization', async () => {
+  const handlers = new Map<string, (...args: any[]) => unknown>();
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn((name: string, handler: (...args: any[]) => unknown) => {
+      handlers.set(name, handler);
+    }),
+    onConnect: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    () => ({
+      value: 0 as number | symbol
+    }),
+    {
+      transport: transport as any
+    }
+  );
+  store.getPureState().value = Symbol('full-sync');
+
+  await expect(handlers.get('fullSync')!()).rejects.toThrow(
+    'Symbol-valued state is not supported in shared store mode because transport synchronization uses JSON. Found symbol value at value.'
+  );
+});
+
 test('create validates explicit slices mode and supports valid slices mode', () => {
   expect(() => {
     create(

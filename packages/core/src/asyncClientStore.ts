@@ -8,6 +8,7 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import { wrapStore } from './wrapStore';
+import { validateSharedStateSerializable } from './sharedState';
 
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
@@ -138,6 +139,7 @@ export const emit = <T extends CreateState>(
   patches?: Patches
 ) => {
   if (store.transport && patches?.length) {
+    validateSharedStateSerializable(internal.rootState);
     internal.sequence += 1;
     // it is not necessary to respond to the update event
     store.transport.emit(
@@ -158,7 +160,10 @@ export const handleDraft = <T extends CreateState>(
   internal: Internal<T>
 ) => {
   internal.rootState = internal.backupState;
-  const [, patches, inversePatches] = internal.finalizeDraft();
+  const [nextState, patches, inversePatches] = internal.finalizeDraft();
+  if (store.share === 'main') {
+    validateSharedStateSerializable(nextState);
+  }
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
