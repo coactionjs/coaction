@@ -123,6 +123,40 @@ test('selector subscriptions skip unrelated state updates', () => {
   expect(renders).toBe(2);
 });
 
+test('selector snapshots cache object results', () => {
+  const useStore = create<{
+    count: number;
+    increment: () => void;
+  }>((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+
+  const Counter = () => {
+    const selected = useStore((current) => ({
+      count: current.count
+    }));
+    return React.createElement(
+      'button',
+      {
+        'data-testid': 'count',
+        onClick: useStore.getState().increment
+      },
+      selected.count
+    );
+  };
+
+  render(React.createElement(Counter) as any);
+  expect(screen.getByTestId('count').textContent).toBe('0');
+
+  fireEvent.click(screen.getByTestId('count'));
+  expect(screen.getByTestId('count').textContent).toBe('1');
+});
+
 test('observer tracks full-state reads without selector', () => {
   const useStore = create<{
     count: number;
@@ -529,4 +563,39 @@ test('createSelector combines multiple stores', () => {
     useStep.getState().incrementStep();
   });
   expect(screen.getByTestId('total').textContent).toBe('4');
+});
+
+test('createSelector snapshots cache object results', () => {
+  const useCounter = create((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+  const useStep = create(() => ({
+    step: 2
+  }));
+  const useMultiSelector = createSelector(useCounter, useStep);
+
+  const Counter = () => {
+    const selected = useMultiSelector((counter, step) => ({
+      total: counter.count + step.step
+    }));
+    return React.createElement(
+      'button',
+      {
+        'data-testid': 'total',
+        onClick: useCounter.getState().increment
+      },
+      selected.total
+    );
+  };
+
+  render(React.createElement(Counter) as any);
+  expect(screen.getByTestId('total').textContent).toBe('2');
+
+  fireEvent.click(screen.getByTestId('total'));
+  expect(screen.getByTestId('total').textContent).toBe('3');
 });

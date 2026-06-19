@@ -1,9 +1,7 @@
 import * as React from 'react';
 import {
-  computed,
   create as createVanilla,
   createReactiveTracker,
-  effect,
   wrapStore
 } from 'coaction';
 import type {
@@ -412,41 +410,38 @@ const touchState = (value: unknown, seen = new WeakSet<object>()) => {
 
 const createReactiveSelector = <TState extends object, TValue>(
   store: Store<TState>,
-  selector: SelectorFn<TState, TValue>
+  selector: SelectorFn<TState, TValue>,
+  getVersion: () => number
 ) => {
-  const selected = computed(() => selector(store.getState()));
   return {
     createSubscription() {
+      let currentVersion = getVersion();
       let currentValue = selector(store.getState());
-      const notifyIfChanged = (nextValue: TValue, listener: () => void) => {
+      const serverValue = selector(store.getInitialState());
+      const readSnapshot = () => {
+        const nextVersion = getVersion();
+        if (nextVersion !== currentVersion) {
+          currentVersion = nextVersion;
+          currentValue = selector(store.getState());
+        }
+        return currentValue;
+      };
+      const notifyIfChanged = (listener: () => void) => {
+        currentVersion = getVersion();
+        const nextValue = selector(store.getState());
         if (!Object.is(currentValue, nextValue)) {
           currentValue = nextValue;
           listener();
         }
       };
       return {
-        getSnapshot: () => {
-          currentValue = selector(store.getState());
-          return currentValue;
-        },
+        getSnapshot: readSnapshot,
+        getServerSnapshot: () => serverValue,
         subscribe(listener: () => void) {
-          let isInitialRun = true;
-          currentValue = selector(store.getState());
-          const stop = effect(() => {
-            const nextValue = selected();
-            if (isInitialRun) {
-              isInitialRun = false;
-              return;
-            }
-            notifyIfChanged(nextValue, listener);
-          });
           const unsubscribe = store.subscribe(() => {
-            notifyIfChanged(selector(store.getState()), listener);
+            notifyIfChanged(listener);
           });
-          return () => {
-            stop();
-            unsubscribe();
-          };
+          return unsubscribe;
         }
       };
     }
@@ -491,7 +486,11 @@ export const create: Creator = (createState: any, options: any) => {
   const getReactiveSelector = (selector: SelectorFn<any, any>) => {
     let reactiveSelector = reactiveSelectors.get(selector);
     if (!reactiveSelector) {
-      reactiveSelector = createReactiveSelector(store, selector);
+      reactiveSelector = createReactiveSelector(
+        store,
+        selector,
+        () => fullStateVersion
+      );
       reactiveSelectors.set(selector, reactiveSelector);
     }
     return reactiveSelector;
@@ -503,7 +502,7 @@ export const create: Creator = (createState: any, options: any) => {
       return useSyncExternalStore(
         subscription.subscribe,
         subscription.getSnapshot,
-        () => selector(store.getInitialState())
+        subscription.getServerSnapshot
       );
     }
     if (selector?.autoSelector) {
@@ -540,21 +539,31 @@ export const createSelector: CreateSelector = (
   ...stores: StoreReturn<any>[]
 ) => {
   return (selector: (...args: any[]) => any) => {
+    const readSelected = (readStore: (store: StoreReturn<any>) => unknown) =>
+      selector.apply(
+        null,
+        stores.map((store) => readStore(store))
+      );
+    let currentValue = readSelected((store) => store.getState());
+    const serverValue = readSelected((store) => store.getInitialState());
+    const notifyIfChanged = (listener: () => void) => {
+      const nextValue = readSelected((store) => store.getState());
+      if (!Object.is(currentValue, nextValue)) {
+        currentValue = nextValue;
+        listener();
+      }
+    };
     return useSyncExternalStore(
       (callback) => {
-        const callbacks = stores.map((store) => store.subscribe(callback));
+        const callbacks = stores.map((store) =>
+          store.subscribe(() => {
+            notifyIfChanged(callback);
+          })
+        );
         return () => callbacks.forEach((cb) => cb());
       },
-      () =>
-        selector.apply(
-          null,
-          stores.map((store) => store.getState())
-        ),
-      () =>
-        selector.apply(
-          null,
-          stores.map((store) => store.getInitialState())
-        )
+      () => currentValue,
+      () => serverValue
     );
   };
 };
