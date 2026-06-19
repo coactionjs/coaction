@@ -140,7 +140,7 @@ export const persist =
             return;
           }
         }
-        store.setState(merge(persistedState, store.getPureState()));
+        store.apply(merge(persistedState, store.getPureState()) as T);
         if (shouldWriteBack && !destroyed) {
           const payload = serialize({
             state: partialize(store.getPureState()),

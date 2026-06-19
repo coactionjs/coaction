@@ -184,6 +184,43 @@ test('rehydrate merge receives pure state without action functions', async () =>
   expect(useStore.getState().count).toBe(7);
 });
 
+test('custom rehydrate merge can replace state exactly', async () => {
+  const storage = createMemoryStorage();
+  storage.setItem(
+    'replace-state-merge',
+    JSON.stringify({
+      state: {
+        a: 3
+      },
+      version: 0
+    })
+  );
+
+  const useStore = create(
+    () => ({
+      a: 1,
+      b: 2
+    }),
+    {
+      middlewares: [
+        persist({
+          name: 'replace-state-merge',
+          storage,
+          merge: (persistedState) => persistedState
+        })
+      ]
+    }
+  );
+
+  await nextTick();
+
+  expect(useStore.getPureState()).toEqual({
+    a: 3
+  });
+  expect(useStore.getState().a).toBe(3);
+  expect(useStore.getState().b).toBeUndefined();
+});
+
 test('rehydrate writes back current version without migrate', async () => {
   const storage = createMemoryStorage();
   storage.setItem(
