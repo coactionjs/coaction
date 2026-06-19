@@ -140,15 +140,17 @@ export const handleState = <T extends CreateState>(
       } else {
         const copy = cloneOwnEnumerable(internal.rootState as T);
         if (store.isSliceStore) {
-          for (const key of getOwnEnumerableKeys(next!)) {
-            if (!Object.prototype.hasOwnProperty.call(copy, key)) {
+          const nextRecord = next as Record<PropertyKey, unknown>;
+          const copyRecord = copy as Record<PropertyKey, unknown>;
+          for (const key of getOwnEnumerableKeys(nextRecord)) {
+            if (!Object.prototype.hasOwnProperty.call(copyRecord, key)) {
               continue;
             }
-            const sourceValue = next![key];
+            const sourceValue = nextRecord[key];
             if (typeof sourceValue !== 'object' || sourceValue === null) {
               continue;
             }
-            const targetValue = copy[key];
+            const targetValue = copyRecord[key];
             if (typeof targetValue !== 'object' || targetValue === null) {
               continue;
             }
@@ -156,11 +158,7 @@ export const handleState = <T extends CreateState>(
               targetValue as Record<PropertyKey, unknown>
             );
             mergeObject(sliceCopy, sourceValue);
-            setOwnEnumerable(
-              copy as Record<PropertyKey, unknown>,
-              key,
-              sliceCopy
-            );
+            setOwnEnumerable(copyRecord, key, sliceCopy);
           }
         } else {
           mergeObject(copy, next);
