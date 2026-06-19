@@ -113,6 +113,8 @@ describe('State Management Store Tests', () => {
     store.setState((state: any) => ({ counter: state.counter + 5 }));
     const state = store.getState();
     expect(state.counter).toBe(5);
+    expect(state.text).toBe('hello');
+    expect(state.nested.value).toBe(42);
   });
 
   test('should handle nested state updates', () => {
@@ -130,6 +132,17 @@ describe('State Management Store Tests', () => {
     expect(newState.counter).toBe(1);
   });
 
+  test('should support postfix increment draft updates', () => {
+    const useStore = create((set) => ({
+      count: 0,
+      increment: () => set((state: any) => state.count++)
+    }));
+
+    useStore.getState().increment();
+
+    expect(useStore.getState().count).toBe(1);
+  });
+
   test('should subscribe to state changes', () => {
     const listener = jest.fn();
     const unsubscribe = store.subscribe(listener);
@@ -142,13 +155,14 @@ describe('State Management Store Tests', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  // test('no support async actions', async () => {
-  //   expect(() => {
-  //     store.setState(async (state: any) => {
-  //       state.counter = await Promise.resolve(50);
-  //     });
-  //   }).toThrow('setState with async function is not supported');
-  // });
+  test('no support async actions', () => {
+    expect(() => {
+      store.setState(async (state: any) => {
+        state.counter = await Promise.resolve(50);
+      });
+    }).toThrow('setState with async function is not supported');
+    expect(store.getState().counter).toBe(0);
+  });
 
   test('should destroy store correctly', () => {
     const listener = jest.fn();

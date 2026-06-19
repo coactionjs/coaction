@@ -112,7 +112,19 @@ export const handleState = <T extends CreateState>(
             internal.rootState,
             (draft) => {
               internal.rootState = draft as Draft<T>;
-              return next(internal.module);
+              const returnValue = next(internal.module);
+              if (returnValue instanceof Promise) {
+                throw new Error(
+                  'setState with async function is not supported'
+                );
+              }
+              if (typeof returnValue === 'object' && returnValue !== null) {
+                mergeObject(
+                  internal.rootState,
+                  returnValue,
+                  store.isSliceStore
+                );
+              }
             }
           );
         } catch (error) {
