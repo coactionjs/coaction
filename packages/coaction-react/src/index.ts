@@ -1,4 +1,11 @@
-import { computed, create as createVanilla, effect, wrapStore } from 'coaction';
+import * as React from 'react';
+import {
+  computed,
+  create as createVanilla,
+  createReactiveTracker,
+  effect,
+  wrapStore
+} from 'coaction';
 import type {
   Slice,
   Store,
@@ -6,7 +13,8 @@ import type {
   ClientStoreOptions,
   SliceState,
   ISlices,
-  Asyncify
+  Asyncify,
+  ReactiveTracker
 } from 'coaction';
 // Keep the shim so one published build works across React 17/18/19.
 // Switching to `react` directly would be a breaking change for React 17 users.
@@ -19,6 +27,242 @@ type SelectorOptions = {
 };
 
 type SelectorFn<TState extends object, TValue> = (state: TState) => TValue;
+type ObserverRender<P extends object> = ((props: P) => React.ReactNode) & {
+  displayName?: string;
+  name?: string;
+};
+type ObserverTrackerState = {
+  getSnapshot: () => number;
+  subscribe: (listener: () => void) => () => void;
+  commit: () => void;
+  track: <T>(render: () => T) => T;
+  dispose: () => void;
+};
+type TrackedRender = {
+  tracker: ReactiveTracker;
+  snapshot: number;
+};
+
+let observerRenderDepth = 0;
+const observerUncommittedCleanupMs = 10_000;
+
+const isObserverRendering = () => observerRenderDepth > 0;
+
+const isReactNativeEnvironment = () =>
+  typeof navigator !== 'undefined' && navigator.product === 'ReactNative';
+
+const canTrackObserverRender = () =>
+  typeof window !== 'undefined' || isReactNativeEnvironment();
+
+const useObserverCommitEffect =
+  canTrackObserverRender() && React.useLayoutEffect
+    ? React.useLayoutEffect
+    : React.useEffect;
+
+const runObserverRender = <T>(render: () => T) => {
+  observerRenderDepth += 1;
+  try {
+    return render();
+  } finally {
+    observerRenderDepth -= 1;
+  }
+};
+
+const getObserverDisplayName = (Component: ObserverRender<object>) =>
+  Component.displayName ?? Component.name ?? 'Component';
+
+const createObserverTrackerState = (): ObserverTrackerState => {
+  let activeTracker: ReactiveTracker | undefined;
+  let activeUnsubscribe: (() => void) | undefined;
+  let latestRender: TrackedRender | undefined;
+  let version = 0;
+  let disposed = false;
+  const listeners = new Set<() => void>();
+  const cleanupHandles = new Map<
+    ReactiveTracker,
+    ReturnType<typeof setTimeout>
+  >();
+
+  const notify = () => {
+    if (disposed) {
+      return;
+    }
+    version += 1;
+    listeners.forEach((listener) => listener());
+  };
+  const clearTrackerCleanup = (tracker: ReactiveTracker) => {
+    const cleanupHandle = cleanupHandles.get(tracker);
+    if (cleanupHandle !== undefined) {
+      clearTimeout(cleanupHandle);
+      cleanupHandles.delete(tracker);
+    }
+  };
+  const disposeTracker = (tracker: ReactiveTracker) => {
+    clearTrackerCleanup(tracker);
+    tracker.dispose();
+  };
+  const scheduleTrackerCleanup = (tracker: ReactiveTracker) => {
+    clearTrackerCleanup(tracker);
+    if (!canTrackObserverRender()) {
+      return;
+    }
+    const cleanupHandle = setTimeout(() => {
+      cleanupHandles.delete(tracker);
+      if (activeTracker === tracker) {
+        activeUnsubscribe?.();
+        activeUnsubscribe = undefined;
+        activeTracker = undefined;
+      }
+      if (latestRender?.tracker === tracker) {
+        latestRender = undefined;
+      }
+      tracker.dispose();
+    }, observerUncommittedCleanupMs);
+    (cleanupHandle as { unref?: () => void }).unref?.();
+    cleanupHandles.set(tracker, cleanupHandle);
+  };
+  const unsubscribeActiveTracker = () => {
+    activeUnsubscribe?.();
+    activeUnsubscribe = undefined;
+  };
+  const subscribeActiveTracker = () => {
+    unsubscribeActiveTracker();
+    if (!activeTracker || listeners.size === 0 || disposed) {
+      return;
+    }
+    activeUnsubscribe = activeTracker.subscribe(notify);
+  };
+  const dispose = () => {
+    if (disposed) {
+      return;
+    }
+    disposed = true;
+    unsubscribeActiveTracker();
+    listeners.clear();
+    const trackers = new Set<ReactiveTracker>();
+    cleanupHandles.forEach((cleanupHandle, tracker) => {
+      clearTimeout(cleanupHandle);
+      trackers.add(tracker);
+    });
+    cleanupHandles.clear();
+    if (activeTracker) {
+      trackers.add(activeTracker);
+    }
+    if (latestRender) {
+      trackers.add(latestRender.tracker);
+    }
+    activeTracker = undefined;
+    latestRender = undefined;
+    trackers.forEach((tracker) => tracker.dispose());
+  };
+  return {
+    getSnapshot: () => version,
+    subscribe(listener) {
+      if (disposed) {
+        return () => undefined;
+      }
+      listeners.add(listener);
+      if (activeTracker) {
+        clearTrackerCleanup(activeTracker);
+      }
+      if (listeners.size === 1) {
+        subscribeActiveTracker();
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) {
+          unsubscribeActiveTracker();
+          if (activeTracker) {
+            scheduleTrackerCleanup(activeTracker);
+          }
+        }
+      };
+    },
+    commit() {
+      if (disposed || !latestRender) {
+        return;
+      }
+      const { tracker, snapshot } = latestRender;
+      latestRender = undefined;
+      clearTrackerCleanup(tracker);
+      if (activeTracker !== tracker) {
+        const previousTracker = activeTracker;
+        unsubscribeActiveTracker();
+        activeTracker = tracker;
+        subscribeActiveTracker();
+        if (listeners.size === 0) {
+          scheduleTrackerCleanup(tracker);
+        }
+        if (previousTracker) {
+          disposeTracker(previousTracker);
+        }
+      }
+      if (tracker.getSnapshot() !== snapshot) {
+        notify();
+      }
+    },
+    track<T>(render: () => T) {
+      if (disposed || !canTrackObserverRender()) {
+        return runObserverRender(render);
+      }
+      const tracker = createReactiveTracker();
+      scheduleTrackerCleanup(tracker);
+      try {
+        const value = tracker.track(() => runObserverRender(render));
+        latestRender = {
+          tracker,
+          snapshot: tracker.getSnapshot()
+        };
+        return value;
+      } catch (error) {
+        latestRender = {
+          tracker,
+          snapshot: tracker.getSnapshot()
+        };
+        throw error;
+      }
+    },
+    dispose
+  };
+};
+
+const useObserverTracker = () => {
+  const trackerRef = React.useRef<ObserverTrackerState | undefined>(undefined);
+  if (!trackerRef.current) {
+    trackerRef.current = createObserverTrackerState();
+  }
+  const trackerState = trackerRef.current;
+  useSyncExternalStore(
+    trackerState.subscribe,
+    trackerState.getSnapshot,
+    () => 0
+  );
+  useObserverCommitEffect(() => {
+    trackerState.commit();
+  });
+  return trackerState;
+};
+
+export const observer = <P extends object>(
+  Component: ObserverRender<P>
+): React.MemoExoticComponent<ObserverRender<P>> => {
+  const Observed = (props: P) => {
+    const trackerState = useObserverTracker();
+    return trackerState.track(() => Component(props));
+  };
+  Observed.displayName = `observer(${getObserverDisplayName(
+    Component as ObserverRender<object>
+  )})`;
+  return React.memo(Observed);
+};
+
+export type ObserverProps = {
+  children: () => React.ReactNode;
+};
+
+export const Observer = observer<ObserverProps>(({ children }) =>
+  React.createElement(React.Fragment, null, children())
+);
 
 export type AutoSelector<TState extends object, TValue> = SelectorFn<
   TState,
@@ -249,6 +493,9 @@ export const create: Creator = (createState: any, options: any) => {
     }
     if (selector?.autoSelector) {
       return getAutoSelectors();
+    }
+    if (isObserverRendering()) {
+      return store.getState();
     }
     useSyncExternalStore(
       subscribeFullState,

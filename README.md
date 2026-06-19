@@ -69,7 +69,7 @@ separate `@coaction/alien-signals` install.
 ### Standard Mode Store
 
 ```jsx
-import { create } from '@coaction/react';
+import { create, observer } from '@coaction/react';
 
 const useStore = create((set) => ({
   count: 0,
@@ -83,7 +83,7 @@ const useStore = create((set) => ({
   }
 }));
 
-const CounterComponent = () => {
+const CounterComponent = observer(() => {
   const store = useStore();
   return (
     <div>
@@ -92,8 +92,13 @@ const CounterComponent = () => {
       <button onClick={store.increment}>Increment</button>
     </div>
   );
-};
+});
 ```
+
+In React, wrap components with `observer()` for MobX/Vue-style automatic render
+tracking without selectors. Plain `useStore()` outside `observer()` remains a
+whole-store subscription; use `useStore(selector)` or `useStore.auto()` when you
+prefer explicit React selector subscriptions.
 
 ### Shared Mode Store
 
@@ -264,6 +269,7 @@ Coaction inherits Zustand's intuitive API design while adding built-in support f
 | Signal-backed cached getters       |    ✅    |   ❌    |
 | Explicit computed deps via `get()` |    ✅    |   ❌    |
 | Signal-backed selector reactivity  |    ✅    |   ❌    |
+| Observer automatic React tracking  |    ✅    |   ❌    |
 | Built-in namespace Slices          |    ✅    |   ❌    |
 | Built-in auto selector for state   |    ✅    |   ❌    |
 | Built-in multiple stores selector  |    ✅    |   ❌    |

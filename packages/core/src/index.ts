@@ -1,5 +1,6 @@
 export { create } from './create';
 export { createBinder, defineExternalStoreAdapter } from './binder';
+export { createReactiveTracker } from './reactiveTracker';
 export { wrapStore } from './wrapStore';
 export {
   computed,
@@ -32,3 +33,4 @@ export type {
 } from './interface';
 
 export type { ExternalStoreAdapterOptions } from './binder';
+export type { ReactiveTracker } from './reactiveTracker';

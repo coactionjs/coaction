@@ -180,6 +180,18 @@ Direct selectors remain the normal React path:
 const count = useStore((state) => state.counter.count);
 ```
 
+If you prefer automatic render tracking without selectors, wrap the component
+with `observer()` and read the store directly during render:
+
+```tsx
+const Counter = observer(() => {
+  const store = useStore();
+  return (
+    <button onClick={store.counter.increment}>{store.counter.count}</button>
+  );
+});
+```
+
 For repeated field selectors, use the cached auto-selector map:
 
 ```tsx

@@ -25,14 +25,15 @@ would require dropping React 17 support in a future major release.
 ## Usage
 
 ```jsx
-import { create } from '@coaction/react';
+import { create, observer } from '@coaction/react';
 
 const useStore = create((set) => ({
   count: 0,
+  label: 'counter',
   increment: () => set((state) => state.count++)
 }));
 
-const CounterComponent = () => {
+const CounterComponent = observer(() => {
   const store = useStore();
   return (
     <div>
@@ -40,7 +41,28 @@ const CounterComponent = () => {
       <button onClick={store.increment}>Increment</button>
     </div>
   );
-};
+});
+```
+
+Wrap components with `observer()` when you want MobX/Vue-style automatic render
+tracking. Inside an observed render, `useStore()` does not subscribe to the
+whole store; the component re-renders only when the Coaction state/getters it
+read during render change. Without `observer()`, `useStore()` remains a
+whole-store subscription.
+
+For smaller render regions, use `<Observer>`:
+
+```tsx
+import { Observer } from '@coaction/react';
+
+const CounterValue = () => (
+  <Observer>
+    {() => {
+      const store = useStore();
+      return <span>{store.count}</span>;
+    }}
+  </Observer>
+);
 ```
 
 For selector-heavy components, `autoSelector` returns a cached selector map

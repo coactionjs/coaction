@@ -17,6 +17,9 @@ This reference is generated from the docs-only entry point in
 - {@link api-docs.defineExternalStoreAdapter | defineExternalStoreAdapter}: third-party
   whole-store adapter helper. `createBinder` remains available as the
   compatibility name.
+- {@link api-docs.createReactiveTracker | createReactiveTracker}: low-level
+  signal dependency tracker for framework adapters that need render/effect
+  invalidation without selectors.
 - {@link api-docs.wrapStore | wrapStore}: low-level helper used by framework bindings.
 - `signal`, `computed`, `effect`, `effectScope`, `trigger`, batching helpers,
   and introspection helpers: alien-signals primitives re-exported for advanced

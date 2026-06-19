@@ -1,5 +1,6 @@
 export { create } from './src/create';
 export { createBinder, defineExternalStoreAdapter } from './src/binder';
+export { createReactiveTracker } from './src/reactiveTracker';
 export { wrapStore } from './src/wrapStore';
 export {
   computed,
@@ -16,6 +17,7 @@ export {
 } from 'alien-signals';
 
 export type { ExternalStoreAdapterOptions } from './src/binder';
+export type { ReactiveTracker } from './src/reactiveTracker';
 
 export type {
   Asyncify,

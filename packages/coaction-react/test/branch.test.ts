@@ -1,7 +1,9 @@
 import { vi } from 'vitest';
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.doUnmock('use-sync-external-store/shim');
+  vi.doUnmock('coaction');
   vi.resetModules();
 });
 
@@ -149,6 +151,129 @@ test('autoSelector stops expanding recursive references', async () => {
   expect(useSyncExternalStore).not.toHaveBeenCalled();
 });
 
+test('observer disposes uncommitted render tracker after grace period', async () => {
+  vi.useFakeTimers();
+  vi.resetModules();
+  const dispose = vi.fn();
+  const tracker = {
+    dispose,
+    getSnapshot: () => 0,
+    subscribe: vi.fn(() => () => undefined),
+    track: (fn: () => unknown) => fn()
+  };
+  vi.doMock('coaction', async () => ({
+    ...(await vi.importActual<object>('coaction')),
+    createReactiveTracker: () => tracker
+  }));
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore: vi.fn(
+      (
+        _subscribe: () => () => void,
+        getSnapshot: () => unknown,
+        _getServerSnapshot?: () => unknown
+      ) => getSnapshot()
+    )
+  }));
+
+  const React = await import('react');
+  const { render } = await import('@testing-library/react');
+  const { observer } = await import('../src');
+  const Counter = observer(() => React.createElement('span', null, 'count'));
+
+  render(React.createElement(Counter) as any);
+  expect(dispose).not.toHaveBeenCalled();
+  expect(tracker.subscribe).not.toHaveBeenCalled();
+
+  vi.advanceTimersByTime(9_999);
+  expect(dispose).not.toHaveBeenCalled();
+
+  vi.advanceTimersByTime(1);
+  expect(dispose).toHaveBeenCalledTimes(1);
+});
+
+test('observer committed subscription cancels uncommitted tracker cleanup', async () => {
+  vi.useFakeTimers();
+  vi.resetModules();
+  const dispose = vi.fn();
+  const tracker = {
+    dispose,
+    getSnapshot: () => 0,
+    subscribe: vi.fn(() => () => undefined),
+    track: (fn: () => unknown) => fn()
+  };
+  vi.doMock('coaction', async () => ({
+    ...(await vi.importActual<object>('coaction')),
+    createReactiveTracker: () => tracker
+  }));
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore: vi.fn(
+      (
+        subscribe: (listener: () => void) => () => void,
+        getSnapshot: () => unknown,
+        _getServerSnapshot?: () => unknown
+      ) => {
+        subscribe(() => undefined);
+        return getSnapshot();
+      }
+    )
+  }));
+
+  const React = await import('react');
+  const { render } = await import('@testing-library/react');
+  const { observer } = await import('../src');
+  const Counter = observer(() => React.createElement('span', null, 'count'));
+
+  render(React.createElement(Counter) as any);
+  expect(tracker.subscribe).toHaveBeenCalledTimes(1);
+
+  vi.advanceTimersByTime(10_000);
+  expect(dispose).not.toHaveBeenCalled();
+});
+
+test('observer disposes tracker after committed subscription is released', async () => {
+  vi.useFakeTimers();
+  vi.resetModules();
+  let unsubscribe: (() => void) | undefined;
+  const dispose = vi.fn();
+  const tracker = {
+    dispose,
+    getSnapshot: () => 0,
+    subscribe: vi.fn(() => () => undefined),
+    track: (fn: () => unknown) => fn()
+  };
+  vi.doMock('coaction', async () => ({
+    ...(await vi.importActual<object>('coaction')),
+    createReactiveTracker: () => tracker
+  }));
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore: vi.fn(
+      (
+        subscribe: (listener: () => void) => () => void,
+        getSnapshot: () => unknown,
+        _getServerSnapshot?: () => unknown
+      ) => {
+        unsubscribe = subscribe(() => undefined);
+        return getSnapshot();
+      }
+    )
+  }));
+
+  const React = await import('react');
+  const { render } = await import('@testing-library/react');
+  const { observer } = await import('../src');
+  const Counter = observer(() => React.createElement('span', null, 'count'));
+
+  render(React.createElement(Counter) as any);
+  expect(tracker.subscribe).toHaveBeenCalledTimes(1);
+
+  unsubscribe?.();
+  vi.advanceTimersByTime(9_999);
+  expect(dispose).not.toHaveBeenCalled();
+
+  vi.advanceTimersByTime(1);
+  expect(dispose).toHaveBeenCalledTimes(1);
+});
+
 test('handles non-object slice state defensively', async () => {
   vi.resetModules();
   const mockStore = {
@@ -160,6 +285,12 @@ test('handles non-object slice state defensively', async () => {
   };
   vi.doMock('coaction', () => ({
     create: () => mockStore,
+    createReactiveTracker: () => ({
+      dispose: () => undefined,
+      getSnapshot: () => 0,
+      subscribe: () => () => undefined,
+      track: (fn: () => unknown) => fn()
+    }),
     wrapStore: (store: object, selectorHook: (selector: any) => unknown) =>
       Object.assign((selector?: unknown) => selectorHook(selector), store)
   }));

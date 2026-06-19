@@ -1,6 +1,6 @@
 import React from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { create, createSelector } from '../src';
+import { create, createSelector, Observer, observer } from '../src';
 
 test('updates component with selector and full-state access', () => {
   const useStore = create<{
@@ -105,6 +105,286 @@ test('selector subscriptions skip unrelated state updates', () => {
     const count = useStore((current) => current.count);
     return React.createElement('span', { 'data-testid': 'count' }, count);
   };
+
+  render(React.createElement(Counter) as any);
+  expect(screen.getByTestId('count').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  act(() => {
+    useStore.getState().rename();
+  });
+  expect(screen.getByTestId('count').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  act(() => {
+    useStore.getState().increment();
+  });
+  expect(screen.getByTestId('count').textContent).toBe('1');
+  expect(renders).toBe(2);
+});
+
+test('observer tracks full-state reads without selector', () => {
+  const useStore = create<{
+    count: number;
+    label: string;
+    increment: () => void;
+    rename: () => void;
+  }>((set) => ({
+    count: 0,
+    label: 'one',
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    },
+    rename() {
+      set((draft) => {
+        draft.label = 'two';
+      });
+    }
+  }));
+  let renders = 0;
+
+  const Counter = observer(() => {
+    renders += 1;
+    const store = useStore();
+    return React.createElement(
+      'button',
+      { 'data-testid': 'count', onClick: store.increment },
+      store.count
+    );
+  });
+
+  render(React.createElement(Counter) as any);
+  expect(screen.getByTestId('count').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  act(() => {
+    useStore.getState().rename();
+  });
+  expect(screen.getByTestId('count').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  fireEvent.click(screen.getByTestId('count'));
+  expect(screen.getByTestId('count').textContent).toBe('1');
+  expect(renders).toBe(2);
+});
+
+test('observer keeps tracking through StrictMode subscription replay', () => {
+  const useStore = create<{
+    count: number;
+    increment: () => void;
+  }>((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+  let renders = 0;
+
+  const Counter = observer(() => {
+    renders += 1;
+    const store = useStore();
+    return React.createElement('span', { 'data-testid': 'count' }, store.count);
+  });
+
+  render(
+    React.createElement(
+      React.StrictMode,
+      null,
+      React.createElement(Counter)
+    ) as any
+  );
+  expect(screen.getByTestId('count').textContent).toBe('0');
+  expect(renders).toBe(2);
+
+  act(() => {
+    useStore.getState().increment();
+  });
+  expect(screen.getByTestId('count').textContent).toBe('1');
+  expect(renders).toBe(4);
+});
+
+test('observer keeps committed dependencies when a transition render suspends', async () => {
+  const useStore = create<{
+    count: number;
+    label: string;
+    setCount: (count: number) => void;
+    setLabel: (label: string) => void;
+  }>((set) => ({
+    count: 0,
+    label: 'one',
+    setCount(count) {
+      set((draft) => {
+        draft.count = count;
+      });
+    },
+    setLabel(label) {
+      set((draft) => {
+        draft.label = label;
+      });
+    }
+  }));
+  const never = new Promise(() => undefined);
+  let setView!: React.Dispatch<
+    React.SetStateAction<{
+      mode: 'count' | 'label';
+      suspend: boolean;
+    }>
+  >;
+  let renders = 0;
+
+  const Counter = observer(
+    ({ mode, suspend }: { mode: 'count' | 'label'; suspend: boolean }) => {
+      renders += 1;
+      const store = useStore();
+      const value = mode === 'count' ? store.count : store.label;
+      if (suspend) {
+        throw never;
+      }
+      return React.createElement('span', { 'data-testid': 'value' }, value);
+    }
+  );
+
+  const App = () => {
+    const [view, setViewState] = React.useState<{
+      mode: 'count' | 'label';
+      suspend: boolean;
+    }>({
+      mode: 'count',
+      suspend: false
+    });
+    setView = setViewState;
+    return React.createElement(
+      React.Suspense,
+      {
+        fallback: React.createElement(
+          'span',
+          { 'data-testid': 'fallback' },
+          'loading'
+        )
+      },
+      React.createElement(Counter, view)
+    );
+  };
+
+  render(React.createElement(App) as any);
+  expect(screen.getByTestId('value').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  await act(async () => {
+    React.startTransition(() => {
+      setView({
+        mode: 'label',
+        suspend: true
+      });
+    });
+  });
+  expect(screen.getByTestId('value').textContent).toBe('0');
+  expect(screen.queryByTestId('fallback')).toBeNull();
+
+  act(() => {
+    useStore.getState().setCount(1);
+  });
+  expect(screen.getByTestId('value').textContent).toBe('1');
+  const rendersAfterCount = renders;
+
+  act(() => {
+    useStore.getState().setLabel('two');
+  });
+  expect(screen.getByTestId('value').textContent).toBe('1');
+  expect(renders).toBe(rendersAfterCount);
+});
+
+test('observer tracks accessor getter dependencies', () => {
+  const useStore = create<{
+    count: number;
+    label: string;
+    readonly double: number;
+    increment: () => void;
+    rename: () => void;
+  }>((set) => ({
+    count: 0,
+    label: 'one',
+    get double() {
+      return this.count * 2;
+    },
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    },
+    rename() {
+      set((draft) => {
+        draft.label = 'two';
+      });
+    }
+  }));
+  let renders = 0;
+
+  const Counter = observer(() => {
+    renders += 1;
+    const store = useStore();
+    return React.createElement(
+      'span',
+      { 'data-testid': 'double' },
+      store.double
+    );
+  });
+
+  render(React.createElement(Counter) as any);
+  expect(screen.getByTestId('double').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  act(() => {
+    useStore.getState().rename();
+  });
+  expect(screen.getByTestId('double').textContent).toBe('0');
+  expect(renders).toBe(1);
+
+  act(() => {
+    useStore.getState().increment();
+  });
+  expect(screen.getByTestId('double').textContent).toBe('2');
+  expect(renders).toBe(2);
+});
+
+test('Observer render prop tracks reads without selector', () => {
+  const useStore = create<{
+    count: number;
+    label: string;
+    increment: () => void;
+    rename: () => void;
+  }>((set) => ({
+    count: 0,
+    label: 'one',
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    },
+    rename() {
+      set((draft) => {
+        draft.label = 'two';
+      });
+    }
+  }));
+  let renders = 0;
+
+  const Counter = () =>
+    React.createElement(Observer, {
+      children: () => {
+        renders += 1;
+        const store = useStore();
+        return React.createElement(
+          'span',
+          { 'data-testid': 'count' },
+          store.count
+        );
+      }
+    });
 
   render(React.createElement(Counter) as any);
   expect(screen.getByTestId('count').textContent).toBe('0');
