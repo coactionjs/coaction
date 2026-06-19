@@ -106,6 +106,43 @@ test('syncs state from coaction to yjs', () => {
   binding.destroy();
 });
 
+test('rejects symbol keyed state during binding', () => {
+  const symbolKey = Symbol('yjs-state');
+  const store = create(
+    () =>
+      ({
+        [symbolKey]: 1,
+        count: 0
+      }) as any
+  );
+
+  expect(() => bindYjs(store)).toThrow(
+    'Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at Symbol(yjs-state).'
+  );
+});
+
+test('rejects symbol keyed state during later sync', () => {
+  const symbolKey = Symbol('yjs-late-state');
+  const store = create(() => ({
+    nested: {}
+  })) as any;
+  const binding = bindYjs(store);
+
+  try {
+    expect(() => {
+      store.setState({
+        nested: {
+          [symbolKey]: 1
+        }
+      });
+    }).toThrow(
+      'Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at nested.Symbol(yjs-late-state).'
+    );
+  } finally {
+    binding.destroy();
+  }
+});
+
 test('syncs state from yjs to coaction', async () => {
   const doc = new Y.Doc();
   const store = create((set) => ({

@@ -17,6 +17,53 @@ export * from 'yjs';
 
 const STATE_KEY = 'state';
 
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
+const formatPropertyPath = (path: PropertyKey[]) =>
+  path.map((key) => String(key)).join('.');
+
+const findSymbolKeyPath = (
+  value: unknown,
+  path: PropertyKey[] = [],
+  seen = new WeakSet<object>()
+): PropertyKey[] | undefined => {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+  if (seen.has(value)) {
+    return undefined;
+  }
+  seen.add(value);
+  for (const key of getOwnEnumerableKeys(value)) {
+    const nextPath = [...path, key];
+    if (typeof key === 'symbol') {
+      return nextPath;
+    }
+    const child = (value as Record<PropertyKey, unknown>)[key];
+    if (typeof child === 'function') {
+      continue;
+    }
+    const childPath = findSymbolKeyPath(child, nextPath, seen);
+    if (childPath) {
+      return childPath;
+    }
+  }
+  return undefined;
+};
+
+const assertYjsSerializableState = (state: unknown) => {
+  const symbolPath = findSymbolKeyPath(state);
+  if (!symbolPath) {
+    return;
+  }
+  throw new Error(
+    `Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at ${formatPropertyPath(symbolPath)}.`
+  );
+};
+
 export type YjsBindingOptions = {
   doc?: Y.Doc;
   key?: string;
@@ -63,6 +110,7 @@ export const bindYjs = <T extends object>(
   const localOrigin = Symbol(`coaction-yjs:${store.name}`);
   let destroyed = false;
   let syncingFromYjs = false;
+  assertYjsSerializableState(store.getPureState());
   let lastSyncedState = (() => {
     const pureState = clone(store.getPureState());
     return isPlainObject(pureState) ? pureState : {};
@@ -180,6 +228,7 @@ export const bindYjs = <T extends object>(
     if (destroyed || syncingFromYjs) {
       return;
     }
+    assertYjsSerializableState(store.getPureState());
     const pureState = clone(store.getPureState());
     if (!isPlainObject(pureState)) {
       return;
