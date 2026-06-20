@@ -192,8 +192,12 @@ test('worker main propagates initializer replace updates', async () => {
       );
     }
   });
+  let underlyingStore: ReturnType<typeof createWithZustand<Counter>>;
   const useServerStore = create(
-    () => adapt(createWithZustand(bindZustand(counter))),
+    () => {
+      underlyingStore = createWithZustand(bindZustand(counter));
+      return adapt(underlyingStore);
+    },
     {
       transport: serverTransport,
       name: 'test-worker-main-replace'
@@ -218,6 +222,7 @@ test('worker main propagates initializer replace updates', async () => {
   });
 
   expect(useServerStore.getState().count).toBe(7);
+  expect(underlyingStore!.getState().count).toBe(7);
   expect(useClientStore.getState().count).toBe(7);
   expect(useServerStore.getState().replaceToSeven).toBeInstanceOf(Function);
   expect(useClientStore.getState().replaceToSeven).toBeInstanceOf(Function);

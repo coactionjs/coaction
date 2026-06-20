@@ -48,18 +48,21 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
           );
           internal.rootState = nextRootState;
         };
-        const replaceCoactionState = (nextState: object) => {
+        const replaceCoactionState = (
+          nextState: object,
+          syncImmutable = false
+        ) => {
           replaceExternalStoreState(
             boundStore,
             internal,
             nextState as Record<PropertyKey, unknown>,
             {
-              syncImmutable: false
+              syncImmutable
             }
           );
         };
         replaceBoundCoactionState = (nextState) => {
-          replaceCoactionState(nextState);
+          replaceCoactionState(nextState, true);
         };
         const mergeWithCurrentActions = (state: object) => {
           const nextState = {};
