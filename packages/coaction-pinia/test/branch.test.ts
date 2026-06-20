@@ -184,6 +184,44 @@ test('reuses internals, supports apply branches and cleans up subscriptions', as
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
 
+test('destroy cleans pinia subscriptions before base destroy errors', async () => {
+  const { capturedHandleStore, capturedHandleState } = await loadBinding();
+  const options: any = {
+    state: () => ({
+      count: 0
+    }),
+    actions: {}
+  };
+  const stopWatch = vi.fn();
+  const { bind } = capturedHandleState(options);
+  const rawState = bind({
+    $id: 'destroy-error',
+    $subscribe: vi.fn(() => stopWatch)
+  });
+  const destroyError = new Error('base destroy failed');
+  const baseDestroy = vi.fn(() => {
+    throw destroyError;
+  });
+  const store = {
+    getState: () => rawState,
+    getPureState: () => rawState,
+    destroy: baseDestroy
+  };
+
+  capturedHandleStore(store as any, rawState, rawState, {} as any);
+  const unsubscribe = (store as any).subscribe(vi.fn());
+
+  expect(() => {
+    (store as any).destroy();
+  }).toThrow(destroyError);
+  expect(stopWatch).toHaveBeenCalledTimes(1);
+  expect((store as any)._subscriptions).toBeUndefined();
+  expect((store as any)._destroyers).toBeUndefined();
+  expect(() => unsubscribe()).not.toThrow();
+  expect(() => (store as any).destroy()).not.toThrow();
+  expect(baseDestroy).toHaveBeenCalledTimes(1);
+});
+
 test('shared sync snapshots preserve sparse array shape', async () => {
   const {
     capturedHandleStore,

@@ -242,11 +242,12 @@ const handleStore = (
         return;
       }
       destroyed = true;
-      baseDestroy();
-      store._subscriptions!.clear();
+      store._subscriptions?.clear();
       store._subscriptions = undefined;
-      store._destroyers!.forEach((destroy) => destroy());
+      store._destroyers?.forEach((destroy) => destroy());
+      store._destroyers?.clear();
       store._destroyers = undefined;
+      baseDestroy();
     };
     store.apply = (nextState = store.getState(), patches) => {
       isApplyingCoactionState = true;
