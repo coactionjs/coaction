@@ -1,5 +1,6 @@
 import { create, Slices } from 'coaction';
 import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { vi } from 'vitest';
 import {
   adapt,
   bindRedux,
@@ -40,6 +41,36 @@ test('base', () => {
   });
   expect(useStore.getState().count).toBe(10);
   expect(reduxStore.getState().count).toBe(10);
+});
+
+test('notifies coaction subscribers after coaction setState dispatches replacement', () => {
+  const counterSlice = createSlice({
+    name: 'counter',
+    initialState: {
+      count: 0
+    },
+    reducers: {
+      increment(state) {
+        state.count += 1;
+      }
+    }
+  });
+  const reduxStore = configureStore({
+    reducer: withCoactionReducer(counterSlice.reducer)
+  });
+  const useStore = create(() => adapt(bindRedux(reduxStore)), {
+    name: 'test-redux-set-state-notify'
+  });
+  const listener = vi.fn();
+  const unsubscribe = useStore.subscribe(listener);
+
+  useStore.setState({
+    count: 4
+  });
+
+  expect(reduxStore.getState().count).toBe(4);
+  expect(listener).toHaveBeenCalledTimes(1);
+  unsubscribe();
 });
 
 test('replace action strips nested functions from payload', () => {
