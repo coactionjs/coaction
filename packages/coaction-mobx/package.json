@@ -47,9 +47,6 @@
     "mobx": "^6.13.2"
   },
   "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    },
     "mobx": {
       "optional": true
     }

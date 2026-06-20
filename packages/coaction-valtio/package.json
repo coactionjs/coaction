@@ -48,9 +48,6 @@
     "valtio": "^2.0.0"
   },
   "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    },
     "valtio": {
       "optional": true
     }

@@ -48,9 +48,6 @@
     "yjs": "^13.6.0"
   },
   "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    },
     "yjs": {
       "optional": true
     }

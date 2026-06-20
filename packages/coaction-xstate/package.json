@@ -48,9 +48,6 @@
     "xstate": "^5.0.0"
   },
   "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    },
     "xstate": {
       "optional": true
     }

@@ -48,11 +48,6 @@
     "coaction": "^2.0.0",
     "react": "^17.0.0 || ^18.0.0 || ^19.0.0"
   },
-  "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    }
-  },
   "dependencies": {
     "use-sync-external-store": "^1.6.0"
   },

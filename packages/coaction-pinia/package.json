@@ -47,9 +47,6 @@
     "pinia": "^2.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    },
     "pinia": {
       "optional": true
     }

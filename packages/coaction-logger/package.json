@@ -46,11 +46,6 @@
   "peerDependencies": {
     "coaction": "^2.0.0"
   },
-  "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    }
-  },
   "publishConfig": {
     "access": "public",
     "provenance": true

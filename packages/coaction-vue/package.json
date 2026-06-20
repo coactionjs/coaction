@@ -48,11 +48,6 @@
     "coaction": "^2.0.0",
     "vue": "^3.0.0"
   },
-  "peerDependenciesMeta": {
-    "coaction": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@testing-library/vue": "^8.1.0",
     "coaction": "workspace:*",
