@@ -1,5 +1,6 @@
 import {
   areShallowEqualWithArray,
+  cloneOwnEnumerable,
   mergeObject,
   replaceOwnEnumerable,
   uuid
@@ -151,6 +152,54 @@ test('replaceOwnEnumerable replaces data keys without copying functions or unsaf
   expect(
     Object.prototype.hasOwnProperty.call(target.nested, 'constructor')
   ).toBe(false);
+});
+
+test('replaceOwnEnumerable preserves root cycles and shared references', () => {
+  const target = {
+    stale: true
+  } as Record<PropertyKey, unknown>;
+  const source = {
+    count: 1,
+    nested: {
+      value: 2
+    }
+  } as Record<PropertyKey, unknown>;
+  source.self = source;
+  source.left = source.nested;
+  source.right = source.nested;
+
+  replaceOwnEnumerable(target, source);
+
+  expect(target.stale).toBeUndefined();
+  expect(target.count).toBe(1);
+  expect(target.self).toBe(target);
+  expect(target.left).toBe(target.right);
+  expect(target.left).not.toBe(source.nested);
+  expect(target.left).toEqual({
+    value: 2
+  });
+});
+
+test('cloneOwnEnumerable preserves root cycles and shared references', () => {
+  const source = {
+    count: 1,
+    nested: {
+      value: 2
+    }
+  } as Record<PropertyKey, unknown>;
+  source.self = source;
+  source.left = source.nested;
+  source.right = source.nested;
+
+  const clone = cloneOwnEnumerable(source);
+
+  expect(clone.count).toBe(1);
+  expect(clone.self).toBe(clone);
+  expect(clone.left).toBe(clone.right);
+  expect(clone.left).not.toBe(source.nested);
+  expect(clone.left).toEqual({
+    value: 2
+  });
 });
 
 test('mergeObject ignores unsafe prototype keys', () => {

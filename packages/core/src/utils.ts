@@ -72,10 +72,14 @@ const isArrayIndexKey = (key: PropertyKey) => {
 
 export const assignOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
-  source: Record<PropertyKey, unknown>
+  source: Record<PropertyKey, unknown>,
+  seen = new WeakMap<object, unknown>()
 ) => {
+  if (!seen.has(source)) {
+    seen.set(source, target);
+  }
   for (const key of getOwnEnumerableKeys(source)) {
-    setOwnEnumerable(target, key, sanitizeReplacementState(source[key]));
+    setOwnEnumerable(target, key, sanitizeReplacementState(source[key], seen));
   }
 };
 
@@ -83,6 +87,8 @@ export const replaceOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   source: Record<PropertyKey, unknown>
 ) => {
+  const seen = new WeakMap<object, unknown>();
+  seen.set(source, target);
   const nextKeys = new Set<PropertyKey>();
   for (const key of getOwnEnumerableKeys(source)) {
     if (typeof key === 'string' && isUnsafeKey(key)) {
@@ -99,7 +105,7 @@ export const replaceOwnEnumerable = (
     }
   }
   nextKeys.forEach((key) => {
-    setOwnEnumerable(target, key, sanitizeReplacementState(source[key]));
+    setOwnEnumerable(target, key, sanitizeReplacementState(source[key], seen));
   });
 };
 
