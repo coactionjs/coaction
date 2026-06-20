@@ -254,12 +254,8 @@ test('rejects function valued state during later sync', () => {
 
   try {
     expect(() => {
-      store.setState({
-        nested: {
-          value() {
-            return 1;
-          }
-        }
+      store.setState((draft) => {
+        draft.nested.value = (() => 1) as any;
       });
     }).toThrow(
       'Yjs binding does not support function state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at nested.value.'
@@ -927,7 +923,12 @@ test('shared main broadcasts remote root map replacement to clients', async () =
   const patchCalls: string[][] = [];
   serverStore.patch = ({ patches, inversePatches }) => {
     patchCalls.push(
-      patches.map((patch) => `${patch.op}:${patch.path.join('.')}`)
+      patches.map((patch) => {
+        const path = Array.isArray(patch.path)
+          ? patch.path.join('.')
+          : patch.path;
+        return `${patch.op}:${path}`;
+      })
     );
     return {
       patches,
