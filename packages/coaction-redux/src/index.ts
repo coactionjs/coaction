@@ -27,6 +27,9 @@ const isArrayIndexKey = (key: PropertyKey) => {
   );
 };
 
+const isObjectRecord = (value: object) =>
+  Object.prototype.toString.call(value) === '[object Object]';
+
 function stripFunctions<T>(value: T): T {
   if (Array.isArray(value)) {
     const next: unknown[] = [];
@@ -51,6 +54,9 @@ function stripFunctions<T>(value: T): T {
     return next as T;
   }
   if (typeof value === 'object' && value !== null) {
+    if (!isObjectRecord(value)) {
+      return value;
+    }
     const next: Record<PropertyKey, unknown> = {};
     for (const key of getOwnEnumerableKeys(value)) {
       if (isUnsafeKey(key)) {

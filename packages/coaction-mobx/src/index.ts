@@ -43,6 +43,9 @@ const isArrayIndexKey = (key: PropertyKey) => {
   );
 };
 
+const isObjectRecord = (value: object) =>
+  Object.prototype.toString.call(value) === '[object Object]';
+
 const replaceMutableState = (
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
@@ -113,6 +116,9 @@ const toSnapshot = (
     return next;
   }
   if (typeof value === 'object' && value !== null) {
+    if (!isObjectRecord(value)) {
+      return value;
+    }
     if (visited.has(value)) {
       return visited.get(value);
     }

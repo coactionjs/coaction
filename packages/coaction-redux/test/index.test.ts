@@ -169,6 +169,25 @@ test('replace action preserves enumerable symbol keys', () => {
   expect(Object.prototype.hasOwnProperty.call(next[token], 'fn')).toBe(false);
 });
 
+test('replace action preserves non-plain object values', () => {
+  const reducer = withCoactionReducer((state = {} as any) => state);
+  const stamp = new Date('2026-01-01T00:00:00.000Z');
+  const nestedStamp = new Date('2026-01-02T00:00:00.000Z');
+
+  const next = reducer(
+    undefined,
+    replaceStateAction({
+      stamp,
+      nested: {
+        stamp: nestedStamp
+      }
+    } as any)
+  ) as any;
+
+  expect(next.stamp).toBe(stamp);
+  expect(next.nested.stamp).toBe(nestedStamp);
+});
+
 test('replace action ignores inherited payload properties', () => {
   const reducer = withCoactionReducer((state = {} as any) => state);
   const proto = {

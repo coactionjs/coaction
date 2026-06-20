@@ -205,7 +205,8 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   let watcher: (() => void) | undefined;
   const options: any = {
     state: () => ({
-      list: makeList('before', false)
+      list: makeList('before', false),
+      stamp: new Date('2026-01-01T00:00:00.000Z')
     }),
     actions: {}
   };
@@ -227,7 +228,9 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   capturedHandleStore(store as any, rawState, rawState, {
     rootState: rawState
   } as any);
+  const nextStamp = new Date('2026-01-02T00:00:00.000Z');
   rawState.list = makeList('after', true);
+  rawState.stamp = nextStamp;
   watcher?.();
 
   const snapshot = replaceExternalStoreState.mock.calls[0][2] as any;
@@ -237,4 +240,5 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   expect(snapshot.list[1]).toBe('after');
   expect(snapshot.list.label).toBe('after');
   expect(snapshot.list[tag]).toBe('after');
+  expect(snapshot.stamp).toBe(nextStamp);
 });
