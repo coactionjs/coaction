@@ -156,6 +156,51 @@ test('setState filters unsafe patch-hook output before apply and emit', () => {
   );
 });
 
+test('setState filters custom updater returned patches before emit', () => {
+  const safePatch = {
+    op: 'replace',
+    path: ['count'],
+    value: 2
+  };
+  const unsafePatch = {
+    op: 'replace',
+    path: ['prototype', 'polluted'],
+    value: true
+  };
+  const { setState, store } = createContext({
+    enablePatches: true
+  });
+  store.transport = {
+    emit: vi.fn()
+  };
+
+  const result = setState({ count: 1 }, () => [
+    {
+      count: 0
+    },
+    [unsafePatch, safePatch],
+    []
+  ]);
+
+  expect(result).toEqual([
+    {
+      count: 0
+    },
+    [safePatch],
+    []
+  ]);
+  expect(store.transport.emit).toHaveBeenCalledWith(
+    {
+      name: 'update',
+      respond: false
+    },
+    {
+      patches: [safePatch],
+      sequence: 1
+    }
+  );
+});
+
 test('setState does not emit when patch hook removes all patches', () => {
   const { setState, store, internal } = createContext({
     enablePatches: true,

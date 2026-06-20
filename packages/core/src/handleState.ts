@@ -202,6 +202,13 @@ export const handleState = <T extends CreateState>(
     } finally {
       internal.isBatching = false;
     }
+    if (result?.length) {
+      result = [
+        result[0],
+        sanitizePatches(result[1]) ?? [],
+        sanitizePatches(result[2]) ?? []
+      ];
+    }
     emit(store, internal, result?.[1]);
     return result;
   };
