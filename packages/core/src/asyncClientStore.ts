@@ -11,6 +11,14 @@ import { wrapStore } from './wrapStore';
 import { validateSharedStateSerializable } from './sharedState';
 import { sanitizePatches, sanitizeReplacementState } from './utils';
 
+const parseFullSyncState = (state: string) => {
+  const parsed = JSON.parse(state);
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid fullSync payload');
+  }
+  return sanitizeReplacementState(parsed);
+};
+
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
     store: MiddlewareStore<T>;
@@ -64,9 +72,7 @@ export const createAsyncClientStore = <T extends CreateState>(
         if (latest.sequence < internal.sequence && !canApplyLowerSequence) {
           return;
         }
-        asyncClientStore.apply(
-          sanitizeReplacementState(JSON.parse(latest.state))
-        );
+        asyncClientStore.apply(parseFullSyncState(latest.state));
         internal.sequence = latest.sequence;
         awaitingReconnectSync = false;
         reconnectSequenceBaseline = null;

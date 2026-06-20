@@ -4,6 +4,14 @@ import { sanitizeReplacementState, uuid } from './utils';
 
 const transportErrorMarker = '__coactionTransportError__';
 
+const parseFullSyncState = (state: string) => {
+  const parsed = JSON.parse(state);
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid fullSync payload');
+  }
+  return sanitizeReplacementState(parsed);
+};
+
 const isTransportErrorEnvelope = (
   value: unknown
 ): value is Record<string, unknown> & { message: string } => {
@@ -160,9 +168,7 @@ export const createClientAction = <T extends CreateState>({
                       throw new Error('Invalid fullSync payload');
                     }
                     if (next.sequence >= sequence) {
-                      store.apply(
-                        sanitizeReplacementState(JSON.parse(next.state))
-                      );
+                      store.apply(parseFullSyncState(next.state));
                       internal.sequence = next.sequence;
                       finishResolve();
                       return;
