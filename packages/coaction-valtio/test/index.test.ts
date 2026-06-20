@@ -103,6 +103,42 @@ test('apply handles object replacement and patches', () => {
   expect(useStore.getState().count).toBe(9);
 });
 
+test('apply preserves circular and shared replacement references', () => {
+  const state = proxy(
+    bindValtio({
+      count: 0,
+      increment() {
+        this.count += 1;
+      }
+    })
+  );
+  const useStore = create(() => adapt(state as any), {
+    name: 'test-valtio-circular-replace'
+  });
+  const shared = {
+    value: 2
+  };
+  const payload = {
+    count: 1,
+    left: shared,
+    right: shared
+  } as any;
+  payload.self = payload;
+
+  useStore.apply(payload);
+
+  const current = useStore.getState() as any;
+  const pure = useStore.getPureState() as any;
+  expect(current.self).toBe(current);
+  expect(pure.self).toBe(pure);
+  expect(current.left).toBe(current.right);
+  expect(pure.left).toBe(pure.right);
+  expect(current.left).toEqual({
+    value: 2
+  });
+  expect(typeof current.increment).toBe('function');
+});
+
 test('apply ignores unsafe prototype keys during replacement', () => {
   const state = proxy(
     bindValtio({

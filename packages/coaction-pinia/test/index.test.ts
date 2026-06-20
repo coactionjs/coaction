@@ -239,6 +239,56 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(useStore.getState().a).toBe(4);
 });
 
+test('apply preserves circular and shared replacement references', () => {
+  type Counter = {
+    count: number;
+    increment: () => void;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-circular-replace',
+          bindPinia({
+            state: () => ({
+              count: 0
+            }),
+            actions: {
+              increment() {
+                this.count += 1;
+              }
+            }
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-circular-replace'
+    }
+  );
+  const shared = {
+    value: 2
+  };
+  const payload = {
+    count: 1,
+    left: shared,
+    right: shared
+  } as any;
+  payload.self = payload;
+
+  useStore.apply(payload);
+
+  const current = useStore.getState() as any;
+  const pure = useStore.getPureState() as any;
+  expect(current.self).toBe(current);
+  expect(pure.self).toBe(pure);
+  expect(current.left).toBe(current.right);
+  expect(pure.left).toBe(pure.right);
+  expect(current.left).toEqual({
+    value: 2
+  });
+  expect(typeof current.increment).toBe('function');
+});
+
 test('apply ignores unsafe prototype keys during replacement', () => {
   type Counter = {
     count: number;

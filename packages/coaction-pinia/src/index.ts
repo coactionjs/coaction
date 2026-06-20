@@ -94,11 +94,16 @@ const replaceMutableState = (
       delete publicState[key];
     }
   }
+  const rawSeen = new WeakMap<object, unknown>();
+  const mutableSeen = new WeakMap<object, unknown>();
+  const publicSeen = new WeakMap<object, unknown>();
+  rawSeen.set(source, rawState);
+  mutableSeen.set(source, mutableState);
+  publicSeen.set(source, publicState);
   nextKeys.forEach((key) => {
-    const nextValue = sanitizeReplacementState(source[key]);
-    rawState[key] = nextValue;
-    mutableState[key] = nextValue;
-    publicState[key] = nextValue;
+    rawState[key] = sanitizeReplacementState(source[key], rawSeen);
+    mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
+    publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
 };
 
