@@ -144,6 +144,7 @@ test('reuses internals, supports apply branches and cleans up subscriptions', as
 
   const listener = vi.fn();
   const unsubscribe = (store as any).subscribe(listener);
+  const unsubscribeAfterDestroy = (store as any).subscribe(vi.fn());
   watcher1?.('first');
   watcher2?.('second');
   expect(listener).toHaveBeenCalledTimes(2);
@@ -174,4 +175,7 @@ test('reuses internals, supports apply branches and cleans up subscriptions', as
   expect(stopWatch2).toHaveBeenCalledTimes(1);
   expect((store as any)._subscriptions).toBeUndefined();
   expect((store as any)._destroyers).toBeUndefined();
+  expect(() => unsubscribeAfterDestroy()).not.toThrow();
+  expect(() => (store as any).destroy()).not.toThrow();
+  expect(baseDestroy).toHaveBeenCalledTimes(1);
 });

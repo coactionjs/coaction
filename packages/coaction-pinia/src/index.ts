@@ -191,7 +191,9 @@ const handleStore = (
     Object.assign(store, {
       subscribe: (callback: SubscriptionCallback) => {
         store._subscriptions!.add(callback);
-        return () => store._subscriptions!.delete(callback);
+        return () => {
+          store._subscriptions?.delete(callback);
+        };
       }
     });
     store._subscriptions = new Set<SubscriptionCallback>();
