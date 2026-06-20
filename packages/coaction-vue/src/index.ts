@@ -83,6 +83,11 @@ const getOwnEnumerableKeys = (value: object) =>
     Object.prototype.propertyIsEnumerable.call(value, key)
   );
 
+const isPlainObject = (value: object) => {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
 const createStateProxy = <T extends object>(
   store: Store<T>,
   version: Ref<number>
@@ -151,7 +156,12 @@ const createAutoSelector = <T extends object>(
     if (typeof value === 'function') {
       return createAction(path);
     }
-    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    if (
+      typeof value !== 'object' ||
+      value === null ||
+      Array.isArray(value) ||
+      !isPlainObject(value)
+    ) {
       return computed(() => {
         void version.value;
         return getPathValue(path);

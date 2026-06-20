@@ -115,6 +115,30 @@ test('autoSelector supports nested object selectors', () => {
   scope.stop();
 });
 
+test('autoSelector treats non-plain object values as leaf selectors', () => {
+  const initialStamp = new Date('2026-01-01T00:00:00.000Z');
+  const nextStamp = new Date('2026-01-02T00:00:00.000Z');
+  const useStore = create<{
+    stamp: Date;
+    replaceStamp: () => void;
+  }>((set) => ({
+    stamp: initialStamp,
+    replaceStamp() {
+      set({
+        stamp: nextStamp
+      });
+    }
+  }));
+  const scope = effectScope();
+  scope.run(() => {
+    const selectors = useStore({ autoSelector: true });
+    expect(selectors.stamp.value).toBe(initialStamp);
+    selectors.replaceStamp();
+    expect(selectors.stamp.value).toBe(nextStamp);
+  });
+  scope.stop();
+});
+
 test('autoSelector includes symbol keyed state and slices', () => {
   const valueKey = Symbol('vue-value');
   const sliceKey = Symbol('vue-slice');

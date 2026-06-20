@@ -368,6 +368,11 @@ const getOwnEnumerableKeys = (value: object) =>
     Object.prototype.propertyIsEnumerable.call(value, key)
   );
 
+const isPlainObject = (value: object) => {
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
+
 const createSelectorNode = <T extends object>(
   path: PropertyKey[],
   value: unknown,
@@ -376,7 +381,12 @@ const createSelectorNode = <T extends object>(
   const selector = ((state: T) => {
     return getPathValue(state, path);
   }) as AutoSelector<T, unknown>;
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value) ||
+    !isPlainObject(value)
+  ) {
     return selector;
   }
   if (ancestors.includes(value)) {

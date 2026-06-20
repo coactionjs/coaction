@@ -192,6 +192,40 @@ test('autoSelector stops expanding recursive references', async () => {
   expect(useSyncExternalStore).not.toHaveBeenCalled();
 });
 
+test('autoSelector treats non-plain object values as leaf selectors', async () => {
+  vi.resetModules();
+  const useSyncExternalStore = vi.fn(
+    (
+      _subscribe: () => () => void,
+      getSnapshot: () => unknown,
+      getServerSnapshot?: () => unknown
+    ) => (getServerSnapshot ? getServerSnapshot() : getSnapshot())
+  );
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore
+  }));
+
+  class Box {
+    value: number;
+
+    constructor(value: number) {
+      this.value = value;
+    }
+  }
+
+  const { create } = await import('../src');
+  const box = new Box(1);
+  const store = create(() => ({
+    box
+  }));
+
+  const selectors = store.auto() as any;
+  expect(typeof selectors.box).toBe('function');
+  expect(selectors.box(store.getState())).toBe(box);
+  expect(selectors.box.value).toBeUndefined();
+  expect(useSyncExternalStore).not.toHaveBeenCalled();
+});
+
 test('observer disposes uncommitted render tracker after grace period', async () => {
   vi.useFakeTimers();
   vi.resetModules();

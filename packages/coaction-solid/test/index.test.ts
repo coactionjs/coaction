@@ -111,6 +111,29 @@ test('autoSelector supports nested object selectors', () => {
   });
 });
 
+test('autoSelector treats non-plain object values as leaf selectors', () => {
+  const initialStamp = new Date('2026-01-01T00:00:00.000Z');
+  const nextStamp = new Date('2026-01-02T00:00:00.000Z');
+  const useStore = create<{
+    stamp: Date;
+    replaceStamp: () => void;
+  }>((set) => ({
+    stamp: initialStamp,
+    replaceStamp() {
+      set({
+        stamp: nextStamp
+      });
+    }
+  }));
+  createRoot((dispose) => {
+    const selectors = useStore({ autoSelector: true });
+    expect(selectors.stamp()).toBe(initialStamp);
+    selectors.replaceStamp();
+    expect(selectors.stamp()).toBe(nextStamp);
+    dispose();
+  });
+});
+
 test('autoSelector includes symbol keyed state and slices', () => {
   const valueKey = Symbol('solid-value');
   const sliceKey = Symbol('solid-slice');
