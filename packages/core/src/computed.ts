@@ -119,17 +119,22 @@ export const refreshSignalSlots = <T extends CreateState>(
 };
 
 const defaultMemoize = (func: (...args: any) => any) => {
-  const lastArgs: WeakMap<any, IArguments | null> = new WeakMap();
-  const lastResult: WeakMap<any, unknown> = new WeakMap();
+  const lastArgs: WeakMap<object, IArguments | null> = new WeakMap();
+  const lastResult: WeakMap<object, unknown> = new WeakMap();
+  const fallbackReceiver = {};
   return function (this: ThisType<unknown>) {
+    const receiver =
+      (typeof this === 'object' && this !== null) || typeof this === 'function'
+        ? (this as object)
+        : fallbackReceiver;
     if (
-      !lastArgs.has(this) ||
-      !areShallowEqualWithArray(lastArgs.get(this)!, arguments)
+      !lastArgs.has(receiver) ||
+      !areShallowEqualWithArray(lastArgs.get(receiver)!, arguments)
     ) {
-      lastResult.set(this, func.apply(this, arguments as any));
+      lastResult.set(receiver, func.apply(this, arguments as any));
     }
-    lastArgs.set(this, arguments);
-    return lastResult.get(this);
+    lastArgs.set(receiver, arguments);
+    return lastResult.get(receiver);
   };
 };
 

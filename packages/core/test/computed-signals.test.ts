@@ -1,4 +1,5 @@
 import { create } from '../src';
+import { createSelectorWithArray } from '../src/computed';
 
 test('accessor getters are cached computed values', () => {
   let getterCalls = 0;
@@ -180,5 +181,32 @@ test('manual get dependencies distinguish sparse holes from undefined', () => {
   store.getState().setExplicitUndefined();
 
   expect(store.getState().dependencyVersion).toBe(2);
+  expect(selectorCalls).toBe(2);
+});
+
+test('createSelectorWithArray supports calls without an object receiver', () => {
+  let selectorCalls = 0;
+  const selector = createSelectorWithArray(
+    () => [2],
+    (count) => {
+      selectorCalls += 1;
+      return count * 2;
+    }
+  );
+  const objectSelector = createSelectorWithArray(
+    (state: { count: number }) => [state.count],
+    (count) => {
+      selectorCalls += 1;
+      return count * 2;
+    }
+  );
+  const receiver = {
+    count: 3
+  };
+
+  expect(selector()).toBe(4);
+  expect(selector()).toBe(4);
+  expect(objectSelector.call(receiver)).toBe(6);
+  expect(objectSelector.call(receiver)).toBe(6);
   expect(selectorCalls).toBe(2);
 });
