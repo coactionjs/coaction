@@ -412,6 +412,45 @@ describe('State Management Store Tests', () => {
     expect(({} as any).polluted).toBeUndefined();
   });
 
+  test('preserves sparse arrays and enumerable array properties', () => {
+    const tag = Symbol('array-tag');
+    const makeList = (label: string, includeUndefined: boolean) => {
+      const list = [] as any[];
+      list.length = 2;
+      if (includeUndefined) {
+        list[0] = undefined;
+      }
+      list[1] = label;
+      list.label = label;
+      list[tag] = label;
+      return list;
+    };
+    const useStore = create((set) => ({
+      list: makeList('initial', false),
+      replaceList() {
+        set({
+          list: makeList('next', true)
+        } as any);
+      }
+    }));
+
+    const initialList = useStore.getPureState().list as any[];
+    expect(initialList.length).toBe(2);
+    expect(Object.prototype.hasOwnProperty.call(initialList, 0)).toBe(false);
+    expect(initialList[1]).toBe('initial');
+    expect(initialList.label).toBe('initial');
+    expect(initialList[tag]).toBe('initial');
+
+    useStore.getState().replaceList();
+    const nextList = useStore.getPureState().list as any[];
+    expect(nextList.length).toBe(2);
+    expect(Object.prototype.hasOwnProperty.call(nextList, 0)).toBe(true);
+    expect(nextList[0]).toBeUndefined();
+    expect(nextList[1]).toBe('next');
+    expect(nextList.label).toBe('next');
+    expect(nextList[tag]).toBe('next');
+  });
+
   test('apply preserves non-plain object values while sanitizing plain objects', () => {
     const initialStamp = new Date('2024-01-01T00:00:00.000Z');
     const nextStamp = new Date('2024-01-02T00:00:00.000Z');

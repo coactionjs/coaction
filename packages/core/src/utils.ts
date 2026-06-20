@@ -57,6 +57,19 @@ export const getOwnEnumerableKeys = (source: unknown) => {
   );
 };
 
+const isArrayIndexKey = (key: PropertyKey) => {
+  if (typeof key !== 'string') {
+    return false;
+  }
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    String(index) === key
+  );
+};
+
 export const assignOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   source: Record<PropertyKey, unknown>
@@ -111,11 +124,29 @@ export const sanitizeReplacementState = <T>(
   }
   if (Array.isArray(source)) {
     const target: unknown[] = [];
+    target.length = source.length;
     seen.set(source, target);
     for (let index = 0; index < source.length; index += 1) {
       if (Object.prototype.hasOwnProperty.call(source, index)) {
         target[index] = sanitizeReplacementState(source[index], seen);
       }
+    }
+    for (const key of getOwnEnumerableKeys(source)) {
+      if (
+        isArrayIndexKey(key) ||
+        (typeof key === 'string' && isUnsafeKey(key))
+      ) {
+        continue;
+      }
+      const value = (source as Record<PropertyKey, unknown>)[key];
+      if (typeof value === 'function') {
+        continue;
+      }
+      setOwnEnumerable(
+        target as unknown as Record<PropertyKey, unknown>,
+        key,
+        sanitizeReplacementState(value, seen)
+      );
     }
     return target as T;
   }
@@ -151,11 +182,28 @@ export const sanitizeInitialStateValue = <T>(
   }
   if (Array.isArray(source)) {
     const target: unknown[] = [];
+    target.length = source.length;
     seen.set(source, target);
     for (let index = 0; index < source.length; index += 1) {
       if (Object.prototype.hasOwnProperty.call(source, index)) {
         target[index] = sanitizeInitialStateValue(source[index], seen);
       }
+    }
+    for (const key of getOwnEnumerableKeys(source)) {
+      if (
+        isArrayIndexKey(key) ||
+        (typeof key === 'string' && isUnsafeKey(key))
+      ) {
+        continue;
+      }
+      setOwnEnumerable(
+        target as unknown as Record<PropertyKey, unknown>,
+        key,
+        sanitizeInitialStateValue(
+          (source as Record<PropertyKey, unknown>)[key],
+          seen
+        )
+      );
     }
     return target as T;
   }
