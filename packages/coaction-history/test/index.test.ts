@@ -126,6 +126,57 @@ test('undo and redo restore array truncation', () => {
   expect(useStore.getState().list).toEqual([1, 2]);
 });
 
+test('undo and redo preserve sparse array holes and properties', () => {
+  const tag = Symbol('array-tag');
+  const makeList = (label: string, includeUndefined: boolean) => {
+    const list = [] as any[];
+    list.length = 1;
+    if (includeUndefined) {
+      list[0] = undefined;
+    }
+    list.label = label;
+    list[tag] = label;
+    return list;
+  };
+  const useStore = create(
+    (set) => ({
+      list: makeList('before', false),
+      replaceList() {
+        set({
+          list: makeList('after', true)
+        } as any);
+      }
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().replaceList();
+
+  const pastList = api.getPast()[0].list as any[];
+  expect(pastList.length).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(pastList, 0)).toBe(false);
+  expect(pastList.label).toBe('before');
+  expect(pastList[tag]).toBe('before');
+
+  expect(api.undo()).toBeTruthy();
+  const undone = useStore.getState().list as any[];
+  expect(undone.length).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(undone, 0)).toBe(false);
+  expect(undone.label).toBe('before');
+  expect(undone[tag]).toBe('before');
+
+  expect(api.redo()).toBeTruthy();
+  const redone = useStore.getState().list as any[];
+  expect(redone.length).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(redone, 0)).toBe(true);
+  expect(redone[0]).toBeUndefined();
+  expect(redone.label).toBe('after');
+  expect(redone[tag]).toBe('after');
+});
+
 test('undo and redo track symbol keyed state', () => {
   const token = Symbol('history-token');
   const useStore = create(

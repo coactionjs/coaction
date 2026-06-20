@@ -33,9 +33,16 @@ const toSnapshot = (
       return visited.get(state) as Snapshot;
     }
     const next: unknown[] = [];
+    next.length = state.length;
     visited.set(state, next);
-    for (const item of state) {
-      next.push(toSnapshot(item, visited));
+    const stateRecord = state as unknown as Record<PropertyKey, unknown>;
+    const nextRecord = next as unknown as Record<PropertyKey, unknown>;
+    for (const key of getOwnEnumerableKeys(state)) {
+      const value = stateRecord[key];
+      if (typeof value === 'function') {
+        continue;
+      }
+      setOwnEnumerable(nextRecord, key, toSnapshot(value, visited));
     }
     return next as unknown as Snapshot;
   }
@@ -65,17 +72,6 @@ const isEqual = (
   if (Object.is(a, b)) {
     return true;
   }
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) {
-      return false;
-    }
-    for (let index = 0; index < a.length; index += 1) {
-      if (!isEqual(a[index], b[index], visited)) {
-        return false;
-      }
-    }
-    return true;
-  }
   if (
     typeof a !== 'object' ||
     a === null ||
@@ -83,6 +79,13 @@ const isEqual = (
     b === null
   ) {
     return false;
+  }
+  const aIsArray = Array.isArray(a);
+  const bIsArray = Array.isArray(b);
+  if (aIsArray || bIsArray) {
+    if (!aIsArray || !bIsArray || a.length !== b.length) {
+      return false;
+    }
   }
   let seenTargets = visited.get(a);
   if (!seenTargets) {
@@ -117,6 +120,9 @@ const applySnapshot = (
 ) => {
   const next = nextState as Record<PropertyKey, unknown>;
   const current = currentState as Record<PropertyKey, unknown>;
+  if (Array.isArray(target) && Array.isArray(nextState)) {
+    target.length = nextState.length;
+  }
   for (const key of getOwnEnumerableKeys(current)) {
     if (!Object.prototype.hasOwnProperty.call(next, key)) {
       delete target[key];
@@ -148,6 +154,9 @@ const applyPartialSnapshot = (
   seenCurrentStates.add(currentState);
   const next = nextState as Record<PropertyKey, unknown>;
   const current = currentState as Record<PropertyKey, unknown>;
+  if (Array.isArray(target) && Array.isArray(nextState)) {
+    target.length = nextState.length;
+  }
   for (const key of getOwnEnumerableKeys(current)) {
     if (!Object.prototype.hasOwnProperty.call(next, key)) {
       delete target[key];
