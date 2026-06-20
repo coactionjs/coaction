@@ -441,6 +441,32 @@ export const bindYjs = <T extends object>(
   };
 
   let stateMap!: Y.Map<unknown>;
+  const observeStateMap = (nextStateMap: Y.Map<unknown>) => {
+    if (stateMap === nextStateMap) {
+      return;
+    }
+    stateMap.unobserveDeep(stateObserver);
+    stateMap = nextStateMap;
+    stateMap.observeDeep(stateObserver);
+  };
+  const migrateRootState = (nextState: Record<string, unknown>) => {
+    const migrated = createYMap(nextState);
+    doc.transact(() => {
+      map.set(STATE_KEY, migrated);
+    }, localOrigin);
+    observeStateMap(migrated);
+    enqueueSnapshot(nextState);
+  };
+  const restoreRootState = () => {
+    const pureState = clone(store.getPureState());
+    const nextState = isPlainObject(pureState) ? pureState : lastSyncedState;
+    const restored = createYMap(nextState);
+    doc.transact(() => {
+      map.set(STATE_KEY, restored);
+    }, localOrigin);
+    observeStateMap(restored);
+    lastSyncedState = nextState;
+  };
   const existingStateMap = getStateMap();
   if (existingStateMap) {
     stateMap = existingStateMap;
@@ -470,29 +496,23 @@ export const bindYjs = <T extends object>(
     if (!event.keysChanged.has(STATE_KEY)) {
       return;
     }
+    const stateChange = event.changes.keys.get(STATE_KEY);
     const nextStateMap = getStateMap();
     if (nextStateMap) {
-      if (stateMap !== nextStateMap) {
-        stateMap.unobserveDeep(stateObserver);
-        stateMap = nextStateMap;
-        stateMap.observeDeep(stateObserver);
-      }
+      observeStateMap(nextStateMap);
       enqueueSnapshot(toPlainObject(nextStateMap));
       return;
     }
     const currentState = map.get(STATE_KEY);
     if (isPlainObject(currentState)) {
-      const migrated = createYMap(currentState);
-      doc.transact(() => {
-        map.set(STATE_KEY, migrated);
-      }, localOrigin);
-      if (stateMap !== migrated) {
-        stateMap.unobserveDeep(stateObserver);
-        stateMap = migrated;
-        stateMap.observeDeep(stateObserver);
-      }
-      enqueueSnapshot(currentState);
+      migrateRootState(currentState);
+      return;
     }
+    if (stateChange?.action === 'delete') {
+      migrateRootState({});
+      return;
+    }
+    restoreRootState();
   };
 
   map.observe(observer);

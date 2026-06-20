@@ -416,9 +416,20 @@ test('ignores invalid incoming yjs state', async () => {
     doc,
     key: 'counter'
   });
-  doc.getMap<any>('counter').set('state', 123);
-  await wait(20);
+  const map = doc.getMap<any>('counter');
+  map.set('state', 123);
+  await waitFor(() => {
+    expect(map.get('state')).toBeInstanceOf(Y.Map);
+  });
   expect(store.getState().count).toBe(0);
+
+  store.setState({
+    count: 1
+  });
+
+  await waitFor(() => {
+    expect(readState(doc).count).toBe(1);
+  });
   binding.destroy();
 });
 
@@ -865,6 +876,40 @@ test('migrates remote plain object replacement and keeps observing nested change
   }, 'external');
   await waitFor(() => {
     expect(store.getState().count).toBe(10);
+  });
+  binding.destroy();
+});
+
+test('recovers when remote root state is deleted', async () => {
+  const doc = new Y.Doc();
+  const store = create((set) => ({
+    count: 1,
+    setCount(count: number) {
+      set({
+        count
+      });
+    }
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const map = doc.getMap<any>('counter');
+
+  doc.transact(() => {
+    map.delete('state');
+  }, 'external');
+
+  await waitFor(() => {
+    expect(map.get('state')).toBeInstanceOf(Y.Map);
+    expect(store.getState().count).toBeUndefined();
+  });
+  expect(readState(doc)).toEqual({});
+
+  store.getState().setCount(2);
+
+  await waitFor(() => {
+    expect(readState(doc).count).toBe(2);
   });
   binding.destroy();
 });
