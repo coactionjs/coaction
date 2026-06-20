@@ -46,6 +46,10 @@ export type Creator = {
   ): StoreWithAsyncFunction<T>;
 };
 
+const alwaysNotify = {
+  equal: () => false
+};
+
 function attachSignals<T extends object>(store: Store<T>) {
   const version = signal(0);
   const unsubscribe = store.subscribe(() => {
@@ -64,12 +68,12 @@ function attachSignals<T extends object>(store: Store<T>) {
   const state = computed(() => {
     version();
     return store.getState();
-  });
+  }, alwaysNotify);
   function select<P>(selector: (currentState: T) => P) {
     return computed(() => {
       version();
       return selector(store.getState());
-    });
+    }, alwaysNotify);
   }
   return Object.assign(store, {
     state,

@@ -1,3 +1,4 @@
+import { computed } from '@angular/core';
 import { create } from '../src';
 
 test('base', () => {
@@ -67,4 +68,47 @@ test('destroy disposes attached signal subscription', () => {
   }));
   expect(store.state().count).toBe(0);
   store.destroy();
+});
+
+test('state signal notifies downstream computed values for stable state object', () => {
+  const store = create<{
+    count: number;
+    increment: () => void;
+  }>((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+  const count = computed(() => store.state().count);
+
+  expect(count()).toBe(0);
+
+  store.getState().increment();
+
+  expect(count()).toBe(1);
+});
+
+test('selected object signals notify downstream computed values for stable references', () => {
+  const store = create<{
+    count: number;
+    increment: () => void;
+  }>((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+  const selectedState = store.select((state) => state);
+  const count = computed(() => selectedState().count);
+
+  expect(count()).toBe(0);
+
+  store.getState().increment();
+
+  expect(count()).toBe(1);
 });
