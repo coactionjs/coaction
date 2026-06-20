@@ -114,69 +114,71 @@ export const handleState = <T extends CreateState>(
       !(options as StoreOptions<T>).enablePatches &&
       !internal.mutableInstance
     ) {
-      if (typeof next === 'function') {
-        try {
-          internal.backupState = internal.rootState;
-          internal.rootState = createWithMutative(
-            internal.rootState,
-            (draft) => {
-              internal.rootState = draft as Draft<T>;
-              const returnValue = next(internal.module);
-              if (returnValue instanceof Promise) {
-                throw new Error(
-                  'setState with async function is not supported'
-                );
+      try {
+        if (typeof next === 'function') {
+          try {
+            internal.backupState = internal.rootState;
+            internal.rootState = createWithMutative(
+              internal.rootState,
+              (draft) => {
+                internal.rootState = draft as Draft<T>;
+                const returnValue = next(internal.module);
+                if (returnValue instanceof Promise) {
+                  throw new Error(
+                    'setState with async function is not supported'
+                  );
+                }
+                if (typeof returnValue === 'object' && returnValue !== null) {
+                  mergeObject(
+                    internal.rootState,
+                    returnValue,
+                    store.isSliceStore
+                  );
+                }
               }
-              if (typeof returnValue === 'object' && returnValue !== null) {
-                mergeObject(
-                  internal.rootState,
-                  returnValue,
-                  store.isSliceStore
-                );
-              }
-            }
-          );
-        } catch (error) {
-          internal.rootState = internal.backupState;
-          internal.isBatching = false;
-          throw error;
-        }
-      } else {
-        const copy = cloneOwnEnumerable(internal.rootState as T);
-        if (store.isSliceStore) {
-          const nextRecord = next as Record<PropertyKey, unknown>;
-          const copyRecord = copy as Record<PropertyKey, unknown>;
-          for (const key of getOwnEnumerableKeys(nextRecord)) {
-            if (!Object.prototype.hasOwnProperty.call(copyRecord, key)) {
-              continue;
-            }
-            const sourceValue = nextRecord[key];
-            if (typeof sourceValue !== 'object' || sourceValue === null) {
-              continue;
-            }
-            const targetValue = copyRecord[key];
-            if (typeof targetValue !== 'object' || targetValue === null) {
-              continue;
-            }
-            const sliceCopy = cloneOwnEnumerable(
-              targetValue as Record<PropertyKey, unknown>
             );
-            mergeObject(sliceCopy, sourceValue);
-            setOwnEnumerable(copyRecord, key, sliceCopy);
+          } catch (error) {
+            internal.rootState = internal.backupState;
+            throw error;
           }
         } else {
-          mergeObject(copy, next);
+          const copy = cloneOwnEnumerable(internal.rootState as T);
+          if (store.isSliceStore) {
+            const nextRecord = next as Record<PropertyKey, unknown>;
+            const copyRecord = copy as Record<PropertyKey, unknown>;
+            for (const key of getOwnEnumerableKeys(nextRecord)) {
+              if (!Object.prototype.hasOwnProperty.call(copyRecord, key)) {
+                continue;
+              }
+              const sourceValue = nextRecord[key];
+              if (typeof sourceValue !== 'object' || sourceValue === null) {
+                continue;
+              }
+              const targetValue = copyRecord[key];
+              if (typeof targetValue !== 'object' || targetValue === null) {
+                continue;
+              }
+              const sliceCopy = cloneOwnEnumerable(
+                targetValue as Record<PropertyKey, unknown>
+              );
+              mergeObject(sliceCopy, sourceValue);
+              setOwnEnumerable(copyRecord, key, sliceCopy);
+            }
+          } else {
+            mergeObject(copy, next);
+          }
+          internal.rootState = copy;
         }
-        internal.rootState = copy;
+        refreshSignalSlots(internal);
+        if (internal.updateImmutable) {
+          internal.updateImmutable(internal.rootState as T);
+        } else {
+          internal.listeners.forEach((listener) => listener());
+        }
+        return [];
+      } finally {
+        internal.isBatching = false;
       }
-      refreshSignalSlots(internal);
-      if (internal.updateImmutable) {
-        internal.updateImmutable(internal.rootState as T);
-      } else {
-        internal.listeners.forEach((listener) => listener());
-      }
-      internal.isBatching = false;
-      return [];
     }
     let result: void | [] | [any, Patches, Patches];
     try {

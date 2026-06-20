@@ -280,6 +280,60 @@ test('setState fast path ignores unsafe keys', () => {
   }
 });
 
+test('setState fast path resets batching when object payload merge throws', () => {
+  const { setState, internal } = createContext();
+  const payload = {};
+  Object.defineProperty(payload, 'count', {
+    enumerable: true,
+    get() {
+      throw new Error('payload failed');
+    }
+  });
+
+  expect(() => {
+    setState(payload as any);
+  }).toThrow('payload failed');
+  expect(internal.rootState).toEqual({
+    count: 0
+  });
+
+  expect(() => {
+    setState({
+      count: 2
+    });
+  }).not.toThrow();
+  expect(internal.rootState).toEqual({
+    count: 2
+  });
+});
+
+test('setState fast path resets batching when listeners throw', () => {
+  const { setState, internal } = createContext();
+  const listener = vi.fn(() => {
+    throw new Error('listener failed');
+  });
+  internal.listeners.add(listener);
+
+  expect(() => {
+    setState({
+      count: 1
+    });
+  }).toThrow('listener failed');
+  expect(internal.rootState).toEqual({
+    count: 1
+  });
+
+  internal.listeners.clear();
+  expect(() => {
+    setState({
+      count: 2
+    });
+  }).not.toThrow();
+  expect(internal.rootState).toEqual({
+    count: 2
+  });
+});
+
 test('setState treats null as a no-op in fast path', () => {
   const listener = vi.fn();
   const { setState, internal } = createContext();
