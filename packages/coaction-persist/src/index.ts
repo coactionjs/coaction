@@ -105,6 +105,11 @@ export const persist =
     };
     const enqueuePersistWrite = (payload: string) =>
       enqueuePersistOperation(() => persistedStorage.setItem(name, payload));
+    const reportRehydrateError = (error: unknown) => {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(error);
+      }
+    };
     const applyHydratedState = (nextState: T) => {
       if (store.share === 'main') {
         store.setState((draft: any) => {
@@ -136,6 +141,10 @@ export const persist =
         return;
       }
       isHydrating = true;
+      let callbackState: T | undefined;
+      let callbackError: unknown;
+      let shouldNotify = false;
+      let hasHydrationError = false;
       try {
         const rawState = await persistedStorage.getItem(name);
         if (destroyed) {
@@ -143,44 +152,48 @@ export const persist =
         }
         if (!rawState) {
           hasHydrated = true;
-          onRehydrateStorage?.(store.getState());
-          return;
-        }
-        const parsed = deserialize(rawState);
-        const shouldWriteBack = parsed.version !== version;
-        let persistedState = sanitizeReplacementState(parsed.state);
-        if (
-          parsed.version !== undefined &&
-          parsed.version !== version &&
-          migrate
-        ) {
-          persistedState = sanitizeReplacementState(
-            await migrate(persistedState, parsed.version)
-          );
-          if (destroyed) {
-            return;
+          callbackState = store.getState();
+          shouldNotify = true;
+        } else {
+          const parsed = deserialize(rawState);
+          const shouldWriteBack = parsed.version !== version;
+          let persistedState = sanitizeReplacementState(parsed.state);
+          if (
+            parsed.version !== undefined &&
+            parsed.version !== version &&
+            migrate
+          ) {
+            persistedState = sanitizeReplacementState(
+              await migrate(persistedState, parsed.version)
+            );
+            if (destroyed) {
+              return;
+            }
           }
+          applyHydratedState(
+            sanitizeReplacementState(
+              merge(persistedState, store.getPureState())
+            ) as T
+          );
+          if (shouldWriteBack && !destroyed) {
+            const payload = serialize({
+              state: getPersistedState(),
+              version
+            });
+            await enqueuePersistWrite(payload);
+          }
+          hasHydrated = true;
+          callbackState = store.getState();
+          shouldNotify = true;
         }
-        applyHydratedState(
-          sanitizeReplacementState(
-            merge(persistedState, store.getPureState())
-          ) as T
-        );
-        if (shouldWriteBack && !destroyed) {
-          const payload = serialize({
-            state: getPersistedState(),
-            version
-          });
-          await enqueuePersistWrite(payload);
-        }
-        hasHydrated = true;
-        onRehydrateStorage?.(store.getState());
       } catch (error) {
         if (destroyed) {
           return;
         }
         hasHydrated = true;
-        onRehydrateStorage?.(undefined, error);
+        callbackError = error;
+        shouldNotify = true;
+        hasHydrationError = true;
       } finally {
         isHydrating = false;
         if (hasPendingPersist && !destroyed) {
@@ -190,6 +203,13 @@ export const persist =
               console.error(error);
             }
           });
+        }
+      }
+      if (shouldNotify && !destroyed) {
+        if (hasHydrationError) {
+          onRehydrateStorage?.(undefined, callbackError);
+        } else {
+          onRehydrateStorage?.(callbackState);
         }
       }
     };
@@ -255,7 +275,7 @@ export const persist =
     if (!skipHydration) {
       scheduleMicrotask(() => {
         if (!destroyed) {
-          void rehydrate();
+          void rehydrate().catch(reportRehydrateError);
         }
       });
     }

@@ -671,6 +671,40 @@ test('calls onRehydrateStorage for empty storage and deserialize errors', async 
   );
 });
 
+test('does not treat onRehydrateStorage throw as a hydration error', async () => {
+  const storage = createMemoryStorage();
+  const callbackError = new Error('callback failed');
+  const onRehydrateStorage = vi.fn(() => {
+    throw callbackError;
+  });
+  const useStore = create(
+    () => ({
+      count: 0
+    }),
+    {
+      middlewares: [
+        persist({
+          name: 'callback-throw',
+          storage,
+          skipHydration: true,
+          onRehydrateStorage
+        })
+      ]
+    }
+  );
+
+  await expect((useStore as any).persist.rehydrate()).rejects.toThrow(
+    callbackError
+  );
+  expect((useStore as any).persist.hasHydrated()).toBeTruthy();
+  expect(onRehydrateStorage).toHaveBeenCalledTimes(1);
+  expect(onRehydrateStorage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      count: 0
+    })
+  );
+});
+
 test('manual rehydrate marks hydration as completed even when it fails', async () => {
   const invalidStorage = createMemoryStorage();
   invalidStorage.setItem('invalid-manual', '{bad-json');
