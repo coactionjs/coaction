@@ -46,6 +46,19 @@ const isUnsafeKey = (key: PropertyKey) =>
   typeof key === 'string' &&
   (key === '__proto__' || key === 'prototype' || key === 'constructor');
 
+const isArrayIndexKey = (key: PropertyKey) => {
+  if (typeof key !== 'string') {
+    return false;
+  }
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    String(index) === key
+  );
+};
+
 const replaceMutableState = (
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
@@ -95,10 +108,22 @@ const toSnapshot = (
       return visited.get(value);
     }
     const next: unknown[] = [];
+    next.length = value.length;
     visited.set(value, next);
     for (let index = 0; index < value.length; index += 1) {
       if (Object.prototype.hasOwnProperty.call(value, index)) {
         next[index] = toSnapshot(value[index], visited);
+      }
+    }
+    const source = value as unknown as Record<PropertyKey, unknown>;
+    const target = next as unknown as Record<PropertyKey, unknown>;
+    for (const key of getOwnEnumerableKeys(value)) {
+      if (isArrayIndexKey(key) || isUnsafeKey(key)) {
+        continue;
+      }
+      const child = source[key];
+      if (typeof child !== 'function') {
+        target[key] = toSnapshot(child, visited);
       }
     }
     return next;

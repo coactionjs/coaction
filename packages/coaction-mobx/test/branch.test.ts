@@ -100,3 +100,73 @@ test('destroy unsubscribes autorun only once', async () => {
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
+
+test('shared sync snapshots preserve sparse array shape', async () => {
+  vi.resetModules();
+  let capturedHandleStore: any;
+  let autorunRunner: (() => void) | undefined;
+  const replaceExternalStoreState = vi.fn();
+  vi.doMock('coaction', () => ({
+    createBinder: ({ handleStore }: { handleStore: any }) => {
+      capturedHandleStore = handleStore;
+      return (input: unknown) => input;
+    },
+    onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
+      callback();
+      return vi.fn();
+    }),
+    replaceExternalStoreState,
+    sanitizeInitialStateValue: (value: unknown) => value,
+    sanitizeReplacementState: (value: unknown) => value
+  }));
+  vi.doMock('mobx', () => ({
+    autorun: vi.fn((runner: () => void) => {
+      autorunRunner = runner;
+      runner();
+      return vi.fn();
+    }),
+    runInAction: (runner: () => void) => runner(),
+    untracked: (runner: () => void) => runner()
+  }));
+  await import('../src');
+  const tag = Symbol('array-tag');
+  const makeList = (label: string, includeUndefined: boolean) => {
+    const list = [] as any[];
+    list.length = 2;
+    if (includeUndefined) {
+      list[0] = undefined;
+    }
+    list[1] = label;
+    list.label = label;
+    list[tag] = label;
+    return list;
+  };
+  const state = {
+    list: makeList('before', false)
+  };
+  const store = {
+    share: 'main',
+    getPureState: () => state,
+    getState: () => state,
+    destroy: vi.fn()
+  };
+
+  capturedHandleStore(
+    store as any,
+    state as any,
+    state as any,
+    {
+      rootState: state
+    } as any
+  );
+  state.list = makeList('after', true);
+  autorunRunner?.();
+
+  const snapshot = replaceExternalStoreState.mock.calls[0][2] as any;
+  expect(snapshot.list.length).toBe(2);
+  expect(Object.prototype.hasOwnProperty.call(snapshot.list, 0)).toBe(true);
+  expect(snapshot.list[0]).toBeUndefined();
+  expect(snapshot.list[1]).toBe('after');
+  expect(snapshot.list.label).toBe('after');
+  expect(snapshot.list[tag]).toBe('after');
+});

@@ -4,6 +4,7 @@ const loadBinding = async () => {
   vi.resetModules();
   let capturedHandleStore: any;
   let capturedHandleState: any;
+  const replaceExternalStoreState = vi.fn();
   vi.doMock('coaction', () => ({
     createBinder: ({
       handleStore,
@@ -20,14 +21,15 @@ const loadBinding = async () => {
       callback();
       return () => undefined;
     },
-    replaceExternalStoreState: vi.fn(),
+    replaceExternalStoreState,
     sanitizeInitialStateValue: (value: unknown) => value,
     sanitizeReplacementState: (value: unknown) => value
   }));
   await import('../src');
   return {
     capturedHandleStore,
-    capturedHandleState
+    capturedHandleState,
+    replaceExternalStoreState
   };
 };
 
@@ -180,4 +182,59 @@ test('reuses internals, supports apply branches and cleans up subscriptions', as
   expect(() => unsubscribeAfterDestroy()).not.toThrow();
   expect(() => (store as any).destroy()).not.toThrow();
   expect(baseDestroy).toHaveBeenCalledTimes(1);
+});
+
+test('shared sync snapshots preserve sparse array shape', async () => {
+  const {
+    capturedHandleStore,
+    capturedHandleState,
+    replaceExternalStoreState
+  } = await loadBinding();
+  const tag = Symbol('array-tag');
+  const makeList = (label: string, includeUndefined: boolean) => {
+    const list = [] as any[];
+    list.length = 2;
+    if (includeUndefined) {
+      list[0] = undefined;
+    }
+    list[1] = label;
+    list.label = label;
+    list[tag] = label;
+    return list;
+  };
+  let watcher: (() => void) | undefined;
+  const options: any = {
+    state: () => ({
+      list: makeList('before', false)
+    }),
+    actions: {}
+  };
+  const { bind } = capturedHandleState(options);
+  const rawState = bind({
+    $id: 'sparse-array',
+    $subscribe: vi.fn((callback: () => void) => {
+      watcher = callback;
+      return vi.fn();
+    })
+  });
+  const store = {
+    share: 'main',
+    getPureState: () => rawState,
+    getState: () => rawState,
+    destroy: vi.fn()
+  };
+
+  capturedHandleStore(store as any, rawState, rawState, {
+    rootState: rawState
+  } as any);
+  rawState.list = makeList('after', true);
+  watcher?.();
+
+  const snapshot = replaceExternalStoreState.mock.calls[0][2] as any;
+  expect(snapshot.list.length).toBe(2);
+  expect(Object.prototype.hasOwnProperty.call(snapshot.list, 0)).toBe(true);
+  expect(snapshot.list[0]).toBeUndefined();
+  expect(snapshot.list[1]).toBe('after');
+  expect(snapshot.list.label).toBe('after');
+  expect(snapshot.list[tag]).toBe('after');
 });
