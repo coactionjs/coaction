@@ -4,7 +4,6 @@ import {
   createBinder,
   onStoreReady,
   replaceExternalStoreState,
-  sanitizeInitialStateValue,
   sanitizeReplacementState
 } from 'coaction';
 import { autorun, runInAction, untracked } from 'mobx';
@@ -111,6 +110,30 @@ const toSnapshot = (
 const snapshotPureState = (store: Store<object>) =>
   toSnapshot(store.getPureState()) as Record<PropertyKey, unknown>;
 
+const deleteUnsafeEnumerableKeys = (
+  value: unknown,
+  seen = new WeakSet<object>()
+) => {
+  if (typeof value !== 'object' || value === null) {
+    return;
+  }
+  if (seen.has(value)) {
+    return;
+  }
+  seen.add(value);
+  const record = value as Record<PropertyKey, unknown>;
+  for (const key of getOwnEnumerableKeys(value)) {
+    if (isUnsafeKey(key)) {
+      delete record[key];
+      continue;
+    }
+    const child = record[key];
+    if (typeof child !== 'function') {
+      deleteUnsafeEnumerableKeys(child, seen);
+    }
+  }
+};
+
 const touchObservableTree = (value: unknown, seen = new WeakSet<object>()) => {
   if (typeof value !== 'object' || value === null) {
     return;
@@ -184,12 +207,10 @@ const handleStore = (
         PropertyKey,
         unknown
       >;
-      replaceMutableState(
-        currentRawState,
-        mutableState as Record<PropertyKey, unknown>,
-        store.getState() as Record<PropertyKey, unknown>,
-        sanitizeInitialStateValue(snapshotPureState(store))
-      );
+      const seen = new WeakSet<object>();
+      deleteUnsafeEnumerableKeys(currentRawState, seen);
+      deleteUnsafeEnumerableKeys(mutableState, seen);
+      deleteUnsafeEnumerableKeys(store.getState(), seen);
     });
     lastSnapshot = snapshotPureState(store);
     let isInitialRun = true;
