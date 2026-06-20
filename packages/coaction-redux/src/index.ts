@@ -14,9 +14,41 @@ const getOwnEnumerableKeys = (value: object) =>
     Object.prototype.propertyIsEnumerable.call(value, key)
   );
 
+const isArrayIndexKey = (key: PropertyKey) => {
+  if (typeof key !== 'string') {
+    return false;
+  }
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < 2 ** 32 - 1 &&
+    String(index) === key
+  );
+};
+
 function stripFunctions<T>(value: T): T {
   if (Array.isArray(value)) {
-    return value.map((item) => stripFunctions(item)) as T;
+    const next: unknown[] = [];
+    next.length = value.length;
+    for (let index = 0; index < value.length; index += 1) {
+      if (Object.prototype.hasOwnProperty.call(value, index)) {
+        next[index] = stripFunctions(value[index]);
+      }
+    }
+    const source = value as unknown as Record<PropertyKey, unknown>;
+    const target = next as unknown as Record<PropertyKey, unknown>;
+    for (const key of getOwnEnumerableKeys(value)) {
+      if (isArrayIndexKey(key) || isUnsafeKey(key)) {
+        continue;
+      }
+      const child = source[key];
+      if (typeof child === 'function') {
+        continue;
+      }
+      target[key] = stripFunctions(child);
+    }
+    return next as T;
   }
   if (typeof value === 'object' && value !== null) {
     const next: Record<PropertyKey, unknown> = {};

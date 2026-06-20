@@ -78,6 +78,43 @@ test('replace action strips nested functions from payload', () => {
   `);
 });
 
+test('replace action preserves sparse array holes and properties', () => {
+  const reducer = withCoactionReducer((state = {} as any) => state);
+  const token = Symbol('array-token');
+  const items = [] as any[];
+  items.length = 2;
+  items[1] = {
+    count: 1,
+    fn: () => undefined
+  };
+  items.label = 'items';
+  items[token] = {
+    value: 2,
+    fn: () => undefined
+  };
+  items.callback = () => undefined;
+
+  const next = reducer(
+    undefined,
+    replaceStateAction({
+      items
+    } as any)
+  ) as any;
+
+  expect(next.items.length).toBe(2);
+  expect(Object.prototype.hasOwnProperty.call(next.items, 0)).toBe(false);
+  expect(next.items[1]).toEqual({
+    count: 1
+  });
+  expect(next.items.label).toBe('items');
+  expect(next.items[token]).toEqual({
+    value: 2
+  });
+  expect(Object.prototype.hasOwnProperty.call(next.items, 'callback')).toBe(
+    false
+  );
+});
+
 test('replace action preserves enumerable symbol keys', () => {
   const reducer = withCoactionReducer((state = {} as any) => state);
   const token = Symbol('redux-token');
