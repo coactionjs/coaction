@@ -150,6 +150,63 @@ describe('State Management Store Tests', () => {
     expect(Object.getOwnPropertySymbols(state)).toContain(token);
   });
 
+  test('should preserve circular and shared references during initialization', () => {
+    const shared = {
+      value: 1
+    };
+    const initialState = {
+      count: 0,
+      left: shared,
+      right: shared
+    } as any;
+    initialState.self = initialState;
+
+    const useStore = create(() => initialState);
+    const pureState = useStore.getPureState() as any;
+    const state = useStore.getState() as any;
+
+    expect(pureState.self).toBe(pureState);
+    expect(pureState.left).toBe(pureState.right);
+    expect(pureState.left).not.toBe(shared);
+    expect(pureState.left).toEqual({
+      value: 1
+    });
+    expect(state.self).toBe(pureState);
+    expect(state.left).toBe(state.right);
+  });
+
+  test('should preserve circular and shared slice references during initialization', () => {
+    const shared = {
+      value: 1
+    };
+    const counterState = {
+      count: 0,
+      left: shared,
+      right: shared
+    } as any;
+    counterState.self = counterState;
+
+    const useStore = create(
+      {
+        counter: () => counterState
+      },
+      {
+        sliceMode: 'slices'
+      }
+    );
+    const pureCounter = useStore.getPureState().counter as any;
+    const counter = useStore.getState().counter as any;
+
+    expect(pureCounter.self).toBe(pureCounter);
+    expect(pureCounter.left).toBe(pureCounter.right);
+    expect(pureCounter.left).not.toBe(shared);
+    expect(pureCounter.left).toEqual({
+      value: 1
+    });
+    expect(counter.self).toBe(pureCounter);
+    expect(counter.left).toBe(counter.right);
+  });
+
   test('should preserve non-enumerable data properties in pure state', () => {
     const state = {
       count: 0

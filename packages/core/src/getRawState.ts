@@ -44,6 +44,8 @@ export const getRawState = <T extends CreateState>(
     sliceKey?: PropertyKey
   ) => {
     internal.mutableInstance = internal.toMutableRaw?.(_initialState);
+    const initialStateSeen = new WeakMap<object, unknown>();
+    initialStateSeen.set(_initialState, _rawState);
     const safeDescriptors: PropertyDescriptorMap = {};
     const descriptors = Object.getOwnPropertyDescriptors(_initialState);
     Reflect.ownKeys(descriptors).forEach((key) => {
@@ -70,6 +72,7 @@ export const getRawState = <T extends CreateState>(
         if (typeof descriptor.value !== 'function') {
           prepareStateDescriptor({
             descriptor,
+            initialStateSeen,
             internal,
             key,
             rawState: _rawState,

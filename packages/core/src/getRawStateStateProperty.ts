@@ -10,6 +10,7 @@ import { sanitizeInitialStateValue } from './utils';
 type PrepareStateDescriptorOptions<T extends CreateState> = {
   descriptor: PropertyDescriptor;
   internal: Internal<T>;
+  initialStateSeen: WeakMap<object, unknown>;
   key: PropertyKey;
   rawState: Record<PropertyKey, any>;
   sliceKey?: PropertyKey;
@@ -17,6 +18,7 @@ type PrepareStateDescriptorOptions<T extends CreateState> = {
 
 export const prepareStateDescriptor = <T extends CreateState>({
   descriptor,
+  initialStateSeen,
   internal,
   key,
   rawState,
@@ -29,7 +31,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
       : (internal.rootState as any)[key];
   const initialValue = isComputed
     ? descriptor.value
-    : sanitizeInitialStateValue(descriptor.value);
+    : sanitizeInitialStateValue(descriptor.value, initialStateSeen);
   if (internal.mutableInstance) {
     Object.defineProperty(rawState, key, {
       get: () => internal.mutableInstance[key],
