@@ -150,6 +150,33 @@ describe('State Management Store Tests', () => {
     expect(Object.getOwnPropertySymbols(state)).toContain(token);
   });
 
+  test('should preserve non-enumerable data properties in pure state', () => {
+    const state = {
+      count: 0
+    };
+    Object.defineProperty(state, 'hidden', {
+      value: 1,
+      enumerable: false,
+      configurable: true,
+      writable: true
+    });
+    const useStore = create(() => state);
+
+    expect((useStore.getState() as any).hidden).toBe(1);
+    expect((useStore.getPureState() as any).hidden).toBe(1);
+    expect(Object.keys(useStore.getState())).toEqual(['count']);
+    expect(Object.keys(useStore.getPureState())).toEqual(['count']);
+    expect(
+      Object.prototype.propertyIsEnumerable.call(useStore.getState(), 'hidden')
+    ).toBe(false);
+    expect(
+      Object.prototype.propertyIsEnumerable.call(
+        useStore.getPureState(),
+        'hidden'
+      )
+    ).toBe(false);
+  });
+
   test('should preserve and update symbol keyed state members with object updates', () => {
     const token = Symbol('coaction-symbol-update');
 

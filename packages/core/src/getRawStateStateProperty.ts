@@ -5,7 +5,7 @@ import {
 } from './computed';
 import type { CreateState } from './interface';
 import type { Internal } from './internal';
-import { sanitizeInitialStateValue, setOwnEnumerable } from './utils';
+import { sanitizeInitialStateValue } from './utils';
 
 type PrepareStateDescriptorOptions<T extends CreateState> = {
   descriptor: PropertyDescriptor;
@@ -37,10 +37,15 @@ export const prepareStateDescriptor = <T extends CreateState>({
         internal.mutableInstance[key] = value;
       },
       configurable: true,
-      enumerable: true
+      enumerable: descriptor.enumerable
     });
   } else if (!isComputed) {
-    setOwnEnumerable(rawState, key, initialValue);
+    Object.defineProperty(rawState, key, {
+      value: initialValue,
+      configurable: true,
+      enumerable: descriptor.enumerable,
+      writable: true
+    });
   }
 
   if (isComputed) {
