@@ -95,10 +95,18 @@ const findJsonViolation = (
         path
       };
     case 'bigint':
+      return {
+        type: 'bigint',
+        path
+      };
     case 'undefined':
+      return {
+        type: 'undefined',
+        path
+      };
     case 'function':
       return {
-        type: typeof value,
+        type: 'function',
         path
       };
     case 'number':
