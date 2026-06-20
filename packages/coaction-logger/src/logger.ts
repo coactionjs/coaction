@@ -21,6 +21,30 @@ const loggerStoreMap = new WeakMap<MiddlewareStore<any>, boolean>();
 const formatSlicePrefix = (sliceKey: PropertyKey | undefined) =>
   typeof sliceKey === 'undefined' ? '' : `${String(sliceKey)}.`;
 
+const safeStringify = (value: unknown) => {
+  const seen = new WeakSet<object>();
+  try {
+    const result = JSON.stringify(value, (_key, child) => {
+      if (typeof child === 'bigint') {
+        return child.toString();
+      }
+      if (typeof child === 'object' && child !== null) {
+        if (seen.has(child)) {
+          return '[Circular]';
+        }
+        seen.add(child);
+      }
+      return child;
+    });
+    return typeof result === 'undefined' ? String(value) : result;
+  } catch (error) {
+    return `[Unserializable: ${error instanceof Error ? error.message : String(error)}]`;
+  }
+};
+
+const formatLogValue = (value: unknown, serialized: boolean) =>
+  serialized ? safeStringify(value) : value;
+
 export interface Logger {
   log: (...args: any[]) => void;
   group: (...args: any[]) => void;
@@ -72,7 +96,7 @@ export const logger: (options?: {
             : '%c%c[Patches]',
           'color: gray; font-weight: lighter;',
           'color: #BD67FB; font-weight: lighter;',
-          serialized ? JSON.stringify(patches) : patches
+          formatLogValue(patches, serialized)
         );
       }
       return apply(state, patches);
@@ -138,16 +162,14 @@ export const logger: (options?: {
       }
       logger.log(
         `${verbose ? `[Share: ${store.share}][Store: ${store.name}]` : ''}[State]`,
-        serialized ? JSON.stringify(store.getPureState()) : store.getPureState()
+        formatLogValue(store.getPureState(), serialized)
       );
       const now = timer.now();
       try {
         const result = setState(state, action);
         logger.log(
           `${verbose ? `[Share: ${store.share}][Store: ${store.name}]` : ''}[Next State]`,
-          serialized
-            ? JSON.stringify(store.getPureState())
-            : store.getPureState()
+          formatLogValue(store.getPureState(), serialized)
         );
         logger.log(
           [

@@ -91,6 +91,54 @@ test('covers verbose/serialized stack trace branches', async () => {
   expect(customLogger.log).toHaveBeenCalled();
 });
 
+test('serialized logger does not throw on circular or bigint values', async () => {
+  vi.resetModules();
+  const { logger } = await import('../src/logger');
+  const customLogger = createCustomLogger();
+  const store = createFakeStore();
+  logger({
+    logger: customLogger as any,
+    serialized: true,
+    collapsed: false
+  })(store as any);
+  const circularState = {
+    count: 0,
+    amount: 1n
+  } as any;
+  circularState.self = circularState;
+  store.apply(circularState);
+
+  expect(() => {
+    store.setState({
+      count: 1
+    });
+  }).not.toThrow();
+  const stateLog = customLogger.log.mock.calls.find(
+    (call) => call[0] === '[State]'
+  );
+  expect(stateLog?.[1]).toContain('"amount":"1"');
+  expect(stateLog?.[1]).toContain('"self":"[Circular]"');
+
+  const circularPatchValue = {
+    amount: 2n
+  } as any;
+  circularPatchValue.self = circularPatchValue;
+  expect(() => {
+    store.apply(store.getPureState(), [
+      {
+        op: 'replace',
+        path: ['circular'],
+        value: circularPatchValue
+      }
+    ]);
+  }).not.toThrow();
+  const patchLog = customLogger.log.mock.calls.find(
+    (call) => typeof call[0] === 'string' && call[0].includes('[Patches]')
+  );
+  expect(patchLog?.[3]).toContain('"amount":"2"');
+  expect(patchLog?.[3]).toContain('"self":"[Circular]"');
+});
+
 test('covers compact mode and duplicate middleware short-circuit', async () => {
   vi.resetModules();
   const { logger } = await import('../src/logger');
