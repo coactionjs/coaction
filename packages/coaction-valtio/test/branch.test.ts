@@ -23,6 +23,7 @@ const loadBinding = async () => {
 
 afterEach(() => {
   vi.doUnmock('coaction');
+  vi.doUnmock('valtio/vanilla');
   vi.resetModules();
 });
 
@@ -76,4 +77,57 @@ test('skips re-initialization when internal mutable mapper already exists', asyn
     internal
   );
   expect((store as any).subscribe).toBe(subscribeRef);
+});
+
+test('destroy unsubscribes valtio listener only once', async () => {
+  vi.resetModules();
+  let capturedHandleStore: any;
+  const cancelReadySubscription = vi.fn();
+  const unsubscribe = vi.fn(() => {
+    if (unsubscribe.mock.calls.length > 1) {
+      throw new Error('unsubscribe called twice');
+    }
+  });
+  vi.doMock('coaction', () => ({
+    createBinder: ({ handleStore }: { handleStore: any }) => {
+      capturedHandleStore = handleStore;
+      return (input: unknown) => input;
+    },
+    onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
+      callback();
+      return cancelReadySubscription;
+    }),
+    replaceExternalStoreState: vi.fn(),
+    sanitizeReplacementState: (value: unknown) => value
+  }));
+  vi.doMock('valtio/vanilla', () => ({
+    proxy: (value: unknown) => value,
+    subscribe: vi.fn(() => unsubscribe)
+  }));
+  await import('../src');
+  const state = {
+    count: 0
+  };
+  const baseDestroy = vi.fn();
+  const store = {
+    share: false,
+    getPureState: () => state,
+    getState: () => state,
+    destroy: baseDestroy
+  };
+
+  capturedHandleStore(
+    store as any,
+    state as any,
+    state as any,
+    {
+      notifyStateChange: vi.fn()
+    } as any
+  );
+
+  (store as any).destroy();
+  expect(() => (store as any).destroy()).not.toThrow();
+  expect(cancelReadySubscription).toHaveBeenCalledTimes(1);
+  expect(unsubscribe).toHaveBeenCalledTimes(1);
+  expect(baseDestroy).toHaveBeenCalledTimes(1);
 });

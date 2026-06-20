@@ -101,7 +101,12 @@ export const bindJotai = <
         })
       );
       const baseDestroy = coactionStore.destroy;
+      let destroyed = false;
       coactionStore.destroy = () => {
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
         unsubscriptions.forEach((unsubscribe) => unsubscribe());
         baseDestroy();
       };

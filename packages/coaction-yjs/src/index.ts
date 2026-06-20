@@ -555,9 +555,15 @@ export const yjs =
       binding = bindYjs(store, options);
     });
     const baseDestroy = store.destroy;
+    let destroyed = false;
     store.destroy = () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
       cancelBinding();
       binding?.destroy();
+      binding = undefined;
       baseDestroy();
     };
     return store;

@@ -160,7 +160,12 @@ export const create: Creator = (createState: any, options: any) => {
     setVersion((value) => value + 1);
   });
   const baseDestroy = store.destroy;
+  let destroyed = false;
   store.destroy = () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
     unsubscribe();
     baseDestroy();
   };

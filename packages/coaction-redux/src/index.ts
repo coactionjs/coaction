@@ -96,7 +96,12 @@ export const bindRedux = <S extends object, A extends AnyAction = AnyAction>(
         }
       });
       const baseDestroy = coactionStore.destroy;
+      let destroyed = false;
       coactionStore.destroy = () => {
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
         unsubscribe();
         baseDestroy();
       };

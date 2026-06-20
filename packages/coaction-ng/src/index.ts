@@ -52,7 +52,12 @@ function attachSignals<T extends object>(store: Store<T>) {
     version.update((value) => value + 1);
   });
   const baseDestroy = store.destroy;
+  let destroyed = false;
   store.destroy = () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
     unsubscribe();
     baseDestroy();
   };

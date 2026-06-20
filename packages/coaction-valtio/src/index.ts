@@ -169,9 +169,15 @@ const handleStore = (
       }
     });
     const baseDestroy = store.destroy;
+    let destroyed = false;
     store.destroy = () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
       cancelReadySubscription();
       unsubscribeExternal?.();
+      unsubscribeExternal = undefined;
       store._listeners?.clear();
       store._listeners = undefined;
       store._destroyers?.forEach((destroy) => destroy());

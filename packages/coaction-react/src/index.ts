@@ -471,7 +471,12 @@ export const create: Creator = (createState: any, options: any) => {
   });
   isTrackingSubscriptionSetup = false;
   const baseDestroy = store.destroy;
+  let destroyed = false;
   store.destroy = () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
     unsubscribeVersion();
     fullStateListeners.clear();
     baseDestroy();

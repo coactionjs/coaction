@@ -288,9 +288,15 @@ export const history =
     });
     if (typeof store.destroy === 'function') {
       const baseDestroy = store.destroy;
+      let destroyed = false;
       store.destroy = () => {
+        if (destroyed) {
+          return;
+        }
+        destroyed = true;
         cancelReadySubscription();
         unsubscribeStore?.();
+        unsubscribeStore = undefined;
         baseDestroy();
       };
     }

@@ -1,4 +1,5 @@
 import { create, Slices } from 'coaction';
+import { vi } from 'vitest';
 import { adapt, atom, bindJotai, createStore } from '../src';
 
 test('base', () => {
@@ -61,6 +62,38 @@ test('destroy unsubscribes atom listeners', () => {
   useStore.destroy();
   jotaiStore.set(countAtom, 10);
   expect(useStore.getState().count).toBe(0);
+});
+
+test('destroy unsubscribes atom listeners only once', () => {
+  const countAtom = atom(0);
+  const unsubscribe = vi.fn(() => {
+    if (unsubscribe.mock.calls.length > 1) {
+      throw new Error('unsubscribe called twice');
+    }
+  });
+  const jotaiStore = {
+    get: vi.fn(() => 0),
+    set: vi.fn(),
+    sub: vi.fn(() => unsubscribe)
+  };
+  const useStore = create(
+    () =>
+      adapt(
+        bindJotai({
+          store: jotaiStore as any,
+          atoms: {
+            count: countAtom
+          }
+        })
+      ),
+    {
+      name: 'test-destroy-once'
+    }
+  );
+
+  useStore.destroy();
+  expect(() => useStore.destroy()).not.toThrow();
+  expect(unsubscribe).toHaveBeenCalledTimes(1);
 });
 
 test('ignores non-atom keys when syncing from coaction to jotai', () => {

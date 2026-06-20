@@ -242,9 +242,13 @@ export const persist =
     });
     const baseDestroy = store.destroy;
     store.destroy = () => {
+      if (destroyed) {
+        return;
+      }
       destroyed = true;
       cancelReadySubscription();
       unsubscribeStore?.();
+      unsubscribeStore = undefined;
       baseDestroy();
     };
     if (!skipHydration) {

@@ -30,7 +30,12 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         if (!boundStore._destroyers) {
           boundStore._destroyers = new Set();
           const baseDestroy = boundStore.destroy;
+          let destroyed = false;
           boundStore.destroy = () => {
+            if (destroyed) {
+              return;
+            }
+            destroyed = true;
             boundStore._destroyers?.forEach((destroy) => destroy());
             boundStore._destroyers?.clear();
             boundStore._destroyers = undefined;

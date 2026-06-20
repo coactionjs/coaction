@@ -69,7 +69,11 @@ test('redux binding unsubscribes from redux store on destroy', async () => {
   });
   bindRedux(reduxStore);
 
-  const unsubscribe = vi.fn();
+  const unsubscribe = vi.fn(() => {
+    if (unsubscribe.mock.calls.length > 1) {
+      throw new Error('unsubscribe called twice');
+    }
+  });
   const subscribeSpy = vi
     .spyOn(reduxStore, 'subscribe')
     .mockImplementation(() => unsubscribe);
@@ -86,6 +90,7 @@ test('redux binding unsubscribes from redux store on destroy', async () => {
   expect(subscribeSpy).toHaveBeenCalledTimes(1);
 
   store.destroy();
+  expect(() => store.destroy()).not.toThrow();
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
