@@ -421,7 +421,7 @@ test('middleware destroy stops further syncing', () => {
   });
 });
 
-test('falls back to JSON cloning without structuredClone', () => {
+test('falls back to custom cloning without structuredClone', () => {
   const originalStructuredClone = globalThis.structuredClone;
   (globalThis as any).structuredClone = undefined;
   try {
@@ -446,6 +446,40 @@ test('falls back to JSON cloning without structuredClone', () => {
         count: 1
       }
     });
+    binding.destroy();
+  } finally {
+    (globalThis as any).structuredClone = originalStructuredClone;
+  }
+});
+
+test('fallback clone preserves Yjs primitive values without structuredClone', () => {
+  const originalStructuredClone = globalThis.structuredClone;
+  (globalThis as any).structuredClone = undefined;
+  try {
+    const doc = new Y.Doc();
+    const store = create(() => ({
+      missing: undefined,
+      nan: Number.NaN,
+      infinity: Infinity,
+      negativeInfinity: -Infinity,
+      big: BigInt(1),
+      nested: {
+        values: [Number.NaN, Infinity]
+      }
+    }));
+    const binding = bindYjs(store, {
+      doc,
+      key: 'counter'
+    });
+    const state = readState(doc, 'counter');
+    expect(Object.prototype.hasOwnProperty.call(state, 'missing')).toBe(true);
+    expect(state.missing).toBeUndefined();
+    expect(state.nan).toBeNaN();
+    expect(state.infinity).toBe(Infinity);
+    expect(state.negativeInfinity).toBe(-Infinity);
+    expect(state.big).toBe(BigInt(1));
+    expect((state.nested as any).values[0]).toBeNaN();
+    expect((state.nested as any).values[1]).toBe(Infinity);
     binding.destroy();
   } finally {
     (globalThis as any).structuredClone = originalStructuredClone;
