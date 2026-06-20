@@ -3,7 +3,7 @@ import { createStore, type PrimitiveAtom } from 'jotai/vanilla';
 
 export * from 'jotai/vanilla';
 
-type AtomMap = Record<string, PrimitiveAtom<any>>;
+type AtomMap = Record<PropertyKey, PrimitiveAtom<any>>;
 type JotaiStore = ReturnType<typeof createStore>;
 
 type InferAtomValues<TAtoms extends AtomMap> = {
@@ -14,39 +14,74 @@ type InferAtomValues<TAtoms extends AtomMap> = {
 
 type ActionsFactory<
   TAtoms extends AtomMap,
-  TActions extends Record<string, (...args: any[]) => any>
+  TActions extends Record<PropertyKey, (...args: any[]) => any>
 > = (helpers: { store: JotaiStore; atoms: TAtoms }) => TActions;
 
 type JotaiContext<
   TAtoms extends AtomMap = AtomMap,
-  TActions extends Record<string, (...args: any[]) => any> = {}
+  TActions extends Record<PropertyKey, (...args: any[]) => any> = {}
 > = {
   store: JotaiStore;
   atoms: TAtoms;
-  atomKeys: (keyof TAtoms & string)[];
+  atomKeys: (keyof TAtoms & PropertyKey)[];
   actions: TActions;
+};
+
+const isUnsafeKey = (key: PropertyKey) =>
+  typeof key === 'string' &&
+  (key === '__proto__' || key === 'prototype' || key === 'constructor');
+
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
+const setOwnEnumerable = (
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey,
+  value: unknown
+) => {
+  if (isUnsafeKey(key)) {
+    return;
+  }
+  target[key] = value;
+};
+
+const assignOwnEnumerable = (
+  target: Record<PropertyKey, unknown>,
+  source: object
+) => {
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (isUnsafeKey(key)) {
+      continue;
+    }
+    target[key] = (source as Record<PropertyKey, unknown>)[key];
+  }
 };
 
 const getAtomState = <
   TAtoms extends AtomMap,
-  TActions extends Record<string, (...args: any[]) => any>
+  TActions extends Record<PropertyKey, (...args: any[]) => any>
 >(
   context: JotaiContext<TAtoms, TActions>
-) =>
-  context.atomKeys.reduce(
-    (state, key) =>
-      Object.assign(state, {
-        [key]: context.store.get(context.atoms[key])
-      }),
-    {} as InferAtomValues<TAtoms>
-  );
+) => {
+  const state = {} as InferAtomValues<TAtoms>;
+  for (const key of context.atomKeys) {
+    setOwnEnumerable(
+      state as Record<PropertyKey, unknown>,
+      key,
+      context.store.get(context.atoms[key])
+    );
+  }
+  return state;
+};
 
 /**
  * Bind jotai vanilla store to Coaction.
  */
 export const bindJotai = <
   TAtoms extends AtomMap,
-  TActions extends Record<string, (...args: any[]) => any> = {}
+  TActions extends Record<PropertyKey, (...args: any[]) => any> = {}
 >({
   store,
   atoms,
@@ -59,7 +94,9 @@ export const bindJotai = <
   const context: JotaiContext<TAtoms, TActions> = {
     store,
     atoms,
-    atomKeys: Object.keys(atoms) as (keyof TAtoms & string)[],
+    atomKeys: getOwnEnumerableKeys(atoms).filter(
+      (key) => !isUnsafeKey(key)
+    ) as (keyof TAtoms & PropertyKey)[],
     actions: (actions?.({
       store,
       atoms
@@ -70,7 +107,7 @@ export const bindJotai = <
   const bindStore = createBinder({
     handleStore: (coactionStore: Store<object>, rawState, state, internal) => {
       const syncAtomsFromState = (nextState: object) => {
-        const nextStateRecord = nextState as Record<string, unknown>;
+        const nextStateRecord = nextState as Record<PropertyKey, unknown>;
         for (const key of context.atomKeys) {
           if (Object.prototype.hasOwnProperty.call(nextStateRecord, key)) {
             context.store.set(context.atoms[key], nextStateRecord[key]);
@@ -123,11 +160,9 @@ export const bindJotai = <
       };
     },
     handleState: (() => {
-      const stateWithActions = Object.assign(
-        {},
-        getAtomState(context),
-        context.actions
-      );
+      const stateWithActions = {};
+      assignOwnEnumerable(stateWithActions, getAtomState(context));
+      assignOwnEnumerable(stateWithActions, context.actions);
       const descriptors = Object.getOwnPropertyDescriptors(stateWithActions);
       const copyState = Object.defineProperties({}, descriptors);
       const rawState = Object.defineProperties({}, descriptors);
