@@ -26,8 +26,16 @@ test('test hooks cover defensive path helpers', () => {
     list: [1, 2, 3],
     missing: ['created']
   });
+  yjsTestHooks.setAtPath(target, ['__proto__', 'polluted'], true);
+  expect(Object.getPrototypeOf(target)).toBe(Object.prototype);
+  expect(({} as any).polluted).toBeUndefined();
 
   yjsTestHooks.deleteAtPath(target, []);
+  expect(target).toEqual({
+    list: [1, 2, 3],
+    missing: ['created']
+  });
+  yjsTestHooks.deleteAtPath(target, ['constructor', 'prototype']);
   expect(target).toEqual({
     list: [1, 2, 3],
     missing: ['created']

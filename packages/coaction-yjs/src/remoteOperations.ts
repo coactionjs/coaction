@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { clone } from './shared';
+import { isUnsafePathSegment, sanitizePlainValue } from './shared';
 import { toPlainValue } from './yjsValue';
 
 export type PathSegment = string | number;
@@ -24,7 +24,7 @@ export function isSetStateReentryError(error: unknown): boolean {
 
 function cloneForStore<T>(value: T): T {
   if (typeof value === 'object' && value !== null) {
-    return clone(value);
+    return sanitizePlainValue(value);
   }
   return value;
 }
@@ -79,6 +79,9 @@ export function setAtPath(target: any, path: PathSegment[], value: unknown) {
   if (path.length === 0) {
     return;
   }
+  if (path.some(isUnsafePathSegment)) {
+    return;
+  }
   let current = target;
   for (let index = 0; index < path.length - 1; index += 1) {
     const segment = path[index];
@@ -95,6 +98,9 @@ export function setAtPath(target: any, path: PathSegment[], value: unknown) {
 
 export function deleteAtPath(target: any, path: PathSegment[]) {
   if (path.length === 0) {
+    return;
+  }
+  if (path.some(isUnsafePathSegment)) {
     return;
   }
   let current = target;
@@ -123,6 +129,9 @@ export function collectRemoteOperations(
     if (event instanceof Y.YMapEvent) {
       for (const changedKey of event.keysChanged) {
         const path = [...event.path, changedKey];
+        if (path.some(isUnsafePathSegment)) {
+          continue;
+        }
         const keyChange = event.changes.keys.get(changedKey);
         if (keyChange?.action === 'delete') {
           operations.push({

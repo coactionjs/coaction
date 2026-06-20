@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { clone, isPlainObject } from './shared';
+import { clone, isPlainObject, isUnsafeKey } from './shared';
 import { createYArray, createYMap, toYValue } from './yjsValue';
 
 function isEqualValue(left: unknown, right: unknown): boolean {
@@ -41,8 +41,17 @@ export function syncObjectToYMap(
   previous: Record<string, unknown>,
   source: Record<string, unknown>
 ) {
+  target.forEach((_value, key) => {
+    if (isUnsafeKey(key)) {
+      target.delete(key);
+    }
+  });
   const keys = new Set([...Object.keys(previous), ...Object.keys(source)]);
   for (const key of keys) {
+    if (isUnsafeKey(key)) {
+      target.delete(key);
+      continue;
+    }
     const hasPrevious = Object.prototype.hasOwnProperty.call(previous, key);
     const hasNext = Object.prototype.hasOwnProperty.call(source, key);
     if (!hasNext) {

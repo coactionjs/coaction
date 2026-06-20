@@ -1119,6 +1119,73 @@ test('retries remote snapshot flush on setState reentry errors', async () => {
   expect(store.getState().count).toBe(11);
 });
 
+test('ignores unsafe remote operation keys', async () => {
+  const doc = new Y.Doc();
+  const store = create((set) => ({
+    count: 0
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const stateMap = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+
+  doc.transact(() => {
+    stateMap.set('__proto__', {
+      polluted: true
+    });
+    stateMap.set('constructor', {
+      value: 2
+    });
+    stateMap.set('count', 1);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBe(1);
+  });
+  expect(Object.getPrototypeOf(store.getState())).toBe(Object.prototype);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState(), 'constructor')
+  ).toBe(false);
+  binding.destroy();
+});
+
+test('sanitizes unsafe keys inside remote operation values', async () => {
+  const doc = new Y.Doc();
+  const store = create((set) => ({
+    nested: {
+      value: 0
+    }
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const stateMap = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+  const nested = JSON.parse(
+    '{"value":2,"__proto__":{"polluted":true},"prototype":{"value":3}}'
+  );
+
+  doc.transact(() => {
+    stateMap.set('nested', nested);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().nested.value).toBe(2);
+  });
+  expect(Object.getPrototypeOf(store.getState().nested)).toBe(Object.prototype);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState().nested, '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState().nested, 'prototype')
+  ).toBe(false);
+  binding.destroy();
+});
+
 test('retries compacted remote operations on setState reentry errors', async () => {
   const doc = new Y.Doc();
   const store = create((set) => ({

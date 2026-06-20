@@ -1,9 +1,17 @@
 import * as Y from 'yjs';
-import { clone, isPlainObject } from './shared';
+import {
+  clone,
+  isPlainObject,
+  isUnsafeKey,
+  sanitizePlainValue
+} from './shared';
 
 export function toPlainObject(value: Y.Map<unknown>): Record<string, unknown> {
   const next: Record<string, unknown> = {};
   value.forEach((item, key) => {
+    if (isUnsafeKey(key)) {
+      return;
+    }
     next[key] = toPlainValue(item);
   });
   return next;
@@ -20,12 +28,18 @@ export function toPlainValue(value: unknown): unknown {
   if (value instanceof Y.Array) {
     return toPlainArray(value);
   }
+  if (Array.isArray(value) || isPlainObject(value)) {
+    return sanitizePlainValue(value);
+  }
   return value;
 }
 
 export function createYMap(value: Record<string, unknown>): Y.Map<unknown> {
   const next = new Y.Map<unknown>();
   for (const [key, item] of Object.entries(value)) {
+    if (isUnsafeKey(key)) {
+      continue;
+    }
     next.set(key, toYValue(item));
   }
   return next;
