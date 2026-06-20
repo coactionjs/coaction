@@ -223,6 +223,64 @@ test('does not overwrite storage before automatic hydration runs', async () => {
   expect(setItemSpy).toHaveBeenCalledTimes(1);
 });
 
+test('sanitizes unsafe keys before merging hydrated state', async () => {
+  const storage = createMemoryStorage();
+  storage.setItem(
+    'unsafe-counter',
+    JSON.stringify({
+      state: JSON.parse(
+        '{"count":2,"nested":{"value":3,"__proto__":{"nested":true},"constructor":{"value":4}},"__proto__":{"polluted":true},"constructor":{"value":5}}'
+      ),
+      version: 0
+    })
+  );
+  const useStore = create(
+    () => ({
+      count: 0,
+      nested: {
+        value: 0
+      }
+    }),
+    {
+      middlewares: [
+        persist({
+          name: 'unsafe-counter',
+          storage
+        })
+      ]
+    }
+  );
+
+  await nextTick();
+
+  expect(useStore.getState().count).toBe(2);
+  expect(useStore.getState().nested).toEqual({
+    value: 3
+  });
+  expect(Object.getPrototypeOf(useStore.getPureState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(useStore.getPureState().nested)).toBe(
+    Object.prototype
+  );
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'constructor')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      '__proto__'
+    )
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      'constructor'
+    )
+  ).toBe(false);
+});
+
 test('shared main broadcasts hydration that completes after client full sync', async () => {
   let resolveHydration!: (value: string) => void;
   const storage: PersistStorage = {

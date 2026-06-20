@@ -1,6 +1,7 @@
 import {
   onStoreReady,
   replaceOwnEnumerable,
+  sanitizeReplacementState,
   type Middleware,
   type Store
 } from 'coaction';
@@ -146,18 +147,24 @@ export const persist =
         }
         const parsed = deserialize(rawState);
         const shouldWriteBack = parsed.version !== version;
-        let persistedState = parsed.state;
+        let persistedState = sanitizeReplacementState(parsed.state);
         if (
           parsed.version !== undefined &&
           parsed.version !== version &&
           migrate
         ) {
-          persistedState = await migrate(parsed.state, parsed.version);
+          persistedState = sanitizeReplacementState(
+            await migrate(persistedState, parsed.version)
+          );
           if (destroyed) {
             return;
           }
         }
-        applyHydratedState(merge(persistedState, store.getPureState()) as T);
+        applyHydratedState(
+          sanitizeReplacementState(
+            merge(persistedState, store.getPureState())
+          ) as T
+        );
         if (shouldWriteBack && !destroyed) {
           const payload = serialize({
             state: partialize(store.getPureState()),
