@@ -72,7 +72,7 @@ const createExternalStoreAdapter = <F = (...args: any[]) => any>({
     };
     Object.defineProperty(value, bindSymbol, {
       configurable: true,
-      enumerable: false,
+      enumerable: typeof key !== 'undefined',
       value: {
         handleStore,
         bind

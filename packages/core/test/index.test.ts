@@ -355,7 +355,7 @@ test('3rd-party binding does not support slices mode', () => {
   expect(handleStore).toHaveBeenCalledTimes(0);
 });
 
-test('3rd-party binding marker is not enumerable', () => {
+test('3rd-party binding marker is hidden unless a keyed adapter must be copied', () => {
   const bindThirdParty = createBinder({
     handleStore: jest.fn(),
     handleState: ((state: { count: number }) => ({
@@ -394,10 +394,11 @@ test('3rd-party binding marker is not enumerable', () => {
     Object.getOwnPropertyDescriptor(keyedState.nested, bindSymbol)
   ).toMatchObject({
     configurable: true,
-    enumerable: false
+    enumerable: true
   });
   expect(Object.getOwnPropertySymbols(keyedState)).not.toContain(bindSymbol);
   expect(Object.keys(keyedState.nested)).toEqual(['count']);
+  expect(Object.getOwnPropertySymbols(keyedState.nested)).toContain(bindSymbol);
 });
 
 describe('Store Name Lifecycle', () => {
