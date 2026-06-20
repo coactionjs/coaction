@@ -123,6 +123,26 @@ test('selector subscriptions skip unrelated state updates', () => {
   expect(renders).toBe(2);
 });
 
+test('autoSelector ignores non-enumerable getters', () => {
+  const state = {
+    count: 0,
+    increment() {}
+  };
+  Object.defineProperty(state, 'hidden', {
+    enumerable: false,
+    configurable: true,
+    get() {
+      throw new Error('hidden getter should not be read');
+    }
+  });
+  const useStore = create(() => state);
+
+  expect(() => useStore.auto()).not.toThrow();
+  expect(Object.prototype.hasOwnProperty.call(useStore.auto(), 'hidden')).toBe(
+    false
+  );
+});
+
 test('selector snapshots cache object results', () => {
   const useStore = create<{
     count: number;

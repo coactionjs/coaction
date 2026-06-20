@@ -62,6 +62,11 @@ export type Creator = {
   ): StoreWithAsyncFunction<T>;
 };
 
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
 const createAutoSelector = <T extends object>(
   store: Store<T>,
   getVersion: Accessor<number>
@@ -113,11 +118,7 @@ const createAutoSelector = <T extends object>(
     }
     const node = {} as Record<PropertyKey, any>;
     const nextAncestors = [...ancestors, value];
-    const descriptors = Object.getOwnPropertyDescriptors(value) as Record<
-      PropertyKey,
-      PropertyDescriptor
-    >;
-    for (const key of Reflect.ownKeys(descriptors)) {
+    for (const key of getOwnEnumerableKeys(value)) {
       node[key] = createNode(
         [...path, key],
         (value as Record<PropertyKey, unknown>)[key],
@@ -129,11 +130,7 @@ const createAutoSelector = <T extends object>(
   const state = store.getState() as Record<PropertyKey, any>;
   const autoSelector = {} as Record<PropertyKey, any>;
   if (!store.isSliceStore) {
-    const descriptors = Object.getOwnPropertyDescriptors(state) as Record<
-      PropertyKey,
-      PropertyDescriptor
-    >;
-    for (const key of Reflect.ownKeys(descriptors)) {
+    for (const key of getOwnEnumerableKeys(state)) {
       autoSelector[key] = createNode(
         [key],
         (state as Record<PropertyKey, unknown>)[key]
@@ -141,7 +138,7 @@ const createAutoSelector = <T extends object>(
     }
     return autoSelector;
   }
-  for (const sliceKey of Reflect.ownKeys(state)) {
+  for (const sliceKey of getOwnEnumerableKeys(state)) {
     const slice = state[sliceKey];
     if (typeof slice !== 'object' || slice === null) {
       continue;

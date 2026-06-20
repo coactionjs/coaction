@@ -63,6 +63,32 @@ test('autoSelector', () => {
   scope.stop();
 });
 
+test('autoSelector ignores non-enumerable getters', () => {
+  const state = {
+    count: 0,
+    increment() {}
+  };
+  Object.defineProperty(state, 'hidden', {
+    enumerable: false,
+    configurable: true,
+    get() {
+      throw new Error('hidden getter should not be read');
+    }
+  });
+  const useStore = create(() => state);
+  const scope = effectScope();
+  scope.run(() => {
+    let selectors: any;
+    expect(() => {
+      selectors = useStore({ autoSelector: true });
+    }).not.toThrow();
+    expect(Object.prototype.hasOwnProperty.call(selectors, 'hidden')).toBe(
+      false
+    );
+  });
+  scope.stop();
+});
+
 test('autoSelector supports nested object selectors', () => {
   const useStore = create<{
     nested: {

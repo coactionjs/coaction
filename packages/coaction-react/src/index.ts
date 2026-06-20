@@ -347,6 +347,11 @@ const getPathValue = (state: unknown, path: PropertyKey[]) => {
   return current;
 };
 
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
 const createSelectorNode = <T extends object>(
   path: PropertyKey[],
   value: unknown,
@@ -363,11 +368,7 @@ const createSelectorNode = <T extends object>(
   }
   const nextAncestors = [...ancestors, value];
   const childDescriptors = {} as Record<PropertyKey, PropertyDescriptor>;
-  const descriptors = Object.getOwnPropertyDescriptors(value) as Record<
-    PropertyKey,
-    PropertyDescriptor
-  >;
-  for (const key of Reflect.ownKeys(descriptors)) {
+  for (const key of getOwnEnumerableKeys(value)) {
     childDescriptors[key] = {
       value: createSelectorNode<T>(
         [...path, key],
@@ -386,11 +387,7 @@ const createAutoSelectors = <T extends object>(store: Store<T>) => {
     return {} as AutoSelectors<T>;
   }
   const selectors = {} as Record<PropertyKey, AutoSelector<T, unknown>>;
-  const descriptors = Object.getOwnPropertyDescriptors(state) as Record<
-    PropertyKey,
-    PropertyDescriptor
-  >;
-  for (const key of Reflect.ownKeys(descriptors)) {
+  for (const key of getOwnEnumerableKeys(state)) {
     selectors[key] = createSelectorNode<T>(
       [key],
       (state as Record<PropertyKey, unknown>)[key]
@@ -411,7 +408,7 @@ const touchState = (value: unknown, seen = new WeakSet<object>()) => {
     value.forEach((item) => touchState(item, seen));
     return;
   }
-  for (const key of Reflect.ownKeys(value as Record<PropertyKey, unknown>)) {
+  for (const key of getOwnEnumerableKeys(value)) {
     touchState((value as Record<PropertyKey, unknown>)[key], seen);
   }
 };
