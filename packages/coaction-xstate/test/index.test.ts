@@ -100,7 +100,10 @@ test('handles actors that synchronously emit when subscribing', () => {
     send: () => undefined
   };
 
-  const useStore = create(() => adapt(bindXState(actor as any)), {
+  const useStore = create<{
+    count: number;
+    send: (event: unknown) => void;
+  }>(() => adapt(bindXState(actor as any)), {
     name: 'test-xstate-sync-subscribe'
   });
 

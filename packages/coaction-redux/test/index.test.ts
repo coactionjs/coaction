@@ -147,7 +147,7 @@ test('external redux replacement removes stale coaction state keys', () => {
       }
     )
   });
-  const useStore = create(() => adapt(bindRedux(reduxStore)), {
+  const useStore = create(() => adapt(bindRedux(reduxStore as any)), {
     name: 'test-redux-exact-replace'
   });
 

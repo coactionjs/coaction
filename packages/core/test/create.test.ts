@@ -139,7 +139,7 @@ describe('State Management Store Tests', () => {
   test('should support symbol keyed slices', () => {
     const counter = Symbol('counter-slice');
     const useStore = create({
-      [counter]: (set) => ({
+      [counter]: (set: any) => ({
         count: 0,
         increment() {
           set({
