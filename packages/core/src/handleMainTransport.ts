@@ -8,6 +8,7 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import { validateSharedStateSerializable } from './sharedState';
+import { isUnsafePathSegment } from './utils';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -50,15 +51,22 @@ export const handleMainTransport = <T extends CreateState>(
     throw new Error(`enablePatches: true is required for the transport`);
   }
   transport.listen('execute', async (keys, args) => {
-    let base = store.getState();
-    let obj = base;
+    let base: unknown = store.getState();
     try {
       for (const key of keys) {
-        base = base[key];
+        if (
+          isUnsafePathSegment(key) ||
+          (typeof base !== 'object' && typeof base !== 'function') ||
+          base === null ||
+          !Object.prototype.hasOwnProperty.call(base, key)
+        ) {
+          throw new Error('The function is not found');
+        }
+        const obj = base;
+        base = (base as Record<PropertyKey, unknown>)[key];
         if (typeof base === 'function') {
           base = base.bind(obj);
         }
-        obj = base;
       }
       if (typeof base !== 'function') {
         throw new Error('The function is not found');

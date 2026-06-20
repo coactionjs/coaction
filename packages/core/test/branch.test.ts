@@ -1215,3 +1215,57 @@ test('handleMainTransport validates onConnect and normalizes non-Error throws', 
     errorSpy.mockRestore();
   }
 });
+
+test('handleMainTransport rejects inherited and unsafe execute paths', async () => {
+  let executeHandler:
+    | ((keys: string[], args: unknown[]) => Promise<any>)
+    | null = null;
+  const transport = {
+    onConnect: vi.fn(),
+    listen: vi.fn((name: string, handler: any) => {
+      if (name === 'execute') {
+        executeHandler = handler;
+      }
+    })
+  };
+
+  handleMainTransport(
+    {
+      name: 'main',
+      getState: () => ({
+        nested: {
+          value: 3,
+          read() {
+            return this.value;
+          }
+        }
+      })
+    } as any,
+    {
+      rootState: {},
+      sequence: 0
+    } as any,
+    transport as any,
+    null,
+    false
+  );
+  expect(executeHandler).not.toBeNull();
+
+  await expect(executeHandler!(['nested', 'read'], [])).resolves.toEqual([
+    3, 0
+  ]);
+  await expect(executeHandler!(['nested', 'toString'], [])).resolves.toEqual([
+    {
+      __coactionTransportError__: true,
+      message: 'The function is not found'
+    },
+    0
+  ]);
+  await expect(executeHandler!(['constructor'], [])).resolves.toEqual([
+    {
+      __coactionTransportError__: true,
+      message: 'The function is not found'
+    },
+    0
+  ]);
+});
