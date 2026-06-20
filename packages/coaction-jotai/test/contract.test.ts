@@ -1,4 +1,5 @@
-import { expectTypeOf } from 'vitest';
+import { create } from 'coaction';
+import { expect, expectTypeOf, test, vi } from 'vitest';
 import { atom, createStore } from '../src';
 import { runBinderAdapterContract } from '../../core/test/binderAdapterContract';
 import { adapt, bindJotai } from '../src';
@@ -46,6 +47,55 @@ runBinderAdapterContract({
       },
       expectedValueAfterExternalWrite: 7
     };
+  },
+  createWorkerContract: () => {
+    const server = createCounterStore();
+    const client = createCounterStore();
+    return {
+      createServerState: () => server.state,
+      createClientState: () => client.state,
+      readValue: (useStore) => useStore.getState().count,
+      invokeServer: (useStore) => useStore.getState().increment(),
+      expectedValueAfterServerUpdate: 1,
+      invokeClient: (useStore) => useStore.getState().increment(),
+      expectedValueAfterClientUpdate: 2,
+      writeServerExternal: () => {
+        server.store.set(server.atoms.count, 7);
+      },
+      expectedValueAfterServerExternalWrite: 7
+    };
+  }
+});
+
+test('rejects client atom writes without diverging from coaction state', async () => {
+  const clientTransport = {
+    dispose: vi.fn(),
+    emit: vi.fn(),
+    listen: vi.fn(),
+    onConnect: vi.fn()
+  };
+  const client = createCounterStore();
+  const clientStore = create(() => client.state, {
+    name: '@coaction-jotai-client-write',
+    clientTransport: clientTransport as any
+  });
+
+  try {
+    let error: unknown;
+    try {
+      client.store.set(client.atoms.count, 10);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect((error as { name?: string }).name).toBe('AggregateError');
+    expect((error as { errors?: Error[] }).errors?.[0]?.message).toBe(
+      'client jotai store cannot be updated'
+    );
+    expect(client.store.get(client.atoms.count)).toBe(0);
+    expect(clientStore.getState().count).toBe(0);
+  } finally {
+    clientStore.destroy();
   }
 });
 

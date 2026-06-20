@@ -69,10 +69,27 @@ export const bindJotai = <
   let isJotaiUpdating = false;
   const bindStore = createBinder({
     handleStore: (coactionStore: Store<object>, rawState, state, internal) => {
+      const syncAtomsFromState = (nextState: object) => {
+        const nextStateRecord = nextState as Record<string, unknown>;
+        for (const key of context.atomKeys) {
+          if (Object.prototype.hasOwnProperty.call(nextStateRecord, key)) {
+            context.store.set(context.atoms[key], nextStateRecord[key]);
+          }
+        }
+      };
       const unsubscriptions = context.atomKeys.map((key) =>
         context.store.sub(context.atoms[key], () => {
           if (isCoactionUpdating) {
             return;
+          }
+          if (coactionStore.share === 'client') {
+            isCoactionUpdating = true;
+            try {
+              syncAtomsFromState(coactionStore.getState());
+            } finally {
+              isCoactionUpdating = false;
+            }
+            throw new Error('client jotai store cannot be updated');
           }
           isJotaiUpdating = true;
           try {
@@ -89,17 +106,12 @@ export const bindJotai = <
         baseDestroy();
       };
       internal.updateImmutable = (nextState: object) => {
-        const nextStateRecord = nextState as Record<string, unknown>;
         if (isJotaiUpdating) {
           return;
         }
         isCoactionUpdating = true;
         try {
-          for (const key of context.atomKeys) {
-            if (Object.prototype.hasOwnProperty.call(nextStateRecord, key)) {
-              context.store.set(context.atoms[key], nextStateRecord[key]);
-            }
-          }
+          syncAtomsFromState(nextState);
         } finally {
           isCoactionUpdating = false;
         }
