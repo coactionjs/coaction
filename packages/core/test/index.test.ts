@@ -401,6 +401,47 @@ test('3rd-party binding marker is hidden unless a keyed adapter must be copied',
   expect(Object.getOwnPropertySymbols(keyedState.nested)).toContain(bindSymbol);
 });
 
+test('3rd-party binding marker supports falsy keyed adapter paths', () => {
+  const emptyStringKeyBindThirdParty = createBinder({
+    handleStore: jest.fn(),
+    handleState: ((state: { '': { count: number } }) => ({
+      copyState: state,
+      key: '',
+      bind: (next: { '': { count: number } }) => next
+    })) as any
+  });
+  const zeroKeyBindThirdParty = createBinder({
+    handleStore: jest.fn(),
+    handleState: ((state: { 0: { count: number } }) => ({
+      copyState: state,
+      key: 0,
+      bind: (next: { 0: { count: number } }) => next
+    })) as any
+  });
+
+  const emptyStringKeyedState = emptyStringKeyBindThirdParty({
+    '': {
+      count: 1
+    }
+  }) as any;
+  const zeroKeyedState = zeroKeyBindThirdParty({
+    0: {
+      count: 2
+    }
+  }) as any;
+
+  expect(Object.getOwnPropertySymbols(emptyStringKeyedState)).not.toContain(
+    bindSymbol
+  );
+  expect(Object.getOwnPropertySymbols(emptyStringKeyedState[''])).toContain(
+    bindSymbol
+  );
+  expect(Object.getOwnPropertySymbols(zeroKeyedState)).not.toContain(
+    bindSymbol
+  );
+  expect(Object.getOwnPropertySymbols(zeroKeyedState[0])).toContain(bindSymbol);
+});
+
 describe('Store Name Lifecycle', () => {
   const NODE_ENV = process.env.NODE_ENV;
 

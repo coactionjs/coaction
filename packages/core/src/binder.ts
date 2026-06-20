@@ -64,7 +64,7 @@ const createExternalStoreAdapter = <F = (...args: any[]) => any>({
 }: ExternalStoreAdapterOptions<F>) =>
   (<S extends object>(state: S): S => {
     const { copyState, key, bind } = handleState(state);
-    const value = (key ? copyState[key] : copyState) as {
+    const value = (typeof key !== 'undefined' ? copyState[key] : copyState) as {
       [bindSymbol]: {
         handleStore: typeof handleStore;
         bind: typeof bind;
