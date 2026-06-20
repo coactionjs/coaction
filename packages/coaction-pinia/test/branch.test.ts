@@ -20,7 +20,8 @@ const loadBinding = async () => {
       callback();
       return () => undefined;
     },
-    replaceExternalStoreState: vi.fn()
+    replaceExternalStoreState: vi.fn(),
+    sanitizeReplacementState: (value: unknown) => value
   }));
   await import('../src');
   return {
