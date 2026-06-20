@@ -157,6 +157,7 @@ export const bindJotai = <
         } finally {
           isCoactionUpdating = false;
         }
+        internal.listeners.forEach((listener) => listener());
       };
     },
     handleState: (() => {

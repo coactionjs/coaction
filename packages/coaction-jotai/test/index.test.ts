@@ -96,6 +96,35 @@ test('destroy unsubscribes atom listeners only once', () => {
   expect(unsubscribe).toHaveBeenCalledTimes(1);
 });
 
+test('notifies coaction subscribers after coaction setState syncs atoms', () => {
+  const countAtom = atom(0);
+  const jotaiStore = createStore();
+  const useStore = create(
+    () =>
+      adapt(
+        bindJotai({
+          store: jotaiStore,
+          atoms: {
+            count: countAtom
+          }
+        })
+      ),
+    {
+      name: 'test-set-state-notify'
+    }
+  );
+  const listener = vi.fn();
+  const unsubscribe = useStore.subscribe(listener);
+
+  useStore.setState({
+    count: 3
+  });
+
+  expect(jotaiStore.get(countAtom)).toBe(3);
+  expect(listener).toHaveBeenCalledTimes(1);
+  unsubscribe();
+});
+
 test('ignores non-atom keys when syncing from coaction to jotai', () => {
   const countAtom = atom(0);
   const jotaiStore = createStore();
