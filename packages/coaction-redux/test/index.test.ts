@@ -75,7 +75,30 @@ test('replace action strips nested functions from payload', () => {
     "value": 2,
   },
 }
-`);
+  `);
+});
+
+test('replace action preserves enumerable symbol keys', () => {
+  const reducer = withCoactionReducer((state = {} as any) => state);
+  const token = Symbol('redux-token');
+  const nestedToken = Symbol('nested-redux-token');
+  const payload = {
+    count: 1,
+    [token]: {
+      value: 2,
+      [nestedToken]: 3,
+      fn: () => undefined
+    }
+  };
+
+  const next = reducer(undefined, replaceStateAction(payload as any)) as any;
+
+  expect(next.count).toBe(1);
+  expect(next[token]).toEqual({
+    value: 2,
+    [nestedToken]: 3
+  });
+  expect(Object.prototype.hasOwnProperty.call(next[token], 'fn')).toBe(false);
 });
 
 test('replace action ignores inherited payload properties', () => {

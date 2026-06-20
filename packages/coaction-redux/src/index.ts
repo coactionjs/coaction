@@ -5,20 +5,26 @@ export * from '@reduxjs/toolkit';
 
 export const COACTION_REDUX_REPLACE = '@@coaction/redux/replace';
 
-const isUnsafeKey = (key: string) =>
-  key === '__proto__' || key === 'prototype' || key === 'constructor';
+const isUnsafeKey = (key: PropertyKey) =>
+  typeof key === 'string' &&
+  (key === '__proto__' || key === 'prototype' || key === 'constructor');
+
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
 
 function stripFunctions<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map((item) => stripFunctions(item)) as T;
   }
   if (typeof value === 'object' && value !== null) {
-    const next: Record<string, unknown> = {};
-    for (const key of Object.keys(value as Record<string, unknown>)) {
+    const next: Record<PropertyKey, unknown> = {};
+    for (const key of getOwnEnumerableKeys(value)) {
       if (isUnsafeKey(key)) {
         continue;
       }
-      const child = (value as Record<string, unknown>)[key];
+      const child = (value as Record<PropertyKey, unknown>)[key];
       if (typeof child === 'function') {
         continue;
       }
