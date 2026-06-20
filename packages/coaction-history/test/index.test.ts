@@ -234,6 +234,56 @@ test('undo and redo preserve non-record object values', () => {
   expect(useStore.getState().stamp).toBe(after);
 });
 
+test('undo and redo preserve circular and shared root references', () => {
+  const beforeShared = {
+    value: 0
+  };
+  const before = {
+    count: 0,
+    left: beforeShared,
+    right: beforeShared
+  } as any;
+  before.self = before;
+  const afterShared = {
+    value: 1
+  };
+  const after = {
+    count: 1,
+    left: afterShared,
+    right: afterShared
+  } as any;
+  after.self = after;
+  const useStore = create(
+    () => ({
+      count: -1
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.setState(before);
+  api.clear();
+  useStore.setState(after);
+
+  expect(api.undo()).toBeTruthy();
+  const undone = useStore.getPureState() as any;
+  expect(undone.self).toBe(undone);
+  expect(undone.left).toBe(undone.right);
+  expect(undone.left).toEqual({
+    value: 0
+  });
+
+  expect(api.redo()).toBeTruthy();
+  const redone = useStore.getPureState() as any;
+  expect(redone.self).toBe(redone);
+  expect(redone.left).toBe(redone.right);
+  expect(redone.left).toEqual({
+    value: 1
+  });
+});
+
 test('partialized undo and redo replace non-record object values', () => {
   const before = new Date('2026-01-01T00:00:00.000Z');
   const after = new Date('2026-01-02T00:00:00.000Z');
@@ -271,6 +321,67 @@ test('partialized undo and redo replace non-record object values', () => {
   expect(api.redo()).toBeTruthy();
   expect(useStore.getState().nested.stamp).toBe(after);
   expect(useStore.getState().nested.keep).toBe('yes');
+});
+
+test('partialized undo and redo preserve circular and shared references', () => {
+  const makeTracked = (value: number) => {
+    const shared = {
+      value
+    };
+    const tracked = {
+      left: shared,
+      right: shared
+    } as any;
+    tracked.self = tracked;
+    return tracked;
+  };
+  const useStore = create(
+    (set) => ({
+      tracked: makeTracked(0),
+      keep: 'yes',
+      replaceTracked(tracked: object) {
+        set({
+          tracked
+        });
+      },
+      setKeep(keep: string) {
+        set({
+          keep
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          partialize: (state) => ({
+            tracked: state.tracked
+          })
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().replaceTracked(makeTracked(1));
+  useStore.getState().setKeep('changed');
+
+  expect(api.undo()).toBeTruthy();
+  const undone = useStore.getPureState() as any;
+  expect(undone.keep).toBe('changed');
+  expect(undone.tracked.self).toBe(undone.tracked);
+  expect(undone.tracked.left).toBe(undone.tracked.right);
+  expect(undone.tracked.left).toEqual({
+    value: 0
+  });
+
+  expect(api.redo()).toBeTruthy();
+  const redone = useStore.getPureState() as any;
+  expect(redone.keep).toBe('changed');
+  expect(redone.tracked.self).toBe(redone.tracked);
+  expect(redone.tracked.left).toBe(redone.tracked.right);
+  expect(redone.tracked.left).toEqual({
+    value: 1
+  });
 });
 
 test('respects history limit', () => {

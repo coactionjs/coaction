@@ -121,6 +121,38 @@ const isEqual = (
   return true;
 };
 
+const hasCircularReference = (
+  value: unknown,
+  ancestors = new WeakSet<object>(),
+  seen = new WeakSet<object>()
+): boolean => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  if (!Array.isArray(value) && !isObjectRecord(value)) {
+    return false;
+  }
+  if (ancestors.has(value)) {
+    return true;
+  }
+  if (seen.has(value)) {
+    return false;
+  }
+  seen.add(value);
+  ancestors.add(value);
+  for (const key of getOwnEnumerableKeys(value)) {
+    const child = (value as Record<PropertyKey, unknown>)[key];
+    if (
+      typeof child !== 'function' &&
+      hasCircularReference(child, ancestors, seen)
+    ) {
+      return true;
+    }
+  }
+  ancestors.delete(value);
+  return false;
+};
+
 const applySnapshot = (
   target: Record<PropertyKey, unknown>,
   nextState: object,
@@ -128,6 +160,8 @@ const applySnapshot = (
 ) => {
   const next = nextState as Record<PropertyKey, unknown>;
   const current = currentState as Record<PropertyKey, unknown>;
+  const snapshotVisited = new WeakMap<object, unknown>();
+  snapshotVisited.set(nextState, target);
   if (Array.isArray(target) && Array.isArray(nextState)) {
     target.length = nextState.length;
   }
@@ -137,7 +171,7 @@ const applySnapshot = (
     }
   }
   for (const key of getOwnEnumerableKeys(next)) {
-    setOwnEnumerable(target, key, toSnapshot(next[key]));
+    setOwnEnumerable(target, key, toSnapshot(next[key], snapshotVisited));
   }
 };
 
@@ -153,8 +187,12 @@ const applyPartialSnapshot = (
   target: Record<PropertyKey, unknown>,
   nextState: object,
   currentState: object,
-  visited = new WeakMap<object, WeakSet<object>>()
+  visited = new WeakMap<object, WeakSet<object>>(),
+  snapshotVisited = new WeakMap<object, unknown>()
 ) => {
+  if (!snapshotVisited.has(nextState)) {
+    snapshotVisited.set(nextState, target);
+  }
   let seenCurrentStates = visited.get(nextState);
   if (!seenCurrentStates) {
     seenCurrentStates = new WeakSet<object>();
@@ -186,11 +224,12 @@ const applyPartialSnapshot = (
         targetValue as Record<PropertyKey, unknown>,
         nextValue,
         currentValue,
-        visited
+        visited,
+        snapshotVisited
       );
       continue;
     }
-    setOwnEnumerable(target, key, toSnapshot(nextValue));
+    setOwnEnumerable(target, key, toSnapshot(nextValue, snapshotVisited));
   }
 };
 
@@ -219,6 +258,9 @@ export const history =
     const applyHistorySnapshot = options.partialize
       ? applyPartialSnapshot
       : applySnapshot;
+    const applyStore = (store as { apply?: Store<T>['apply'] }).apply?.bind(
+      store
+    );
     const past: object[] = [];
     const future: object[] = [];
     let isTimeTraveling = false;
@@ -238,6 +280,25 @@ export const history =
         future.length = 0;
       }
       lastSnapshot = current;
+    };
+    const applyTimeTravelSnapshot = (snapshot: object, current: object) => {
+      if (applyStore && hasCircularReference(snapshot)) {
+        const nextState = toSnapshot(store.getPureState());
+        applyHistorySnapshot(
+          nextState as Record<PropertyKey, unknown>,
+          snapshot,
+          current
+        );
+        applyStore(nextState as T);
+        return;
+      }
+      baseSetState((draft) => {
+        applyHistorySnapshot(
+          draft as unknown as Record<PropertyKey, unknown>,
+          snapshot,
+          current
+        );
+      });
     };
     const cancelReadySubscription = onStoreReady(store, () => {
       lastSnapshot = getSnapshot();
@@ -278,13 +339,7 @@ export const history =
         future.push(current);
         isTimeTraveling = true;
         try {
-          baseSetState((draft) => {
-            applyHistorySnapshot(
-              draft as unknown as Record<PropertyKey, unknown>,
-              previous,
-              current
-            );
-          });
+          applyTimeTravelSnapshot(previous, current);
         } finally {
           isTimeTraveling = false;
         }
@@ -299,13 +354,7 @@ export const history =
         past.push(current);
         isTimeTraveling = true;
         try {
-          baseSetState((draft) => {
-            applyHistorySnapshot(
-              draft as unknown as Record<PropertyKey, unknown>,
-              next,
-              current
-            );
-          });
+          applyTimeTravelSnapshot(next, current);
         } finally {
           isTimeTraveling = false;
         }
