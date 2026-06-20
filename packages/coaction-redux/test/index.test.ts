@@ -188,6 +188,35 @@ test('replace action preserves non-plain object values', () => {
   expect(next.nested.stamp).toBe(nestedStamp);
 });
 
+test('replace action preserves circular references while stripping functions', () => {
+  const reducer = withCoactionReducer((state = {} as any) => state);
+  const payload = {
+    count: 1,
+    nested: {
+      value: 2,
+      fn: () => undefined
+    },
+    items: [] as any[]
+  } as any;
+  payload.self = payload;
+  payload.items.push(payload.nested, payload.items);
+  payload.items.callback = () => undefined;
+
+  const next = reducer(undefined, replaceStateAction(payload)) as any;
+
+  expect(next.count).toBe(1);
+  expect(next.self).toBe(next);
+  expect(next.nested).toEqual({
+    value: 2
+  });
+  expect(next.items[0]).toBe(next.nested);
+  expect(next.items[1]).toBe(next.items);
+  expect(Object.prototype.hasOwnProperty.call(next.nested, 'fn')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(next.items, 'callback')).toBe(
+    false
+  );
+});
+
 test('replace action ignores inherited payload properties', () => {
   const reducer = withCoactionReducer((state = {} as any) => state);
   const proto = {

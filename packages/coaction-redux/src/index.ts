@@ -30,13 +30,20 @@ const isArrayIndexKey = (key: PropertyKey) => {
 const isObjectRecord = (value: object) =>
   Object.prototype.toString.call(value) === '[object Object]';
 
-function stripFunctions<T>(value: T): T {
+function stripFunctions<T>(
+  value: T,
+  visited = new WeakMap<object, unknown>()
+): T {
   if (Array.isArray(value)) {
+    if (visited.has(value)) {
+      return visited.get(value) as T;
+    }
     const next: unknown[] = [];
+    visited.set(value, next);
     next.length = value.length;
     for (let index = 0; index < value.length; index += 1) {
       if (Object.prototype.hasOwnProperty.call(value, index)) {
-        next[index] = stripFunctions(value[index]);
+        next[index] = stripFunctions(value[index], visited);
       }
     }
     const source = value as unknown as Record<PropertyKey, unknown>;
@@ -49,7 +56,7 @@ function stripFunctions<T>(value: T): T {
       if (typeof child === 'function') {
         continue;
       }
-      target[key] = stripFunctions(child);
+      target[key] = stripFunctions(child, visited);
     }
     return next as T;
   }
@@ -57,7 +64,11 @@ function stripFunctions<T>(value: T): T {
     if (!isObjectRecord(value)) {
       return value;
     }
+    if (visited.has(value)) {
+      return visited.get(value) as T;
+    }
     const next: Record<PropertyKey, unknown> = {};
+    visited.set(value, next);
     for (const key of getOwnEnumerableKeys(value)) {
       if (isUnsafeKey(key)) {
         continue;
@@ -66,7 +77,7 @@ function stripFunctions<T>(value: T): T {
       if (typeof child === 'function') {
         continue;
       }
-      next[key] = stripFunctions(child);
+      next[key] = stripFunctions(child, visited);
     }
     return next as T;
   }
