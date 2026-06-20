@@ -75,6 +75,40 @@ test('actor snapshots replace stale context keys', () => {
   expect(useStore.getState().send).toBeInstanceOf(Function);
 });
 
+test('handles actors that synchronously emit when subscribing', () => {
+  let unsubscribed = false;
+  const actor = {
+    getSnapshot: () => ({
+      context: {
+        count: 0
+      }
+    }),
+    subscribe: (
+      observer: (snapshot: { context: { count: number } }) => void
+    ) => {
+      observer({
+        context: {
+          count: 2
+        }
+      });
+      return {
+        unsubscribe: () => {
+          unsubscribed = true;
+        }
+      };
+    },
+    send: () => undefined
+  };
+
+  const useStore = create(() => adapt(bindXState(actor as any)), {
+    name: 'test-xstate-sync-subscribe'
+  });
+
+  expect(useStore.getState().count).toBe(2);
+  useStore.destroy();
+  expect(unsubscribed).toBe(true);
+});
+
 describe('Slices', () => {
   test('base - unsupported', () => {
     const machine = createMachine({

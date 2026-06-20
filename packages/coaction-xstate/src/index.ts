@@ -1,4 +1,8 @@
-import { createBinder, replaceExternalStoreState } from 'coaction';
+import {
+  createBinder,
+  onStoreReady,
+  replaceExternalStoreState
+} from 'coaction';
 
 export * from 'xstate';
 
@@ -36,16 +40,20 @@ export const bindXState = createBinder<
         'setState is not supported with xstate binding. Please use actor events.'
       );
     };
-    const subscription = actor.subscribe((snapshot) => {
-      replaceExternalStoreState(
-        store,
-        internal,
-        snapshot.context as Record<PropertyKey, unknown>
-      );
+    let subscription: { unsubscribe: () => void } | undefined;
+    const cancelReadySubscription = onStoreReady(store, () => {
+      subscription = actor.subscribe((snapshot) => {
+        replaceExternalStoreState(
+          store,
+          internal,
+          snapshot.context as Record<PropertyKey, unknown>
+        );
+      });
     });
     const baseDestroy = store.destroy;
     store.destroy = () => {
-      subscription.unsubscribe();
+      cancelReadySubscription();
+      subscription?.unsubscribe();
       baseDestroy();
     };
   },

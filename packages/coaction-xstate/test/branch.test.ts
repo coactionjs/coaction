@@ -5,6 +5,7 @@ const loadBinding = async () => {
   let capturedHandleStore: any;
   let capturedHandleState: any;
   const replaceExternalStoreState = vi.fn();
+  const cancelReadySubscription = vi.fn();
   vi.doMock('coaction', () => ({
     createBinder: ({
       handleStore,
@@ -17,12 +18,17 @@ const loadBinding = async () => {
       capturedHandleState = handleState;
       return (input: unknown) => input;
     },
+    onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
+      callback();
+      return cancelReadySubscription;
+    }),
     replaceExternalStoreState
   }));
   await import('../src');
   return {
     capturedHandleStore,
     capturedHandleState,
+    cancelReadySubscription,
     replaceExternalStoreState
   };
 };
@@ -51,6 +57,7 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
   const {
     capturedHandleStore,
     capturedHandleState,
+    cancelReadySubscription,
     replaceExternalStoreState
   } = await loadBinding();
   const unsubscribe = vi.fn();
@@ -97,6 +104,7 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
     'setState is not supported with xstate binding. Please use actor events.'
   );
   store.destroy();
+  expect(cancelReadySubscription).toHaveBeenCalledTimes(1);
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
