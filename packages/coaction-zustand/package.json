@@ -44,26 +44,14 @@
     "url": "https://github.com/coactionjs/coaction/issues"
   },
   "peerDependencies": {
-    "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0",
     "coaction": "^2.0.0",
-    "react": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "use-sync-external-store": ">=1.2.0",
     "zustand": "^4.0.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
-    "@types/react": {
-      "optional": true
-    },
     "coaction": {
       "optional": true
     },
-    "react": {
-      "optional": true
-    },
     "zustand": {
-      "optional": true
-    },
-    "use-sync-external-store": {
       "optional": true
     }
   },

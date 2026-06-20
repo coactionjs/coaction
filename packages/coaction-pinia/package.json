@@ -44,14 +44,10 @@
   },
   "peerDependencies": {
     "coaction": "^2.0.0",
-    "mutative": "^1.1.0",
     "pinia": "^2.0 || ^3.0.0"
   },
   "peerDependenciesMeta": {
     "coaction": {
-      "optional": true
-    },
-    "mutative": {
       "optional": true
     },
     "pinia": {

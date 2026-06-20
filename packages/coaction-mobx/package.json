@@ -44,21 +44,13 @@
   },
   "peerDependencies": {
     "coaction": "^2.0.0",
-    "mobx": "^6.13.2",
-    "mutative": "^1.1.0",
-    "react": "^17.0.0 || ^18.0.0 || ^19.0.0"
+    "mobx": "^6.13.2"
   },
   "peerDependenciesMeta": {
     "coaction": {
       "optional": true
     },
     "mobx": {
-      "optional": true
-    },
-    "mutative": {
-      "optional": true
-    },
-    "react": {
       "optional": true
     }
   },
