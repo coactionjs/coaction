@@ -70,10 +70,14 @@ const createExternalStoreAdapter = <F = (...args: any[]) => any>({
         bind: typeof bind;
       };
     };
-    value[bindSymbol] = {
-      handleStore,
-      bind
-    };
+    Object.defineProperty(value, bindSymbol, {
+      configurable: true,
+      enumerable: false,
+      value: {
+        handleStore,
+        bind
+      }
+    });
     return copyState;
   }) as F;
 

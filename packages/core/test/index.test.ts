@@ -4,6 +4,7 @@ import {
   WorkerMainTransportOptions
 } from 'data-transport';
 import { create, createBinder, type Slice, type Slices } from '../src';
+import { bindSymbol } from '../src/constant';
 
 test('base', () => {
   const stateFn = jest.fn();
@@ -352,6 +353,51 @@ test('3rd-party binding does not support slices mode', () => {
     'Third-party state binding does not support Slices mode. Please inject a whole store instead.'
   );
   expect(handleStore).toHaveBeenCalledTimes(0);
+});
+
+test('3rd-party binding marker is not enumerable', () => {
+  const bindThirdParty = createBinder({
+    handleStore: jest.fn(),
+    handleState: ((state: { count: number }) => ({
+      copyState: state,
+      bind: (next: { count: number }) => next
+    })) as any
+  });
+  const keyedBindThirdParty = createBinder({
+    handleStore: jest.fn(),
+    handleState: ((state: { nested: { count: number } }) => ({
+      copyState: state,
+      key: 'nested',
+      bind: (next: { nested: { count: number } }) => next
+    })) as any
+  });
+
+  const state = bindThirdParty({
+    count: 1
+  }) as any;
+  const keyedState = keyedBindThirdParty({
+    nested: {
+      count: 2
+    }
+  }) as any;
+
+  expect(Object.getOwnPropertyDescriptor(state, bindSymbol)).toMatchObject({
+    configurable: true,
+    enumerable: false
+  });
+  expect(Object.getOwnPropertySymbols(state)).toContain(bindSymbol);
+  expect(Object.keys(state)).toEqual(['count']);
+  expect(Object.prototype.propertyIsEnumerable.call(state, bindSymbol)).toBe(
+    false
+  );
+  expect(
+    Object.getOwnPropertyDescriptor(keyedState.nested, bindSymbol)
+  ).toMatchObject({
+    configurable: true,
+    enumerable: false
+  });
+  expect(Object.getOwnPropertySymbols(keyedState)).not.toContain(bindSymbol);
+  expect(Object.keys(keyedState.nested)).toEqual(['count']);
 });
 
 describe('Store Name Lifecycle', () => {
