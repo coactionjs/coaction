@@ -107,6 +107,9 @@ test('apply ignores unsafe prototype keys during replacement', () => {
   const state = proxy(
     bindValtio({
       count: 0,
+      nested: {
+        value: 0
+      },
       increment() {
         this.count += 1;
       }
@@ -116,14 +119,20 @@ test('apply ignores unsafe prototype keys during replacement', () => {
     name: 'test-valtio-unsafe-replace'
   });
   const payload = JSON.parse(
-    '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"prototype":{"value":3}}'
+    '{"count":1,"nested":{"value":2,"__proto__":{"nested":true},"constructor":{"value":3}},"__proto__":{"polluted":true},"constructor":{"value":2},"prototype":{"value":3}}'
   );
 
   useStore.apply(payload as any);
 
   expect(useStore.getState().count).toBe(1);
+  expect(useStore.getState().nested).toEqual({
+    value: 2
+  });
   expect(Object.getPrototypeOf(useStore.getState())).toBe(Object.prototype);
   expect(Object.getPrototypeOf(useStore.getPureState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(useStore.getPureState().nested)).toBe(
+    Object.prototype
+  );
   expect(
     Object.prototype.hasOwnProperty.call(useStore.getState(), '__proto__')
   ).toBe(false);
@@ -135,6 +144,18 @@ test('apply ignores unsafe prototype keys during replacement', () => {
   ).toBe(false);
   expect(
     Object.prototype.hasOwnProperty.call(useStore.getState(), 'prototype')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      '__proto__'
+    )
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      'constructor'
+    )
   ).toBe(false);
 });
 

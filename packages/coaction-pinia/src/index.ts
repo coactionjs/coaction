@@ -3,6 +3,7 @@ import {
   createBinder,
   onStoreReady,
   replaceExternalStoreState,
+  sanitizeReplacementState,
   type Store
 } from 'coaction';
 import { createPinia, setActivePinia } from 'pinia';
@@ -77,9 +78,10 @@ const replaceMutableState = (
     }
   }
   nextKeys.forEach((key) => {
-    rawState[key] = source[key];
-    mutableState[key] = source[key];
-    publicState[key] = source[key];
+    const nextValue = sanitizeReplacementState(source[key]);
+    rawState[key] = nextValue;
+    mutableState[key] = nextValue;
+    publicState[key] = nextValue;
   });
 };
 

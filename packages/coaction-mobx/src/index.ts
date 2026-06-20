@@ -3,7 +3,8 @@ import {
   type Store,
   createBinder,
   onStoreReady,
-  replaceExternalStoreState
+  replaceExternalStoreState,
+  sanitizeReplacementState
 } from 'coaction';
 import { autorun, runInAction, untracked } from 'mobx';
 
@@ -62,9 +63,10 @@ const replaceMutableState = (
     }
   }
   nextKeys.forEach((key) => {
-    rawState[key] = source[key];
-    mutableState[key] = source[key];
-    publicState[key] = source[key];
+    const nextValue = sanitizeReplacementState(source[key]);
+    rawState[key] = nextValue;
+    mutableState[key] = nextValue;
+    publicState[key] = nextValue;
   });
 };
 
