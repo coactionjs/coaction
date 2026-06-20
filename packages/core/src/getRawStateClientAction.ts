@@ -146,6 +146,9 @@ export const createClientAction = <T extends CreateState>({
                 void store
                   .transport!.emit('fullSync')
                   .then((latest) => {
+                    if (typeof latest !== 'object' || latest === null) {
+                      throw new Error('Invalid fullSync payload');
+                    }
                     const next = latest as {
                       state: string;
                       sequence: number;

@@ -560,6 +560,49 @@ test('createAsyncClientStore catches invalid onConnect fullSync payloads', async
   }
 });
 
+test('createAsyncClientStore reports null fullSync payloads as invalid', async () => {
+  const prev = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'development';
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  let onConnectHandler: (() => void) | undefined;
+  const transport = {
+    emit: vi.fn(async () => null),
+    onConnect: vi.fn((handler: () => void) => {
+      onConnectHandler = handler;
+    }),
+    listen: vi.fn()
+  };
+  try {
+    createAsyncClientStore(
+      () => ({
+        store: {
+          name: 'client',
+          apply: vi.fn(),
+          getState: () => ({})
+        } as any,
+        internal: {
+          sequence: 0
+        } as any
+      }),
+      {
+        clientTransport: transport as any
+      } as any
+    );
+    expect(() => onConnectHandler?.()).not.toThrow();
+    await new Promise((resolve) => {
+      setTimeout(resolve);
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Invalid fullSync payload'
+      })
+    );
+  } finally {
+    process.env.NODE_ENV = prev;
+    errorSpy.mockRestore();
+  }
+});
+
 test('createAsyncClientStore catches update-time fullSync failures', async () => {
   const prev = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';

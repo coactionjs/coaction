@@ -49,6 +49,8 @@ export const createAsyncClientStore = <T extends CreateState>(
       syncingPromise = (async () => {
         const latest = await transport.emit('fullSync');
         if (
+          typeof latest !== 'object' ||
+          latest === null ||
           typeof latest.sequence !== 'number' ||
           typeof latest.state !== 'string'
         ) {
