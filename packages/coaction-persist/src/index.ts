@@ -95,6 +95,8 @@ export const persist =
     let destroyed = false;
     let hasPendingPersist = false;
     let writePromise: Promise<void> = Promise.resolve();
+    const getPersistedState = () =>
+      sanitizeReplacementState(partialize(store.getPureState()));
     const enqueuePersistOperation = (operation: () => void | Promise<void>) => {
       writePromise = writePromise
         .catch(() => undefined)
@@ -123,9 +125,8 @@ export const persist =
         hasPendingPersist = true;
         return;
       }
-      const partialState = partialize(store.getPureState());
       const payload = serialize({
-        state: partialState,
+        state: getPersistedState(),
         version
       });
       await enqueuePersistWrite(payload);
@@ -167,7 +168,7 @@ export const persist =
         );
         if (shouldWriteBack && !destroyed) {
           const payload = serialize({
-            state: partialize(store.getPureState()),
+            state: getPersistedState(),
             version
           });
           await enqueuePersistWrite(payload);

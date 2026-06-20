@@ -281,6 +281,62 @@ test('sanitizes unsafe keys before merging hydrated state', async () => {
   ).toBe(false);
 });
 
+test('sanitizes partialized state before writing storage', async () => {
+  const writes: Array<{ state: any }> = [];
+  const storage: PersistStorage = {
+    getItem: () => null,
+    setItem: (_name, value) => {
+      writes.push(JSON.parse(value));
+    },
+    removeItem: () => undefined
+  };
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        persist({
+          name: 'unsafe-partialize',
+          storage,
+          skipHydration: true,
+          partialize: (state) =>
+            JSON.parse(
+              `{"count":${state.count},"nested":{"value":2,"__proto__":{"nested":true},"constructor":{"value":3}},"__proto__":{"polluted":true},"prototype":{"value":4}}`
+            )
+        })
+      ]
+    }
+  );
+
+  useStore.getState().increment();
+  await nextTick();
+
+  expect(writes).toHaveLength(1);
+  expect(writes[0].state).toEqual({
+    count: 1,
+    nested: {
+      value: 2
+    }
+  });
+  expect(Object.getPrototypeOf(writes[0].state)).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(writes[0].state.nested)).toBe(Object.prototype);
+  expect(
+    Object.prototype.hasOwnProperty.call(writes[0].state, '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(writes[0].state, 'prototype')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(writes[0].state.nested, 'constructor')
+  ).toBe(false);
+});
+
 test('shared main broadcasts hydration that completes after client full sync', async () => {
   let resolveHydration!: (value: string) => void;
   const storage: PersistStorage = {
