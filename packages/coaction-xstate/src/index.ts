@@ -18,6 +18,27 @@ type XStateActor<TContext extends object = object, TEvent = any> = {
 
 const actorMap = new WeakMap<object, XStateActor<any, any>>();
 
+const isUnsafeKey = (key: PropertyKey) =>
+  typeof key === 'string' &&
+  (key === '__proto__' || key === 'prototype' || key === 'constructor');
+
+const getOwnEnumerableKeys = (value: object) =>
+  Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+
+const assignContext = (
+  target: Record<PropertyKey, unknown>,
+  source: Record<PropertyKey, unknown>
+) => {
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (isUnsafeKey(key)) {
+      continue;
+    }
+    target[key] = source[key];
+  }
+};
+
 /**
  * Bind an XState actor to Coaction.
  */
@@ -68,9 +89,9 @@ export const bindXState = createBinder<
   },
   handleState: ((actor: XStateActor<any, any>) => {
     const snapshot = actor.getSnapshot();
-    const state = Object.assign({}, snapshot.context, {
-      send: actor.send.bind(actor)
-    });
+    const state: Record<PropertyKey, unknown> = {};
+    assignContext(state, snapshot.context as Record<PropertyKey, unknown>);
+    state.send = actor.send.bind(actor);
     const descriptors = Object.getOwnPropertyDescriptors(state);
     const copyState = Object.defineProperties({}, descriptors);
     const rawState = Object.defineProperties({}, descriptors);

@@ -158,6 +158,45 @@ test('actor snapshots replace stale context keys', () => {
   expect(useStore.getState().send).toBeInstanceOf(Function);
 });
 
+test('initial context ignores unsafe prototype keys', () => {
+  const context = JSON.parse(
+    '{"count":1,"nested":{"value":2,"__proto__":{"nested":true}},"__proto__":{"polluted":true},"constructor":{"value":3},"prototype":{"value":4}}'
+  );
+  const actor = {
+    getSnapshot: () => ({
+      context
+    }),
+    subscribe: () => ({
+      unsubscribe: () => undefined
+    }),
+    send: () => undefined
+  };
+  const useStore = create(() => adapt(bindXState(actor as any)), {
+    name: 'test-xstate-unsafe-initial'
+  });
+
+  expect(useStore.getState().count).toBe(1);
+  expect(Object.getPrototypeOf(useStore.getState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(useStore.getPureState().nested)).toBe(
+    Object.prototype
+  );
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), 'constructor')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), 'prototype')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      '__proto__'
+    )
+  ).toBe(false);
+});
+
 test('handles actors that synchronously emit when subscribing', () => {
   let unsubscribed = false;
   const actor = {
