@@ -964,6 +964,58 @@ test('shared main broadcasts remote root map replacement to clients', async () =
   serverStore.destroy();
 });
 
+test('shared main filters unsafe remote root replacement patches before patch hook', async () => {
+  const doc = new Y.Doc();
+  const transport = createTransportPair();
+  const serverStore = create(
+    () => ({
+      count: 0,
+      nested: {
+        value: 0
+      }
+    }),
+    {
+      name: 'yjs-shared-unsafe-root-replacement',
+      transport: transport.main as any
+    }
+  );
+  const patchPaths: string[] = [];
+  serverStore.patch = ({ patches, inversePatches }) => {
+    patchPaths.push(
+      ...patches.map((patch) =>
+        Array.isArray(patch.path) ? patch.path.join('.') : String(patch.path)
+      )
+    );
+    return {
+      patches,
+      inversePatches
+    };
+  };
+  const binding = bindYjs(serverStore, {
+    doc,
+    key: 'counter'
+  });
+  const replacement = JSON.parse(
+    '{"count":2,"nested":{"value":3,"constructor":{"value":4}},"__proto__":{"polluted":true},"prototype":{"value":5}}'
+  );
+
+  doc.transact(() => {
+    doc.getMap<any>('counter').set('state', replacement);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(serverStore.getState().count).toBe(2);
+  });
+  expect(patchPaths).not.toContain('__proto__');
+  expect(patchPaths).not.toContain('prototype');
+  expect(patchPaths).not.toContain('nested.constructor');
+  expect(serverStore.getState().nested).toEqual({
+    value: 3
+  });
+  binding.destroy();
+  serverStore.destroy();
+});
+
 test('syncs nested array and object diffs from store to yjs', () => {
   const doc = new Y.Doc();
   const store = create((set) => ({
@@ -1183,6 +1235,47 @@ test('sanitizes unsafe keys inside remote operation values', async () => {
   ).toBe(false);
   expect(
     Object.prototype.hasOwnProperty.call(store.getState().nested, 'prototype')
+  ).toBe(false);
+  binding.destroy();
+});
+
+test('sanitizes unsafe keys inside remote plain root replacements', async () => {
+  const doc = new Y.Doc();
+  const store = create((set) => ({
+    count: 0,
+    nested: {
+      value: 0
+    }
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const map = doc.getMap<any>('counter');
+  const replacement = JSON.parse(
+    '{"count":2,"nested":{"value":3,"__proto__":{"nested":true},"constructor":{"value":4}},"__proto__":{"polluted":true},"prototype":{"value":5}}'
+  );
+
+  doc.transact(() => {
+    map.set('state', replacement);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBe(2);
+  });
+  expect(store.getState().nested).toEqual({
+    value: 3
+  });
+  expect(Object.getPrototypeOf(store.getState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(store.getState().nested)).toBe(Object.prototype);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState(), 'prototype')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(store.getState().nested, 'constructor')
   ).toBe(false);
   binding.destroy();
 });

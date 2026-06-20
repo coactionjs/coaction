@@ -9,7 +9,13 @@ import {
   RemoteOperation,
   setAtPath
 } from './remoteOperations';
-import { clone, isPlainObject, scheduleMicrotask } from './shared';
+import {
+  clone,
+  isPlainObject,
+  isUnsafeKey,
+  sanitizePlainValue,
+  scheduleMicrotask
+} from './shared';
 import { syncObjectToYMap } from './sync';
 import { createYMap, toPlainObject } from './yjsValue';
 
@@ -18,8 +24,10 @@ export * from 'yjs';
 const STATE_KEY = 'state';
 
 const getOwnEnumerableKeys = (value: object) =>
-  Reflect.ownKeys(value).filter((key) =>
-    Object.prototype.propertyIsEnumerable.call(value, key)
+  Reflect.ownKeys(value).filter(
+    (key) =>
+      Object.prototype.propertyIsEnumerable.call(value, key) &&
+      !(typeof key === 'string' && isUnsafeKey(key))
   );
 
 const formatPropertyPath = (path: PropertyKey[]) =>
@@ -285,7 +293,7 @@ export const bindYjs = <T extends object>(
   let pendingOperations: RemoteOperation[] = [];
 
   const applyRemoteState = (state: Record<string, unknown>) => {
-    const next = clone(state);
+    const next = sanitizePlainValue(state);
     syncingFromYjs = true;
     try {
       if (store.share === 'main') {
