@@ -165,6 +165,35 @@ test('uses Date timer fallback when performance is unavailable', async () => {
   expect(timer).toBe(Date);
 });
 
+test('closes trace groups when timer starts at zero', async () => {
+  vi.resetModules();
+  const now = vi.fn(() => 0);
+  vi.stubGlobal('performance', {
+    now
+  });
+  const { logger } = await import('../src/logger');
+  const customLogger = createCustomLogger();
+  const store = createFakeStore();
+  logger({
+    logger: customLogger as any
+  })(store as any);
+
+  store.trace?.({
+    id: 'zero-start',
+    method: 'increment',
+    parameters: []
+  });
+  now.mockReturnValue(5);
+  store.trace?.({
+    id: 'zero-start',
+    method: 'increment',
+    result: 1
+  });
+
+  expect(customLogger.group).toHaveBeenCalledTimes(1);
+  expect(customLogger.groupEnd).toHaveBeenCalledTimes(1);
+});
+
 test('closes trace group when local action throws', () => {
   const customLogger = createCustomLogger();
   const useStore = create(

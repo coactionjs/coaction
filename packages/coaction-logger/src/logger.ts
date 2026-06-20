@@ -79,7 +79,7 @@ export const logger: (options?: {
     };
     store.trace = (options) => {
       const date = formatTime(new Date());
-      if (!traceTimeMap.get(options.id)) {
+      if (!traceTimeMap.has(options.id)) {
         traceTimeMap.set(options.id, timer.now());
         logger.group(
           [
