@@ -277,6 +277,18 @@ export const Observer = observer<ObserverProps>(({ children }) =>
   React.createElement(React.Fragment, null, children())
 );
 
+type LeafObject =
+  | Date
+  | RegExp
+  | Error
+  | Promise<unknown>
+  | ReadonlyMap<unknown, unknown>
+  | ReadonlySet<unknown>
+  | WeakMap<object, unknown>
+  | WeakSet<object>
+  | ArrayBuffer
+  | DataView;
+
 export type AutoSelector<TState extends object, TValue> = SelectorFn<
   TState,
   TValue
@@ -285,11 +297,13 @@ export type AutoSelector<TState extends object, TValue> = SelectorFn<
     ? {}
     : TValue extends readonly any[]
       ? {}
-      : TValue extends object
-        ? {
-            [K in keyof TValue]: AutoSelector<TState, TValue[K]>;
-          }
-        : {});
+      : TValue extends LeafObject
+        ? {}
+        : TValue extends object
+          ? {
+              [K in keyof TValue]: AutoSelector<TState, TValue[K]>;
+            }
+          : {});
 
 export type AutoSelectors<T extends object> = {
   [K in keyof T]: AutoSelector<T, T[K]>;

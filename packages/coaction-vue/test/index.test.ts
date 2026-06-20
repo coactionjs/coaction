@@ -1,4 +1,5 @@
-import { effectScope } from 'vue';
+import { expectTypeOf } from 'vitest';
+import { effectScope, type ComputedRef } from 'vue';
 import { create } from '../src';
 
 test('base', () => {
@@ -137,6 +138,24 @@ test('autoSelector treats non-plain object values as leaf selectors', () => {
     expect(selectors.stamp.value).toBe(nextStamp);
   });
   scope.stop();
+});
+
+test('autoSelector types non-plain object values as leaf refs', () => {
+  const useStore = create<{
+    stamp: Date;
+    nested: {
+      stamp: Date;
+    };
+  }>(() => ({
+    stamp: new Date('2026-01-01T00:00:00.000Z'),
+    nested: {
+      stamp: new Date('2026-01-02T00:00:00.000Z')
+    }
+  }));
+
+  const selectors = useStore({ autoSelector: true });
+  expectTypeOf(selectors.stamp).toEqualTypeOf<ComputedRef<Date>>();
+  expectTypeOf(selectors.nested.stamp).toEqualTypeOf<ComputedRef<Date>>();
 });
 
 test('autoSelector includes symbol keyed state and slices', () => {

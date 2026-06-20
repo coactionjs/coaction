@@ -16,14 +16,30 @@ type SelectorOptions = {
   autoSelector?: boolean;
 };
 
+type LeafObject =
+  | Date
+  | RegExp
+  | Error
+  | Promise<unknown>
+  | ReadonlyMap<unknown, unknown>
+  | ReadonlySet<unknown>
+  | WeakMap<object, unknown>
+  | WeakSet<object>
+  | ArrayBuffer
+  | DataView;
+
+type AutoSelectorValue<T> = T extends (...args: any[]) => any
+  ? T
+  : T extends readonly any[]
+    ? ComputedRef<T>
+    : T extends LeafObject
+      ? ComputedRef<T>
+      : T extends object
+        ? AutoSelector<T>
+        : ComputedRef<T>;
+
 type AutoSelector<T> = {
-  [K in keyof T]: T[K] extends (...args: any[]) => any
-    ? T[K]
-    : T[K] extends readonly any[]
-      ? ComputedRef<T[K]>
-      : T[K] extends object
-        ? AutoSelector<T[K]>
-        : ComputedRef<T[K]>;
+  [K in keyof T]: AutoSelectorValue<T[K]>;
 };
 
 export type StoreReturn<T extends object> = Store<T> & {

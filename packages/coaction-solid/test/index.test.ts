@@ -1,4 +1,6 @@
 import { createRoot } from 'solid-js';
+import type { Accessor } from 'solid-js';
+import { expectTypeOf } from 'vitest';
 import { create } from '../src';
 
 test('base', () => {
@@ -132,6 +134,24 @@ test('autoSelector treats non-plain object values as leaf selectors', () => {
     expect(selectors.stamp()).toBe(nextStamp);
     dispose();
   });
+});
+
+test('autoSelector types non-plain object values as leaf accessors', () => {
+  const useStore = create<{
+    stamp: Date;
+    nested: {
+      stamp: Date;
+    };
+  }>(() => ({
+    stamp: new Date('2026-01-01T00:00:00.000Z'),
+    nested: {
+      stamp: new Date('2026-01-02T00:00:00.000Z')
+    }
+  }));
+
+  const selectors = useStore({ autoSelector: true });
+  expectTypeOf(selectors.stamp).toEqualTypeOf<Accessor<Date>>();
+  expectTypeOf(selectors.nested.stamp).toEqualTypeOf<Accessor<Date>>();
 });
 
 test('autoSelector includes symbol keyed state and slices', () => {

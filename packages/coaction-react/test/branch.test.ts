@@ -1,4 +1,5 @@
-import { vi } from 'vitest';
+import { expectTypeOf, vi } from 'vitest';
+import type { AutoSelectors } from '../src';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -224,6 +225,22 @@ test('autoSelector treats non-plain object values as leaf selectors', async () =
   expect(selectors.box(store.getState())).toBe(box);
   expect(selectors.box.value).toBeUndefined();
   expect(useSyncExternalStore).not.toHaveBeenCalled();
+});
+
+test('autoSelector types non-plain object values as leaf selectors', () => {
+  type State = {
+    stamp: Date;
+    nested: {
+      stamp: Date;
+    };
+  };
+
+  expectTypeOf<AutoSelectors<State>['stamp']>().toEqualTypeOf<
+    (state: State) => Date
+  >();
+  expectTypeOf<AutoSelectors<State>['nested']['stamp']>().toEqualTypeOf<
+    (state: State) => Date
+  >();
 });
 
 test('observer disposes uncommitted render tracker after grace period', async () => {
