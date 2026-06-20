@@ -82,6 +82,48 @@ const connectDocs = (docA: Y.Doc, docB: Y.Doc) => {
   };
 };
 
+const createTransportPair = () => {
+  const mainListeners = new Map<string, (...args: any[]) => unknown>();
+  const clientListeners = new Map<string, (...args: any[]) => unknown>();
+  const runAsync = (callback: () => void) => {
+    setTimeout(callback, 0);
+  };
+  return {
+    main: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        mainListeners.set(name, listener);
+      },
+      emit: (event: string | { name: string }, payload?: unknown) => {
+        const name = typeof event === 'string' ? event : event.name;
+        if (name === 'update') {
+          return Promise.resolve(clientListeners.get('update')?.(payload));
+        }
+        return Promise.resolve(undefined);
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    },
+    client: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        clientListeners.set(name, listener);
+      },
+      emit: (name: string, ...args: unknown[]) => {
+        const listener = mainListeners.get(name);
+        if (!listener) {
+          return Promise.reject(new Error(`Missing listener: ${name}`));
+        }
+        return Promise.resolve(listener(...args));
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    }
+  };
+};
+
 test('syncs state from coaction to yjs', () => {
   const doc = new Y.Doc();
   const store = create((set) => ({
@@ -827,6 +869,44 @@ test('migrates remote plain object replacement and keeps observing nested change
   binding.destroy();
 });
 
+test('shared main broadcasts remote root map replacement to clients', async () => {
+  const doc = new Y.Doc();
+  const transport = createTransportPair();
+  const createCounter = () => ({
+    count: 0
+  });
+  const serverStore = create(createCounter, {
+    name: 'yjs-shared-root-replacement',
+    transport: transport.main as any
+  });
+  const binding = bindYjs(serverStore, {
+    doc,
+    key: 'counter'
+  });
+  const clientStore = create(createCounter, {
+    name: 'yjs-shared-root-replacement',
+    clientTransport: transport.client as any
+  });
+  await wait();
+  await waitFor(() => {
+    expect(clientStore.getState().count).toBe(0);
+  });
+
+  const replacement = new Y.Map<any>();
+  replacement.set('count', 5);
+  doc.transact(() => {
+    doc.getMap<any>('counter').set('state', replacement);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(serverStore.getState().count).toBe(5);
+    expect(clientStore.getState().count).toBe(5);
+  });
+  binding.destroy();
+  clientStore.destroy();
+  serverStore.destroy();
+});
+
 test('syncs nested array and object diffs from store to yjs', () => {
   const doc = new Y.Doc();
   const store = create((set) => ({
@@ -954,7 +1034,7 @@ test('retries remote snapshot flush on setState reentry errors', async () => {
   const originalSetState = store.setState.bind(store);
   let shouldFail = true;
   store.setState = ((next, updater) => {
-    if (shouldFail && typeof next !== 'function') {
+    if (shouldFail) {
       shouldFail = false;
       throw new Error('setState cannot be called within the updater');
     }

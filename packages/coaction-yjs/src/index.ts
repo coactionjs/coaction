@@ -25,6 +25,12 @@ const getOwnEnumerableKeys = (value: object) =>
 const formatPropertyPath = (path: PropertyKey[]) =>
   path.length ? path.map((key) => String(key)).join('.') : '<root>';
 
+type RootReplacementPatch = {
+  op: 'add' | 'remove' | 'replace';
+  path: Array<string | number>;
+  value?: unknown;
+};
+
 type YjsStateViolation =
   | {
       type: 'symbol-key';
@@ -166,6 +172,63 @@ const assertYjsSerializableState = (state: unknown) => {
   );
 };
 
+const createRootReplacementPatches = (
+  currentState: Record<PropertyKey, unknown>,
+  nextState: Record<PropertyKey, unknown>
+) => {
+  const patches: RootReplacementPatch[] = [];
+  const inversePatches: RootReplacementPatch[] = [];
+  const nextKeys = new Set(getOwnEnumerableKeys(nextState));
+  for (const key of getOwnEnumerableKeys(currentState)) {
+    if (typeof key === 'symbol' || nextKeys.has(key)) {
+      continue;
+    }
+    patches.push({
+      op: 'remove',
+      path: [key]
+    });
+    inversePatches.push({
+      op: 'add',
+      path: [key],
+      value: currentState[key]
+    });
+  }
+  for (const key of nextKeys) {
+    if (typeof key === 'symbol') {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(currentState, key)) {
+      patches.push({
+        op: 'add',
+        path: [key],
+        value: nextState[key]
+      });
+      inversePatches.push({
+        op: 'remove',
+        path: [key]
+      });
+      continue;
+    }
+    if (Object.is(currentState[key], nextState[key])) {
+      continue;
+    }
+    patches.push({
+      op: 'replace',
+      path: [key],
+      value: nextState[key]
+    });
+    inversePatches.push({
+      op: 'replace',
+      path: [key],
+      value: currentState[key]
+    });
+  }
+  return {
+    patches,
+    inversePatches
+  };
+};
+
 export type YjsBindingOptions = {
   doc?: Y.Doc;
   key?: string;
@@ -225,8 +288,21 @@ export const bindYjs = <T extends object>(
     const next = clone(state);
     syncingFromYjs = true;
     try {
-      store.setState(null);
-      store.apply(next as T);
+      if (store.share === 'main') {
+        store.setState(next as T, () => {
+          const { patches, inversePatches } = createRootReplacementPatches(
+            store.getPureState() as Record<PropertyKey, unknown>,
+            next as Record<PropertyKey, unknown>
+          );
+          if (patches.length) {
+            store.apply(store.getPureState(), patches as any);
+          }
+          return [store.getPureState(), patches as any, inversePatches as any];
+        });
+      } else {
+        store.setState(null);
+        store.apply(next as T);
+      }
       const pureState = clone(store.getPureState());
       lastSyncedState = isPlainObject(pureState) ? pureState : {};
     } finally {
