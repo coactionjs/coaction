@@ -1,6 +1,6 @@
 import type { CreateState, MiddlewareStore } from './interface';
 import type { Internal } from './internal';
-import { uuid } from './utils';
+import { sanitizeReplacementState, uuid } from './utils';
 
 const transportErrorMarker = '__coactionTransportError__';
 
@@ -157,7 +157,9 @@ export const createClientAction = <T extends CreateState>({
                       throw new Error('Invalid fullSync payload');
                     }
                     if (next.sequence >= sequence) {
-                      store.apply(JSON.parse(next.state));
+                      store.apply(
+                        sanitizeReplacementState(JSON.parse(next.state))
+                      );
                       internal.sequence = next.sequence;
                       finishResolve();
                       return;

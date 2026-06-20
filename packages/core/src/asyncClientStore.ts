@@ -9,6 +9,7 @@ import type {
 import type { Internal } from './internal';
 import { wrapStore } from './wrapStore';
 import { validateSharedStateSerializable } from './sharedState';
+import { sanitizeReplacementState } from './utils';
 
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
@@ -61,7 +62,9 @@ export const createAsyncClientStore = <T extends CreateState>(
         if (latest.sequence < internal.sequence && !canApplyLowerSequence) {
           return;
         }
-        asyncClientStore.apply(JSON.parse(latest.state));
+        asyncClientStore.apply(
+          sanitizeReplacementState(JSON.parse(latest.state))
+        );
         internal.sequence = latest.sequence;
         awaitingReconnectSync = false;
         reconnectSequenceBaseline = null;

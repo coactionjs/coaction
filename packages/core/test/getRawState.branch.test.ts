@@ -165,9 +165,8 @@ test('client action performs fullSync when sequence catch-up times out', async (
       }
       if (event === 'fullSync') {
         return {
-          state: JSON.stringify({
-            count: 9
-          }),
+          state:
+            '{"count":9,"__proto__":{"polluted":true},"prototype":{"value":2},"nested":{"value":3,"__proto__":{"nested":true}}}',
           sequence: 2
         };
       }
@@ -179,9 +178,24 @@ test('client action performs fullSync when sequence catch-up times out', async (
     await vi.advanceTimersByTimeAsync(1600);
     await expect(pending).resolves.toBe('ok');
     expect(store.transport.emit).toHaveBeenCalledWith('fullSync');
-    expect(store.apply).toHaveBeenCalledWith({
-      count: 9
+    const applied = store.apply.mock.calls[0][0];
+    expect(applied).toEqual({
+      count: 9,
+      nested: {
+        value: 3
+      }
     });
+    expect(Object.getPrototypeOf(applied)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(applied.nested)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(applied, '__proto__')).toBe(
+      false
+    );
+    expect(Object.prototype.hasOwnProperty.call(applied, 'prototype')).toBe(
+      false
+    );
+    expect(
+      Object.prototype.hasOwnProperty.call(applied.nested, '__proto__')
+    ).toBe(false);
     expect(internal.sequence).toBe(2);
   } finally {
     vi.useRealTimers();

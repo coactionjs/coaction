@@ -69,6 +69,42 @@ export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
   return target;
 };
 
+export const sanitizeReplacementState = <T>(
+  source: T,
+  seen = new WeakMap<object, unknown>()
+): T => {
+  if (typeof source !== 'object' || source === null) {
+    return source;
+  }
+  const cached = seen.get(source);
+  if (cached) {
+    return cached as T;
+  }
+  if (Array.isArray(source)) {
+    const target: unknown[] = [];
+    seen.set(source, target);
+    for (let index = 0; index < source.length; index += 1) {
+      if (Object.prototype.hasOwnProperty.call(source, index)) {
+        target[index] = sanitizeReplacementState(source[index], seen);
+      }
+    }
+    return target as T;
+  }
+  const target = {} as Record<PropertyKey, unknown>;
+  seen.set(source, target);
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (typeof key === 'string' && isUnsafeKey(key)) {
+      continue;
+    }
+    const value = (source as Record<PropertyKey, unknown>)[key];
+    if (typeof value === 'function') {
+      continue;
+    }
+    setOwnEnumerable(target, key, sanitizeReplacementState(value, seen));
+  }
+  return target as T;
+};
+
 export const areShallowEqualWithArray = (
   prev: any[] | null | IArguments,
   next: any[] | null | IArguments

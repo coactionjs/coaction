@@ -134,9 +134,8 @@ test('createAsyncClientStore performs fullSync on sequence mismatch', async () =
     emit: vi.fn(async (event: any) => {
       if (event === 'fullSync') {
         return {
-          state: JSON.stringify({
-            count: 1
-          }),
+          state:
+            '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"nested":{"value":3,"__proto__":{"nested":true}}}',
           sequence: 1
         };
       }
@@ -177,9 +176,24 @@ test('createAsyncClientStore performs fullSync on sequence mismatch', async () =
   });
 
   expect(transport.emit).toHaveBeenCalledWith('fullSync');
-  expect(apply).toHaveBeenCalledWith({
-    count: 1
+  const applied = apply.mock.calls[0][0];
+  expect(applied).toEqual({
+    count: 1,
+    nested: {
+      value: 3
+    }
   });
+  expect(Object.getPrototypeOf(applied)).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(applied.nested)).toBe(Object.prototype);
+  expect(Object.prototype.hasOwnProperty.call(applied, '__proto__')).toBe(
+    false
+  );
+  expect(Object.prototype.hasOwnProperty.call(applied, 'constructor')).toBe(
+    false
+  );
+  expect(
+    Object.prototype.hasOwnProperty.call(applied.nested, '__proto__')
+  ).toBe(false);
 });
 
 test('createAsyncClientStore ignores stale and duplicate update sequences', async () => {
