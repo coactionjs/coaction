@@ -2,10 +2,27 @@ import { onStoreReady, type Middleware, type Store } from 'coaction';
 
 type Snapshot = Record<PropertyKey, unknown>;
 
+const isUnsafeKey = (key: PropertyKey) =>
+  typeof key === 'string' &&
+  (key === '__proto__' || key === 'prototype' || key === 'constructor');
+
 const getOwnEnumerableKeys = (value: object) =>
-  Reflect.ownKeys(value).filter((key) =>
-    Object.prototype.propertyIsEnumerable.call(value, key)
+  Reflect.ownKeys(value).filter(
+    (key) =>
+      Object.prototype.propertyIsEnumerable.call(value, key) &&
+      !isUnsafeKey(key)
   );
+
+const setOwnEnumerable = (
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey,
+  value: unknown
+) => {
+  if (isUnsafeKey(key)) {
+    return;
+  }
+  target[key] = value;
+};
 
 const toSnapshot = (
   state: unknown,
@@ -33,7 +50,7 @@ const toSnapshot = (
       if (typeof value === 'function') {
         continue;
       }
-      next[key] = toSnapshot(value, visited);
+      setOwnEnumerable(next, key, toSnapshot(value, visited));
     }
     return next;
   }
@@ -106,7 +123,7 @@ const applySnapshot = (
     }
   }
   for (const key of getOwnEnumerableKeys(next)) {
-    target[key] = toSnapshot(next[key]);
+    setOwnEnumerable(target, key, toSnapshot(next[key]));
   }
 };
 
@@ -153,7 +170,7 @@ const applyPartialSnapshot = (
       );
       continue;
     }
-    target[key] = toSnapshot(nextValue);
+    setOwnEnumerable(target, key, toSnapshot(nextValue));
   }
 };
 

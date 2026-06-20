@@ -272,6 +272,58 @@ test('nested partialize preserves untracked sibling keys during undo and redo', 
   });
 });
 
+test('partialize snapshots ignore unsafe prototype keys', () => {
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      nested: {
+        value: 0
+      },
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+          draft.nested.value += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          partialize: (state) =>
+            JSON.parse(
+              `{"count":${state.count},"nested":{"value":${state.nested.value},"__proto__":{"nested":true},"constructor":{"value":2}},"__proto__":{"polluted":true},"prototype":{"value":3}}`
+            )
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().increment();
+  const past = api.getPast()[0];
+
+  expect(Object.getPrototypeOf(past)).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(past.nested)).toBe(Object.prototype);
+  expect(Object.prototype.hasOwnProperty.call(past, '__proto__')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(past, 'prototype')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(past.nested, '__proto__')).toBe(
+    false
+  );
+  expect(Object.prototype.hasOwnProperty.call(past.nested, 'constructor')).toBe(
+    false
+  );
+
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().count).toBe(0);
+  expect(useStore.getState().nested).toEqual({
+    value: 0
+  });
+  expect(Object.getPrototypeOf(useStore.getPureState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(useStore.getPureState().nested)).toBe(
+    Object.prototype
+  );
+});
+
 test('snapshot strips functions and keeps array structure', () => {
   const useStore = create(
     (set) => ({
