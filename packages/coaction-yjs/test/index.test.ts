@@ -879,6 +879,16 @@ test('shared main broadcasts remote root map replacement to clients', async () =
     name: 'yjs-shared-root-replacement',
     transport: transport.main as any
   });
+  const patchCalls: string[][] = [];
+  serverStore.patch = ({ patches, inversePatches }) => {
+    patchCalls.push(
+      patches.map((patch) => `${patch.op}:${patch.path.join('.')}`)
+    );
+    return {
+      patches,
+      inversePatches
+    };
+  };
   const binding = bindYjs(serverStore, {
     doc,
     key: 'counter'
@@ -902,6 +912,7 @@ test('shared main broadcasts remote root map replacement to clients', async () =
     expect(serverStore.getState().count).toBe(5);
     expect(clientStore.getState().count).toBe(5);
   });
+  expect(patchCalls).toContainEqual(['replace:count']);
   binding.destroy();
   clientStore.destroy();
   serverStore.destroy();

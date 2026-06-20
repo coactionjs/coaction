@@ -294,10 +294,23 @@ export const bindYjs = <T extends object>(
             store.getPureState() as Record<PropertyKey, unknown>,
             next as Record<PropertyKey, unknown>
           );
-          if (patches.length) {
-            store.apply(store.getPureState(), patches as any);
+          const finalPatches = store.patch
+            ? store.patch({
+                patches: patches as any,
+                inversePatches: inversePatches as any
+              })
+            : {
+                patches: patches as any,
+                inversePatches: inversePatches as any
+              };
+          if (finalPatches.patches.length) {
+            store.apply(store.getPureState(), finalPatches.patches);
           }
-          return [store.getPureState(), patches as any, inversePatches as any];
+          return [
+            store.getPureState(),
+            finalPatches.patches,
+            finalPatches.inversePatches
+          ];
         });
       } else {
         store.setState(null);
