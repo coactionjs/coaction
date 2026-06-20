@@ -1429,41 +1429,35 @@ test('ignores stale delete paths after parent array replacement', async () => {
 });
 
 test('ignores unsupported deep events that yield no operations', async () => {
-  const originalStructuredClone = globalThis.structuredClone;
-  (globalThis as any).structuredClone = undefined;
-  try {
-    const doc = new Y.Doc();
-    const store = create((set) => ({
-      count: 0
-    }));
-    const binding = bindYjs(store, {
-      doc,
-      key: 'counter'
-    });
-    const originalSetState = store.setState.bind(store);
-    let setStateCalls = 0;
-    store.setState = ((next, updater) => {
-      setStateCalls += 1;
-      return originalSetState(next as any, updater as any);
-    }) as typeof store.setState;
-    const stateMap = doc.getMap<any>('counter').get('state') as Y.Map<any>;
-    const text = new Y.Text('a');
-    doc.transact(() => {
-      stateMap.set('rich', text);
-    }, 'external');
-    await waitFor(() => {
-      expect((store.getState() as any).rich).toBe('a');
-      expect(setStateCalls).toBe(1);
-    });
-    doc.transact(() => {
-      text.insert(1, 'b');
-    }, 'external');
-    await wait(20);
+  const doc = new Y.Doc();
+  const store = create((set) => ({
+    count: 0
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const originalSetState = store.setState.bind(store);
+  let setStateCalls = 0;
+  store.setState = ((next, updater) => {
+    setStateCalls += 1;
+    return originalSetState(next as any, updater as any);
+  }) as typeof store.setState;
+  const stateMap = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+  const text = new Y.Text('a');
+  doc.transact(() => {
+    stateMap.set('rich', text);
+  }, 'external');
+  await waitFor(() => {
+    expect((store.getState() as any).rich).toBe('a');
     expect(setStateCalls).toBe(1);
-    binding.destroy();
-  } finally {
-    (globalThis as any).structuredClone = originalStructuredClone;
-  }
+  });
+  doc.transact(() => {
+    text.insert(1, 'b');
+  }, 'external');
+  await wait(20);
+  expect(setStateCalls).toBe(1);
+  binding.destroy();
 });
 
 test('creates array container for numeric remote paths when parent is missing', async () => {

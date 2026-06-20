@@ -56,8 +56,15 @@ const cloneFallback = <T>(
 };
 
 export function clone<T>(value: T): T {
+  if (Array.isArray(value) || isPlainObject(value)) {
+    return cloneFallback(value);
+  }
   if (typeof structuredClone === 'function') {
-    return structuredClone(value);
+    try {
+      return structuredClone(value);
+    } catch {
+      return cloneFallback(value);
+    }
   }
   return cloneFallback(value);
 }
