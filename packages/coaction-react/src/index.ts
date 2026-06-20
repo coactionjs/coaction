@@ -314,21 +314,37 @@ export type StoreWithAsyncFunction<
 
 export type CreateState = ISlices | Record<PropertyKey, Slice<any>>;
 
+type SingleStoreOptions<T extends CreateState> = StoreOptions<T> & {
+  sliceMode: 'single';
+};
+
+type SingleClientStoreOptions<T extends CreateState> = ClientStoreOptions<T> & {
+  sliceMode: 'single';
+};
+
 export type Creator = {
+  <T extends ISlices>(
+    createState: T,
+    options: SingleStoreOptions<T>
+  ): StoreReturn<T>;
   <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: StoreOptions<T>
   ): StoreReturn<SliceState<T>>;
   <T extends ISlices>(
-    createState: Slice<T>,
+    createState: Slice<T> | T,
     options?: StoreOptions<T>
   ): StoreReturn<T>;
+  <T extends ISlices>(
+    createState: T,
+    options: SingleClientStoreOptions<T>
+  ): StoreWithAsyncFunction<T>;
   <T extends Record<PropertyKey, Slice<any>>>(
     createState: T,
     options?: ClientStoreOptions<T>
   ): StoreWithAsyncFunction<SliceState<T>, true>;
   <T extends ISlices>(
-    createState: Slice<T>,
+    createState: Slice<T> | T,
     options?: ClientStoreOptions<T>
   ): StoreWithAsyncFunction<T>;
 };
