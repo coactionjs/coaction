@@ -5,6 +5,9 @@ export * from '@reduxjs/toolkit';
 
 export const COACTION_REDUX_REPLACE = '@@coaction/redux/replace';
 
+const isUnsafeKey = (key: string) =>
+  key === '__proto__' || key === 'prototype' || key === 'constructor';
+
 function stripFunctions<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map((item) => stripFunctions(item)) as T;
@@ -12,6 +15,9 @@ function stripFunctions<T>(value: T): T {
   if (typeof value === 'object' && value !== null) {
     const next: Record<string, unknown> = {};
     for (const key of Object.keys(value as Record<string, unknown>)) {
+      if (isUnsafeKey(key)) {
+        continue;
+      }
       const child = (value as Record<string, unknown>)[key];
       if (typeof child === 'function') {
         continue;

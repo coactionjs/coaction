@@ -25,6 +25,10 @@ const getOwnEnumerableKeys = (value: object) =>
     Object.prototype.propertyIsEnumerable.call(value, key)
   );
 
+const isUnsafeKey = (key: PropertyKey) =>
+  typeof key === 'string' &&
+  (key === '__proto__' || key === 'prototype' || key === 'constructor');
+
 const replaceMutableState = (
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
@@ -33,12 +37,21 @@ const replaceMutableState = (
 ) => {
   const nextKeys = new Set<PropertyKey>();
   for (const key of getOwnEnumerableKeys(source)) {
+    if (isUnsafeKey(key)) {
+      continue;
+    }
     if (typeof source[key] === 'function') {
       continue;
     }
     nextKeys.add(key);
   }
   for (const key of getOwnEnumerableKeys(rawState)) {
+    if (isUnsafeKey(key)) {
+      delete rawState[key];
+      delete mutableState[key];
+      delete publicState[key];
+      continue;
+    }
     if (typeof rawState[key] === 'function') {
       continue;
     }

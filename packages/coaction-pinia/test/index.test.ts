@@ -239,6 +239,55 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(useStore.getState().a).toBe(4);
 });
 
+test('apply ignores unsafe prototype keys during replacement', () => {
+  type Counter = {
+    count: number;
+    increment: () => void;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-unsafe-replace',
+          bindPinia({
+            state: () => ({
+              count: 0
+            }),
+            actions: {
+              increment() {
+                this.count += 1;
+              }
+            }
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-unsafe-replace'
+    }
+  );
+  const payload = JSON.parse(
+    '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"prototype":{"value":3}}'
+  );
+
+  useStore.apply(payload as any);
+
+  expect(useStore.getState().count).toBe(1);
+  expect(Object.getPrototypeOf(useStore.getState())).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(useStore.getPureState())).toBe(Object.prototype);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), '__proto__')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), 'constructor')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getState(), 'prototype')
+  ).toBe(false);
+});
+
 test('worker', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);

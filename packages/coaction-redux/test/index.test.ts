@@ -103,6 +103,28 @@ test('replace action ignores inherited payload properties', () => {
   expect(next.inherited).toBeUndefined();
 });
 
+test('replace action ignores unsafe prototype keys', () => {
+  const reducer = withCoactionReducer((state = {} as any) => state);
+  const payload = JSON.parse(
+    '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"prototype":{"value":3},"nested":{"value":4,"__proto__":{"nested":true}}}'
+  );
+
+  const next = reducer(undefined, replaceStateAction(payload as any)) as any;
+
+  expect(next.count).toBe(1);
+  expect(next.nested).toEqual({
+    value: 4
+  });
+  expect(Object.getPrototypeOf(next)).toBe(Object.prototype);
+  expect(Object.getPrototypeOf(next.nested)).toBe(Object.prototype);
+  expect(Object.prototype.hasOwnProperty.call(next, '__proto__')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(next, 'constructor')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(next, 'prototype')).toBe(false);
+  expect(Object.prototype.hasOwnProperty.call(next.nested, '__proto__')).toBe(
+    false
+  );
+});
+
 test('external redux updates do not merge binder symbols into state', () => {
   const counterSlice = createSlice({
     name: 'counter',
