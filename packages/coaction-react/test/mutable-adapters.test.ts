@@ -17,6 +17,10 @@ type MutableAdapterCase = {
     externalUpdate: () => void;
     useStore: any;
   };
+  createNestedStore: () => {
+    externalUpdate: () => void;
+    useStore: any;
+  };
   name: string;
 };
 
@@ -42,6 +46,28 @@ const cases: MutableAdapterCase[] = [
           });
         }
       };
+    },
+    createNestedStore: () => {
+      const state = makeAutoObservable(
+        bindMobx({
+          nested: {
+            count: 0
+          },
+          incrementNested() {
+            this.nested.count += 1;
+          }
+        })
+      );
+      return {
+        useStore: create(() => state, {
+          name: 'react-mobx-nested'
+        }),
+        externalUpdate: () => {
+          runInAction(() => {
+            state.nested.count += 1;
+          });
+        }
+      };
     }
   },
   {
@@ -61,6 +87,26 @@ const cases: MutableAdapterCase[] = [
         }),
         externalUpdate: () => {
           state.count += 1;
+        }
+      };
+    },
+    createNestedStore: () => {
+      const state = proxy(
+        bindValtio({
+          nested: {
+            count: 0
+          },
+          incrementNested() {
+            this.nested.count += 1;
+          }
+        })
+      );
+      return {
+        useStore: create(() => adaptValtio(state), {
+          name: 'react-valtio-nested'
+        }),
+        externalUpdate: () => {
+          state.nested.count += 1;
         }
       };
     }
@@ -94,13 +140,45 @@ const cases: MutableAdapterCase[] = [
           });
         }
       };
+    },
+    createNestedStore: () => {
+      const pinia = createPinia();
+      setActivePinia(pinia);
+      const useCounterStore = defineStore(
+        'react-pinia-counter-nested',
+        bindPinia({
+          state: () => ({
+            nested: {
+              count: 0
+            }
+          }),
+          actions: {
+            incrementNested() {
+              this.nested.count += 1;
+            }
+          }
+        })
+      );
+      const state = useCounterStore();
+      return {
+        useStore: create(() => adaptPinia(state), {
+          name: 'react-pinia-nested'
+        }),
+        externalUpdate: () => {
+          (state as any).$patch({
+            nested: {
+              count: (state as any).nested.count + 1
+            }
+          });
+        }
+      };
     }
   }
 ];
 
 describe.each(cases)(
   'mutable adapter integration: $name',
-  ({ createStore }) => {
+  ({ createNestedStore, createStore }) => {
     test('rerenders full state, selector, and auto selector readers', async () => {
       const { useStore, externalUpdate } = createStore();
       const selectors = useStore.auto();
@@ -173,6 +251,39 @@ describe.each(cases)(
         expect(screen.getByTestId('selector').textContent).toBe('2');
         expect(screen.getByTestId('auto').textContent).toBe('2');
         expect(screen.getByTestId('observer').textContent).toBe('2');
+      });
+    });
+
+    test('observer rerenders for nested mutable adapter actions', async () => {
+      const { useStore, externalUpdate } = createNestedStore();
+
+      const ObserverCounter = observer(() => {
+        const state = useStore();
+        return React.createElement(
+          'span',
+          { 'data-testid': 'observer-nested' },
+          state.nested.count
+        );
+      });
+
+      render(React.createElement(ObserverCounter) as any);
+
+      expect(screen.getByTestId('observer-nested').textContent).toBe('0');
+
+      await act(async () => {
+        externalUpdate();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('observer-nested').textContent).toBe('1');
+      });
+
+      await act(async () => {
+        useStore.getState().incrementNested();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('observer-nested').textContent).toBe('2');
       });
     });
   }

@@ -14,6 +14,9 @@ type GetterContext<T extends CreateState> = {
   internal: Internal<T>;
 };
 
+const isObjectLike = (value: unknown) =>
+  typeof value === 'object' && value !== null;
+
 export class Computed {
   constructor(
     public deps: (state: Store['getState']) => any[],
@@ -79,14 +82,24 @@ export const createTrackedStateReader = <T extends CreateState>(
   initialValue: unknown
 ) => {
   const slotSignal = signal(initialValue);
+  const slotVersionSignal = signal(0);
+  let slotVersion = 0;
   const slot = {
     refresh: () => {
-      slotSignal(read());
+      const nextValue = read();
+      slotSignal(nextValue);
+      if (internal.mutableInstance && isObjectLike(nextValue)) {
+        slotVersion += 1;
+        slotVersionSignal(slotVersion);
+      }
     }
   };
   (internal.signalSlots ??= new Set()).add(slot);
   return () => {
-    slotSignal();
+    const currentValue = slotSignal();
+    if (internal.mutableInstance && isObjectLike(currentValue)) {
+      slotVersionSignal();
+    }
     return read();
   };
 };
