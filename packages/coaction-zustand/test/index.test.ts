@@ -170,6 +170,59 @@ test('worker main propagates direct zustand mutations', async () => {
   expect(clientListener).toHaveBeenCalled();
 });
 
+test('worker main propagates initializer replace updates', async () => {
+  type Counter = {
+    count: number;
+    replaceToSeven: () => void;
+  };
+  const ports = mockPorts();
+  const serverTransport = createTransport('WebWorkerInternal', ports.main);
+  const clientTransport = createTransport(
+    'WebWorkerClient',
+    ports.create() as WorkerMainTransportOptions
+  );
+  const counter: StateCreator<Counter, [], []> = (set) => ({
+    count: 0,
+    replaceToSeven() {
+      set(
+        {
+          count: 7
+        } as Counter,
+        true
+      );
+    }
+  });
+  const useServerStore = create(
+    () => adapt(createWithZustand(bindZustand(counter))),
+    {
+      transport: serverTransport,
+      name: 'test-worker-main-replace'
+    }
+  );
+  const useClientStore = create(
+    () => adapt(createWithZustand(bindZustand(counter))),
+    {
+      clientTransport,
+      name: 'test-worker-main-replace'
+    }
+  );
+  await new Promise((resolve) => {
+    clientTransport.onConnect(() => {
+      setTimeout(resolve);
+    });
+  });
+
+  useServerStore.getState().replaceToSeven();
+  await new Promise((resolve) => {
+    setTimeout(resolve);
+  });
+
+  expect(useServerStore.getState().count).toBe(7);
+  expect(useClientStore.getState().count).toBe(7);
+  expect(useServerStore.getState().replaceToSeven).toBeInstanceOf(Function);
+  expect(useClientStore.getState().replaceToSeven).toBeInstanceOf(Function);
+});
+
 test('base direct zustand mutation syncs without forwarding', () => {
   type Counter = {
     count: number;

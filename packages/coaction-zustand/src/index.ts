@@ -20,6 +20,9 @@ type StoreWithDestroyers = Store<object> & {
 export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
   (set, get, zustandStore) => {
     let coactionStore: StoreWithDestroyers | undefined;
+    let replaceBoundCoactionState:
+      | ((nextState: Record<PropertyKey, unknown>) => void)
+      | undefined;
     const internalBindZustand = createBinder<BindZustand>({
       handleStore: (store, rawState, state, internal) => {
         const boundStore = store as StoreWithDestroyers;
@@ -54,6 +57,9 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
               syncImmutable: false
             }
           );
+        };
+        replaceBoundCoactionState = (nextState) => {
+          replaceCoactionState(nextState);
         };
         const mergeWithCurrentActions = (state: object) => {
           const nextState = {};
@@ -95,6 +101,7 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         });
         boundStore._destroyers.add(() => {
           unsubscribe();
+          replaceBoundCoactionState = undefined;
         });
         internal.updateImmutable = (state: any) => {
           isCoactionUpdated = true;
@@ -127,6 +134,12 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
             typeof state === 'function'
               ? state(coactionStore.getState())
               : state;
+          if (coactionStore.share === 'main' && replaceBoundCoactionState) {
+            replaceBoundCoactionState(
+              nextState as Record<PropertyKey, unknown>
+            );
+            return;
+          }
           coactionStore.apply(nextState as any);
           return;
         }
