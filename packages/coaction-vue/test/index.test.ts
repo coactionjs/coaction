@@ -172,6 +172,34 @@ test('state proxy supports reflection traps and destroy lifecycle', () => {
   useStore.destroy();
 });
 
+test('state proxy returns stable actions with latest state binding', () => {
+  const useStore = create<{
+    count: number;
+    increment: () => void;
+    readCount: () => number;
+  }>((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    },
+    readCount() {
+      return this.count;
+    }
+  }));
+  const state = useStore();
+  const increment = state.increment;
+  const readCount = state.readCount;
+  expect(state.increment).toBe(increment);
+  expect(state.readCount).toBe(readCount);
+  expect(readCount()).toBe(0);
+  increment();
+  expect(readCount()).toBe(1);
+  expect(state.increment).toBe(increment);
+  expect(state.readCount).toBe(readCount);
+});
+
 test('slices autoSelector skips non-object slice values', () => {
   const useStore = create(
     {

@@ -70,11 +70,7 @@ const createStateProxy = <T extends object>(
     get(_, key) {
       void version.value;
       const state = store.getState() as Record<PropertyKey, unknown>;
-      const value = state[key];
-      if (typeof value === 'function') {
-        return value.bind(store.getState());
-      }
-      return value;
+      return state[key];
     },
     has(_, key) {
       void version.value;
