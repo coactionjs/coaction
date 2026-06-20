@@ -108,3 +108,39 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
   expect(unsubscribe).toHaveBeenCalledTimes(1);
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
+
+test('destroy unsubscribes actor only once', async () => {
+  const { capturedHandleStore, capturedHandleState, cancelReadySubscription } =
+    await loadBinding();
+  const unsubscribe = vi.fn(() => {
+    if (unsubscribe.mock.calls.length > 1) {
+      throw new Error('unsubscribe called twice');
+    }
+  });
+  const actor = {
+    getSnapshot: () => ({
+      context: {
+        count: 0
+      }
+    }),
+    subscribe: vi.fn(() => ({
+      unsubscribe
+    })),
+    send: vi.fn()
+  };
+  const { copyState, bind } = capturedHandleState(actor);
+  const rawState = bind(copyState);
+  const baseDestroy = vi.fn();
+  const store: any = {
+    setState: vi.fn(),
+    destroy: baseDestroy
+  };
+
+  capturedHandleStore(store as any, rawState, copyState, {});
+
+  store.destroy();
+  expect(() => store.destroy()).not.toThrow();
+  expect(cancelReadySubscription).toHaveBeenCalledTimes(1);
+  expect(unsubscribe).toHaveBeenCalledTimes(1);
+  expect(baseDestroy).toHaveBeenCalledTimes(1);
+});

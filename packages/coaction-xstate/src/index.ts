@@ -54,9 +54,15 @@ export const bindXState = createBinder<
       });
     });
     const baseDestroy = store.destroy;
+    let destroyed = false;
     store.destroy = () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
       cancelReadySubscription();
       subscription?.unsubscribe();
+      subscription = undefined;
       baseDestroy();
     };
   },
