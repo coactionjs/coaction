@@ -40,6 +40,9 @@ export const bindXState = createBinder<
         'setState is not supported with xstate binding. Please use actor events.'
       );
     };
+    if (store.share === 'client') {
+      return;
+    }
     let subscription: { unsubscribe: () => void } | undefined;
     const cancelReadySubscription = onStoreReady(store, () => {
       subscription = actor.subscribe((snapshot) => {

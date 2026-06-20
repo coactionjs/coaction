@@ -1,7 +1,51 @@
 import { create, Slices } from 'coaction';
 import { adapt, assign, bindXState, createActor, createMachine } from '../src';
 
-test('base', () => {
+const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+const createTransportPair = () => {
+  const mainListeners = new Map<string, (...args: any[]) => unknown>();
+  const clientListeners = new Map<string, (...args: any[]) => unknown>();
+  const runAsync = (callback: () => void) => {
+    setTimeout(callback, 0);
+  };
+  return {
+    main: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        mainListeners.set(name, listener);
+      },
+      emit: (event: string | { name: string }, payload?: unknown) => {
+        const name = typeof event === 'string' ? event : event.name;
+        if (name === 'update') {
+          return Promise.resolve(clientListeners.get('update')?.(payload));
+        }
+        return Promise.resolve(undefined);
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    },
+    client: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        clientListeners.set(name, listener);
+      },
+      emit: (name: string, ...args: unknown[]) => {
+        const listener = mainListeners.get(name);
+        if (!listener) {
+          return Promise.reject(new Error(`Missing listener: ${name}`));
+        }
+        return Promise.resolve(listener(...args));
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    }
+  };
+};
+
+const createCounterActor = () => {
   const machine = createMachine({
     context: {
       count: 0
@@ -16,6 +60,11 @@ test('base', () => {
   });
   const actor = createActor(machine);
   actor.start();
+  return actor;
+};
+
+test('base', () => {
+  const actor = createCounterActor();
   const useStore = create(() => adapt(bindXState(actor)), {
     name: 'test'
   });
@@ -40,6 +89,40 @@ test('base', () => {
   ).toThrow(
     'setState is not supported with xstate binding. Please use actor events.'
   );
+});
+
+test('shared client ignores direct local actor updates', async () => {
+  const transport = createTransportPair();
+  const serverActor = createCounterActor();
+  const clientActor = createCounterActor();
+  const serverStore = create(() => adapt(bindXState(serverActor)), {
+    name: 'test-xstate-client-local-actor',
+    transport: transport.main as any
+  });
+  const clientStore = create(() => adapt(bindXState(clientActor)), {
+    name: 'test-xstate-client-local-actor',
+    clientTransport: transport.client as any
+  });
+  await wait();
+  expect(serverStore.getState().count).toBe(0);
+  expect(clientStore.getState().count).toBe(0);
+
+  clientActor.send({
+    type: 'increment'
+  });
+  await wait();
+  expect(serverStore.getState().count).toBe(0);
+  expect(clientStore.getState().count).toBe(0);
+
+  await clientStore.getState().send({
+    type: 'increment'
+  });
+  await wait();
+  expect(serverStore.getState().count).toBe(1);
+  expect(clientStore.getState().count).toBe(1);
+
+  serverActor.stop();
+  clientActor.stop();
 });
 
 test('actor snapshots replace stale context keys', () => {
