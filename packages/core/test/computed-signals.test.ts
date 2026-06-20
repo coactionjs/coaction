@@ -143,3 +143,42 @@ test('manual get dependencies compute on first read with empty deps', () => {
   expect(store.getState().answer).toBe(42);
   expect(selectorCalls).toBe(1);
 });
+
+test('manual get dependencies distinguish sparse holes from undefined', () => {
+  let selectorCalls = 0;
+  const makeList = (includeUndefined: boolean) => {
+    const list = [] as (string | undefined)[];
+    list.length = 1;
+    if (includeUndefined) {
+      list[0] = undefined;
+    }
+    return list;
+  };
+  const store = create<{
+    list: (string | undefined)[];
+    readonly dependencyVersion: number;
+    setExplicitUndefined: () => void;
+  }>((set, get) => ({
+    list: makeList(false),
+    dependencyVersion: get(
+      (state) => state.list,
+      () => {
+        selectorCalls += 1;
+        return selectorCalls;
+      }
+    ),
+    setExplicitUndefined() {
+      set({
+        list: makeList(true)
+      });
+    }
+  }));
+
+  expect(store.getState().dependencyVersion).toBe(1);
+  expect(selectorCalls).toBe(1);
+
+  store.getState().setExplicitUndefined();
+
+  expect(store.getState().dependencyVersion).toBe(2);
+  expect(selectorCalls).toBe(2);
+});

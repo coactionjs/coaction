@@ -238,6 +238,12 @@ export const areShallowEqualWithArray = (
   }
   const { length } = prev;
   for (let i = 0; i < length; i += 1) {
+    if (
+      Object.prototype.hasOwnProperty.call(prev, i) !==
+      Object.prototype.hasOwnProperty.call(next, i)
+    ) {
+      return false;
+    }
     if (!isEqual(prev[i], next[i])) {
       return false;
     }
