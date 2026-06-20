@@ -13,7 +13,9 @@ const loadBinding = async () => {
       callback();
       return () => undefined;
     },
-    replaceExternalStoreState: vi.fn()
+    replaceExternalStoreState: vi.fn(),
+    sanitizeInitialStateValue: (value: unknown) => value,
+    sanitizeReplacementState: (value: unknown) => value
   }));
   await import('../src');
   return {
@@ -98,6 +100,7 @@ test('destroy unsubscribes valtio listener only once', async () => {
       return cancelReadySubscription;
     }),
     replaceExternalStoreState: vi.fn(),
+    sanitizeInitialStateValue: (value: unknown) => value,
     sanitizeReplacementState: (value: unknown) => value
   }));
   vi.doMock('valtio/vanilla', () => ({

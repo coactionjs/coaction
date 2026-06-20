@@ -3,6 +3,7 @@ import {
   createBinder,
   onStoreReady,
   replaceExternalStoreState,
+  sanitizeInitialStateValue,
   sanitizeReplacementState,
   type Store
 } from 'coaction';
@@ -96,6 +97,9 @@ const toSnapshot = (
     const next: Record<PropertyKey, unknown> = {};
     visited.set(value, next);
     for (const key of getOwnEnumerableKeys(value)) {
+      if (isUnsafeKey(key)) {
+        continue;
+      }
       const child = (value as Record<PropertyKey, unknown>)[key];
       if (typeof child !== 'function') {
         next[key] = toSnapshot(child, visited);
@@ -151,6 +155,16 @@ const handleStore = (
     store._listeners = new Set();
     let unsubscribeExternal: (() => void) | undefined;
     const cancelReadySubscription = onStoreReady(store, () => {
+      const currentRawState = (internal.rootState ?? rawState) as Record<
+        PropertyKey,
+        unknown
+      >;
+      replaceMutableState(
+        currentRawState,
+        getMutableState() as Record<PropertyKey, unknown>,
+        store.getState() as Record<PropertyKey, unknown>,
+        sanitizeInitialStateValue(snapshotPureState(store))
+      );
       lastSnapshot = snapshotPureState(store);
       unsubscribeExternal = subscribe(getMutableState(), () => {
         const isCoactionChange = syncSharedExternalChange();

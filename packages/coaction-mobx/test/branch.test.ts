@@ -15,7 +15,9 @@ test('skips handleStore re-initialization when mutable mapper already exists', a
       return (input: unknown) => input;
     },
     onStoreReady: () => () => undefined,
-    replaceExternalStoreState: vi.fn()
+    replaceExternalStoreState: vi.fn(),
+    sanitizeInitialStateValue: (value: unknown) => value,
+    sanitizeReplacementState: (value: unknown) => value
   }));
   await import('../src');
   const internal = {};
@@ -60,6 +62,7 @@ test('destroy unsubscribes autorun only once', async () => {
       return cancelReadySubscription;
     }),
     replaceExternalStoreState: vi.fn(),
+    sanitizeInitialStateValue: (value: unknown) => value,
     sanitizeReplacementState: (value: unknown) => value
   }));
   vi.doMock('mobx', () => ({

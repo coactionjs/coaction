@@ -21,6 +21,7 @@ const loadBinding = async () => {
       return () => undefined;
     },
     replaceExternalStoreState: vi.fn(),
+    sanitizeInitialStateValue: (value: unknown) => value,
     sanitizeReplacementState: (value: unknown) => value
   }));
   await import('../src');

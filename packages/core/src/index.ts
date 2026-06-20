@@ -3,7 +3,11 @@ export { createBinder, defineExternalStoreAdapter } from './binder';
 export { onStoreReady } from './lifecycle';
 export { createReactiveTracker } from './reactiveTracker';
 export { replaceExternalStoreState } from './replaceExternalStoreState';
-export { replaceOwnEnumerable, sanitizeReplacementState } from './utils';
+export {
+  replaceOwnEnumerable,
+  sanitizeInitialStateValue,
+  sanitizeReplacementState
+} from './utils';
 export { wrapStore } from './wrapStore';
 export {
   computed,

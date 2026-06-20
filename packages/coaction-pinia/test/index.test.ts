@@ -312,6 +312,56 @@ test('apply ignores unsafe prototype keys during replacement', () => {
   ).toBe(false);
 });
 
+test('initial state ignores nested unsafe prototype keys', () => {
+  type Counter = {
+    count: number;
+    nested: {
+      value: number;
+    };
+    increment: () => void;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-unsafe-initial',
+          bindPinia({
+            state: () =>
+              JSON.parse(
+                '{"count":1,"nested":{"value":2,"__proto__":{"nested":true},"constructor":{"value":3}}}'
+              ),
+            actions: {
+              increment() {
+                this.count += 1;
+              }
+            }
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-unsafe-initial'
+    }
+  );
+
+  expect(useStore.getState().nested).toEqual({
+    value: 2
+  });
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      '__proto__'
+    )
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(
+      useStore.getPureState().nested,
+      'constructor'
+    )
+  ).toBe(false);
+  useStore.getState().increment();
+  expect(useStore.getState().count).toBe(2);
+});
+
 test('supports state-only stores without actions', () => {
   type Counter = {
     count: number;

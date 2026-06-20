@@ -4,6 +4,7 @@ import {
   createBinder,
   onStoreReady,
   replaceExternalStoreState,
+  sanitizeInitialStateValue,
   sanitizeReplacementState
 } from 'coaction';
 import { autorun, runInAction, untracked } from 'mobx';
@@ -94,6 +95,9 @@ const toSnapshot = (
     const next: Record<PropertyKey, unknown> = {};
     visited.set(value, next);
     for (const key of getOwnEnumerableKeys(value)) {
+      if (isUnsafeKey(key)) {
+        continue;
+      }
       const child = (value as Record<PropertyKey, unknown>)[key];
       if (typeof child !== 'function') {
         next[key] = toSnapshot(child, visited);
@@ -171,6 +175,22 @@ const handleStore = (
     return false;
   };
   const cancelReadySubscription = onStoreReady(store, () => {
+    runInAction(() => {
+      const mutableState = internal.toMutableRaw!(rawState);
+      if (!mutableState) {
+        return;
+      }
+      const currentRawState = (internal.rootState ?? rawState) as Record<
+        PropertyKey,
+        unknown
+      >;
+      replaceMutableState(
+        currentRawState,
+        mutableState as Record<PropertyKey, unknown>,
+        store.getState() as Record<PropertyKey, unknown>,
+        sanitizeInitialStateValue(snapshotPureState(store))
+      );
+    });
     lastSnapshot = snapshotPureState(store);
     let isInitialRun = true;
     unsubscribeExternal = autorun(() => {
