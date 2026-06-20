@@ -47,11 +47,6 @@
     "coaction": "^2.0.0",
     "valtio": "^2.0.0"
   },
-  "peerDependenciesMeta": {
-    "valtio": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "coaction": "workspace:*",
     "mutative": "^1.3.0",

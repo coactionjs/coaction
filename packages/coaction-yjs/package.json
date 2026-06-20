@@ -47,11 +47,6 @@
     "coaction": "^2.0.0",
     "yjs": "^13.6.0"
   },
-  "peerDependenciesMeta": {
-    "yjs": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "coaction": "workspace:*",
     "yjs": "^13.6.27"

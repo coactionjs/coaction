@@ -46,11 +46,6 @@
     "coaction": "^2.0.0",
     "pinia": "^2.0 || ^3.0.0"
   },
-  "peerDependenciesMeta": {
-    "pinia": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "coaction": "workspace:*",
     "data-transport": "^5.0.3",
