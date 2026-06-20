@@ -35,6 +35,18 @@ function toPathKey(path: PathSegment[]): string {
     .join('|');
 }
 
+function toArrayIndex(segment: PathSegment): number | undefined {
+  const index =
+    typeof segment === 'number' ? segment : Number.parseInt(segment, 10);
+  if (!Number.isInteger(index) || index < 0) {
+    return undefined;
+  }
+  if (typeof segment === 'string' && String(index) !== segment) {
+    return undefined;
+  }
+  return index;
+}
+
 export function compactOperations(
   operations: RemoteOperation[]
 ): RemoteOperation[] {
@@ -62,9 +74,8 @@ export function getYValueAtPath(
       continue;
     }
     if (current instanceof Y.Array) {
-      const index =
-        typeof segment === 'number' ? segment : Number.parseInt(segment, 10);
-      if (!Number.isInteger(index)) {
+      const index = toArrayIndex(segment);
+      if (typeof index === 'undefined') {
         return undefined;
       }
       current = current.get(index);
@@ -86,19 +97,29 @@ export function setAtPath(target: any, path: PathSegment[], value: unknown) {
   for (let index = 0; index < path.length - 1; index += 1) {
     const segment = path[index];
     const nextSegment = path[index + 1];
-    const nextValue = current[segment];
-    const needsArray = typeof nextSegment === 'number';
+    const segmentIndex = Array.isArray(current)
+      ? toArrayIndex(segment)
+      : undefined;
+    const targetKey =
+      typeof segmentIndex === 'undefined' ? segment : segmentIndex;
+    const nextValue = current[targetKey];
+    const needsArray =
+      typeof nextSegment === 'number' ||
+      (Array.isArray(nextValue) &&
+        typeof toArrayIndex(nextSegment) !== 'undefined');
     if (
       typeof nextValue !== 'object' ||
       nextValue === null ||
       (needsArray ? !Array.isArray(nextValue) : Array.isArray(nextValue))
     ) {
-      current[segment] = typeof nextSegment === 'number' ? [] : {};
+      current[targetKey] = typeof nextSegment === 'number' ? [] : {};
     }
-    current = current[segment];
+    current = current[targetKey];
   }
   const leaf = path[path.length - 1];
-  current[leaf] = cloneForStore(value);
+  const leafIndex = Array.isArray(current) ? toArrayIndex(leaf) : undefined;
+  current[typeof leafIndex === 'undefined' ? leaf : leafIndex] =
+    cloneForStore(value);
 }
 
 export function deleteAtPath(target: any, path: PathSegment[]) {
@@ -110,15 +131,25 @@ export function deleteAtPath(target: any, path: PathSegment[]) {
   }
   let current = target;
   for (let index = 0; index < path.length - 1; index += 1) {
-    current = current[path[index]];
+    const segment = path[index];
+    const segmentIndex = Array.isArray(current)
+      ? toArrayIndex(segment)
+      : undefined;
+    current =
+      current[typeof segmentIndex === 'undefined' ? segment : segmentIndex];
     if (typeof current !== 'object' || current === null) {
       return;
     }
   }
   const leaf = path[path.length - 1];
-  if (Array.isArray(current) && typeof leaf === 'number') {
-    if (leaf >= 0 && leaf < current.length) {
-      current.splice(leaf, 1);
+  if (Array.isArray(current)) {
+    const leafIndex = toArrayIndex(leaf);
+    if (
+      typeof leafIndex !== 'undefined' &&
+      leafIndex >= 0 &&
+      leafIndex < current.length
+    ) {
+      current.splice(leafIndex, 1);
     }
     return;
   }

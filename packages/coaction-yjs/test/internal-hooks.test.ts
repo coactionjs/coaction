@@ -12,6 +12,10 @@ test('test hooks cover defensive path helpers', () => {
   expect(
     yjsTestHooks.getYValueAtPath(root, ['list', 'invalid'])
   ).toBeUndefined();
+  expect(yjsTestHooks.getYValueAtPath(root, ['list', '1'])).toBe(2);
+  expect(
+    yjsTestHooks.getYValueAtPath(root, ['list', '1extra'])
+  ).toBeUndefined();
   expect(yjsTestHooks.getYValueAtPath(root, ['leaf', 'deep'])).toBeUndefined();
 
   const target: Record<string, unknown> = {
@@ -36,6 +40,16 @@ test('test hooks cover defensive path helpers', () => {
       }
     ]
   });
+  yjsTestHooks.setAtPath(target, ['wrong', '0', 'title'], 'updated item');
+  expect(target.wrong).toEqual([
+    {
+      title: 'updated item'
+    }
+  ]);
+  yjsTestHooks.setAtPath(target, ['list', '1'], 'updated');
+  expect(target.list).toEqual([1, 'updated', 3]);
+  yjsTestHooks.deleteAtPath(target, ['list', '1']);
+  expect(target.list).toEqual([1, 3]);
   yjsTestHooks.setAtPath(target, ['list', 'title'], 'map value');
   expect(target).toEqual({
     list: {
@@ -44,7 +58,7 @@ test('test hooks cover defensive path helpers', () => {
     missing: ['created'],
     wrong: [
       {
-        title: 'array item'
+        title: 'updated item'
       }
     ]
   });
@@ -60,7 +74,7 @@ test('test hooks cover defensive path helpers', () => {
     missing: ['created'],
     wrong: [
       {
-        title: 'array item'
+        title: 'updated item'
       }
     ]
   });
@@ -72,7 +86,7 @@ test('test hooks cover defensive path helpers', () => {
     missing: ['created'],
     wrong: [
       {
-        title: 'array item'
+        title: 'updated item'
       }
     ]
   });
@@ -84,7 +98,7 @@ test('test hooks cover defensive path helpers', () => {
     missing: ['created'],
     wrong: [
       {
-        title: 'array item'
+        title: 'updated item'
       }
     ]
   });
