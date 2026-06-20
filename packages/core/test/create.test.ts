@@ -44,19 +44,45 @@ describe('State Management Store Tests', () => {
     const pollutedKey = '__coactionCreatePolluted__';
     const objectPrototype = Object.prototype as Record<string, unknown>;
     delete objectPrototype[pollutedKey];
+    const nestedFn = () => 'kept';
 
     try {
-      const useStore = create(() =>
-        JSON.parse(
-          `{"counter":1,"__proto__":{"${pollutedKey}":true},"constructor":{"value":2}}`
-        )
+      const initialState = JSON.parse(
+        `{"counter":1,"nested":{"value":2,"__proto__":{"${pollutedKey}":true},"constructor":{"value":3}},"list":[{"value":4,"prototype":{"value":5}}],"__proto__":{"${pollutedKey}":true},"constructor":{"value":2}}`
       );
+      initialState.nested.fn = nestedFn;
+      const useStore = create(() => initialState);
 
-      expect(useStore.getState()).toEqual({
-        counter: 1
+      expect(useStore.getState().counter).toBe(1);
+      expect(useStore.getState().nested).toEqual({
+        value: 2,
+        fn: nestedFn
       });
+      expect(useStore.getState().list).toEqual([
+        {
+          value: 4
+        }
+      ]);
       expect(
         Object.prototype.hasOwnProperty.call(useStore.getState(), '__proto__')
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          useStore.getState().nested,
+          '__proto__'
+        )
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          useStore.getState().nested,
+          'constructor'
+        )
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          useStore.getState().list[0],
+          'prototype'
+        )
       ).toBeFalsy();
       expect(objectPrototype[pollutedKey]).toBeUndefined();
     } finally {
@@ -73,7 +99,7 @@ describe('State Management Store Tests', () => {
       const slices = Object.create(null) as Record<string, any>;
       slices.counter = () =>
         JSON.parse(
-          `{"count":1,"__proto__":{"${pollutedKey}":true},"prototype":{"value":2}}`
+          `{"count":1,"nested":{"value":2,"__proto__":{"${pollutedKey}":true},"constructor":{"value":3}},"__proto__":{"${pollutedKey}":true},"prototype":{"value":2}}`
         );
       slices.__proto__ = () => ({
         hidden: true
@@ -85,11 +111,26 @@ describe('State Management Store Tests', () => {
 
       expect(useStore.getState()).toEqual({
         counter: {
-          count: 1
+          count: 1,
+          nested: {
+            value: 2
+          }
         }
       });
       expect(
         Object.prototype.hasOwnProperty.call(useStore.getState(), '__proto__')
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          useStore.getState().counter.nested,
+          '__proto__'
+        )
+      ).toBeFalsy();
+      expect(
+        Object.prototype.hasOwnProperty.call(
+          useStore.getState().counter.nested,
+          'constructor'
+        )
       ).toBeFalsy();
       expect(objectPrototype[pollutedKey]).toBeUndefined();
     } finally {

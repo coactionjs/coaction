@@ -5,7 +5,7 @@ import {
 } from './computed';
 import type { CreateState } from './interface';
 import type { Internal } from './internal';
-import { setOwnEnumerable } from './utils';
+import { sanitizeInitialStateValue, setOwnEnumerable } from './utils';
 
 type PrepareStateDescriptorOptions<T extends CreateState> = {
   descriptor: PropertyDescriptor;
@@ -27,6 +27,9 @@ export const prepareStateDescriptor = <T extends CreateState>({
     typeof sliceKey !== 'undefined'
       ? (internal.rootState as any)[sliceKey][key]
       : (internal.rootState as any)[key];
+  const initialValue = isComputed
+    ? descriptor.value
+    : sanitizeInitialStateValue(descriptor.value);
   if (internal.mutableInstance) {
     Object.defineProperty(rawState, key, {
       get: () => internal.mutableInstance[key],
@@ -37,7 +40,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
       enumerable: true
     });
   } else if (!isComputed) {
-    setOwnEnumerable(rawState, key, descriptor.value);
+    setOwnEnumerable(rawState, key, initialValue);
   }
 
   if (isComputed) {
@@ -51,7 +54,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
     const read = createTrackedStateReader(
       internal,
       readStateValue,
-      descriptor.value
+      initialValue
     );
     descriptor.get = () => read();
     descriptor.set = (value: unknown) => {
@@ -61,7 +64,7 @@ export const prepareStateDescriptor = <T extends CreateState>({
     const read = createTrackedStateReader(
       internal,
       readStateValue,
-      descriptor.value
+      initialValue
     );
     descriptor.get = () => read();
     descriptor.set = (value: unknown) => {
