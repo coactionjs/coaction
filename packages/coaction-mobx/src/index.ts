@@ -1,5 +1,10 @@
 import { apply } from 'mutability';
-import { type Store, createBinder } from 'coaction';
+import {
+  type Store,
+  createBinder,
+  onStoreReady,
+  replaceExternalStoreState
+} from 'coaction';
 import { autorun, runInAction, untracked } from 'mobx';
 
 const instancesMap = new WeakMap<object, object>();
@@ -49,6 +54,43 @@ const replaceMutableState = (
   });
 };
 
+const toSnapshot = (
+  value: unknown,
+  visited = new WeakMap<object, unknown>()
+): unknown => {
+  if (Array.isArray(value)) {
+    if (visited.has(value)) {
+      return visited.get(value);
+    }
+    const next: unknown[] = [];
+    visited.set(value, next);
+    for (let index = 0; index < value.length; index += 1) {
+      if (Object.prototype.hasOwnProperty.call(value, index)) {
+        next[index] = toSnapshot(value[index], visited);
+      }
+    }
+    return next;
+  }
+  if (typeof value === 'object' && value !== null) {
+    if (visited.has(value)) {
+      return visited.get(value);
+    }
+    const next: Record<PropertyKey, unknown> = {};
+    visited.set(value, next);
+    for (const key of getOwnEnumerableKeys(value)) {
+      const child = (value as Record<PropertyKey, unknown>)[key];
+      if (typeof child !== 'function') {
+        next[key] = toSnapshot(child, visited);
+      }
+    }
+    return next;
+  }
+  return value;
+};
+
+const snapshotPureState = (store: Store<object>) =>
+  toSnapshot(store.getPureState()) as Record<PropertyKey, unknown>;
+
 const touchObservableTree = (value: unknown, seen = new WeakSet<object>()) => {
   if (typeof value !== 'object' || value === null) {
     return;
@@ -82,51 +124,90 @@ const handleStore = (
   if (internal.toMutableRaw) return;
   internal.toMutableRaw = (key: object) => instancesMap.get(key);
   store._subscriptions = new Set();
+  let isApplyingCoactionState = false;
+  let lastSnapshot: Record<PropertyKey, unknown> | undefined;
+  let unsubscribeExternal: (() => void) | undefined;
+  const syncSharedExternalChange = () => {
+    const currentSnapshot = snapshotPureState(store);
+    if (isApplyingCoactionState) {
+      lastSnapshot = currentSnapshot;
+      return;
+    }
+    if (store.share === 'main' && lastSnapshot) {
+      const rootState = internal.rootState;
+      internal.rootState = lastSnapshot;
+      try {
+        replaceExternalStoreState(
+          store as any,
+          internal as any,
+          currentSnapshot,
+          {
+            syncImmutable: false
+          }
+        );
+      } finally {
+        internal.rootState = rootState;
+      }
+    }
+    lastSnapshot = currentSnapshot;
+  };
+  const cancelReadySubscription = onStoreReady(store, () => {
+    lastSnapshot = snapshotPureState(store);
+    let isInitialRun = true;
+    unsubscribeExternal = autorun(() => {
+      touchObservableTree(state);
+      if (isInitialRun) {
+        isInitialRun = false;
+        return;
+      }
+      untracked(() => {
+        syncSharedExternalChange();
+        store._subscriptions?.forEach((listener) => listener());
+      });
+    });
+  });
   Object.assign(store, {
     subscribe: (listener: () => void) => {
-      let isInitialRun = true;
-      const unsubscribe = autorun(() => {
-        touchObservableTree(state);
-        if (isInitialRun) {
-          isInitialRun = false;
-          return;
-        }
-        untracked(listener);
-      });
-      store._subscriptions!.add(unsubscribe);
+      store._subscriptions!.add(listener);
       return () => {
-        unsubscribe();
-        store._subscriptions?.delete(unsubscribe);
+        store._subscriptions?.delete(listener);
       };
     }
   });
   const baseDestroy = store.destroy;
   store.destroy = () => {
-    store._subscriptions?.forEach((unsubscribe) => unsubscribe());
+    cancelReadySubscription();
+    unsubscribeExternal?.();
     store._subscriptions?.clear();
     store._subscriptions = undefined;
     baseDestroy();
   };
   internal.actMutable = runInAction;
   store.apply = (state = store.getState(), patches) => {
-    if (!patches) {
+    isApplyingCoactionState = true;
+    try {
+      if (!patches) {
+        runInAction(() => {
+          const currentRawState = (internal.rootState ?? rawState) as Record<
+            PropertyKey,
+            unknown
+          >;
+          replaceMutableState(
+            currentRawState,
+            internal.toMutableRaw!(rawState) as Record<PropertyKey, unknown>,
+            store.getState() as Record<PropertyKey, unknown>,
+            state as Record<PropertyKey, unknown>
+          );
+        });
+        return;
+      }
       runInAction(() => {
-        const currentRawState = (internal.rootState ?? rawState) as Record<
-          PropertyKey,
-          unknown
-        >;
-        replaceMutableState(
-          currentRawState,
-          internal.toMutableRaw!(rawState) as Record<PropertyKey, unknown>,
-          store.getState() as Record<PropertyKey, unknown>,
-          state as Record<PropertyKey, unknown>
-        );
+        apply(state, patches!);
       });
-      return;
+    } finally {
+      lastSnapshot = snapshotPureState(store);
+      isApplyingCoactionState = false;
     }
-    runInAction(() => {
-      apply(state, patches!);
-    });
   };
 };
 

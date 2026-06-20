@@ -15,7 +15,12 @@ const loadBinding = async () => {
       capturedHandleStore = handleStore;
       capturedHandleState = handleState;
       return (input: unknown) => input;
-    }
+    },
+    onStoreReady: (_store: unknown, callback: () => void) => {
+      callback();
+      return () => undefined;
+    },
+    replaceExternalStoreState: vi.fn()
   }));
   await import('../src');
   return {
@@ -129,6 +134,7 @@ test('reuses internals, supports apply branches and cleans up subscriptions', as
   const baseDestroy = vi.fn();
   const store = {
     getState: () => rootState,
+    getPureState: () => rootState,
     destroy: baseDestroy
   };
   const internal = {};

@@ -8,7 +8,12 @@ const loadBinding = async () => {
     createBinder: ({ handleStore }: { handleStore: any }) => {
       capturedHandleStore = handleStore;
       return (input: unknown) => input;
-    }
+    },
+    onStoreReady: (_store: unknown, callback: () => void) => {
+      callback();
+      return () => undefined;
+    },
+    replaceExternalStoreState: vi.fn()
   }));
   await import('../src');
   return {
@@ -27,6 +32,7 @@ test('falls back to rawState when no mutable mapping exists', async () => {
     count: 0
   });
   const store = {
+    getPureState: () => rawState,
     getState: () => ({
       count: rawState.count
     })
@@ -50,6 +56,7 @@ test('skips re-initialization when internal mutable mapper already exists', asyn
     count: 10
   });
   const store = {
+    getPureState: () => firstRawState,
     getState: () => ({
       count: firstRawState.count
     })

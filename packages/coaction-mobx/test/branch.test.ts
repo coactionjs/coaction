@@ -12,7 +12,9 @@ test('skips handleStore re-initialization when mutable mapper already exists', a
     createBinder: ({ handleStore }: { handleStore: any }) => {
       capturedHandleStore = handleStore;
       return (input: unknown) => input;
-    }
+    },
+    onStoreReady: () => () => undefined,
+    replaceExternalStoreState: vi.fn()
   }));
   await import('../src');
   const internal = {};

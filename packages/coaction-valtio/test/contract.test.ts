@@ -31,6 +31,23 @@ runBinderAdapterContract({
       },
       expectedValueAfterExternalWrite: 7
     };
+  },
+  createWorkerContract: () => {
+    const serverExternal = createCounterStore();
+    const clientExternal = createCounterStore();
+    return {
+      createServerState: () => adapt(serverExternal),
+      createClientState: () => adapt(clientExternal),
+      readValue: (store) => store.getState().count,
+      invokeServer: (store) => store.getState().increment(),
+      expectedValueAfterServerUpdate: 1,
+      invokeClient: (store) => store.getState().increment(),
+      expectedValueAfterClientUpdate: 2,
+      writeServerExternal: () => {
+        serverExternal.count = 7;
+      },
+      expectedValueAfterServerExternalWrite: 7
+    };
   }
 });
 

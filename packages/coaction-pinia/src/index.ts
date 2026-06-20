@@ -1,5 +1,10 @@
 import { apply } from 'mutability';
-import { createBinder, type Store } from 'coaction';
+import {
+  createBinder,
+  onStoreReady,
+  replaceExternalStoreState,
+  type Store
+} from 'coaction';
 import { createPinia, setActivePinia } from 'pinia';
 import type {
   _GettersTree,
@@ -64,6 +69,43 @@ const replaceMutableState = (
   });
 };
 
+const toSnapshot = (
+  value: unknown,
+  visited = new WeakMap<object, unknown>()
+): unknown => {
+  if (Array.isArray(value)) {
+    if (visited.has(value)) {
+      return visited.get(value);
+    }
+    const next: unknown[] = [];
+    visited.set(value, next);
+    for (let index = 0; index < value.length; index += 1) {
+      if (Object.prototype.hasOwnProperty.call(value, index)) {
+        next[index] = toSnapshot(value[index], visited);
+      }
+    }
+    return next;
+  }
+  if (typeof value === 'object' && value !== null) {
+    if (visited.has(value)) {
+      return visited.get(value);
+    }
+    const next: Record<PropertyKey, unknown> = {};
+    visited.set(value, next);
+    for (const key of getOwnEnumerableKeys(value)) {
+      const child = (value as Record<PropertyKey, unknown>)[key];
+      if (typeof child !== 'function') {
+        next[key] = toSnapshot(child, visited);
+      }
+    }
+    return next;
+  }
+  return value;
+};
+
+const snapshotPureState = (store: Store<object>) =>
+  toSnapshot(store.getPureState()) as Record<PropertyKey, unknown>;
+
 type FunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
 }[keyof T];
@@ -100,6 +142,32 @@ const handleStore = (
   internal: PiniaInternal
 ) => {
   const rawState = state as Record<PropertyKey, unknown>;
+  let isApplyingCoactionState = false;
+  let lastSnapshot: Record<PropertyKey, unknown> | undefined;
+  const syncSharedExternalChange = () => {
+    const currentSnapshot = snapshotPureState(store);
+    if (isApplyingCoactionState) {
+      lastSnapshot = currentSnapshot;
+      return;
+    }
+    if (store.share === 'main' && lastSnapshot) {
+      const rootState = internal.rootState;
+      internal.rootState = lastSnapshot;
+      try {
+        replaceExternalStoreState(
+          store as any,
+          internal as any,
+          currentSnapshot,
+          {
+            syncImmutable: false
+          }
+        );
+      } finally {
+        internal.rootState = rootState;
+      }
+    }
+    lastSnapshot = currentSnapshot;
+  };
   if (!internal.toMutableRaw) {
     internal.toMutableRaw = (key: object) =>
       instancesMap.get(key) as PiniaStoreInstance | undefined;
@@ -125,36 +193,48 @@ const handleStore = (
       store._destroyers = undefined;
     };
     store.apply = (nextState = store.getState(), patches) => {
-      if (!patches) {
-        if (nextState === store.getState()) return;
-        const currentRawState = (internal.rootState ?? rawState) as Record<
-          PropertyKey,
-          unknown
-        >;
-        replaceMutableState(
-          currentRawState,
-          internal.toMutableRaw!(rawState) as unknown as Record<
+      isApplyingCoactionState = true;
+      try {
+        if (!patches) {
+          if (nextState === store.getState()) return;
+          const currentRawState = (internal.rootState ?? rawState) as Record<
             PropertyKey,
             unknown
-          >,
-          store.getState() as Record<PropertyKey, unknown>,
-          nextState as Record<PropertyKey, unknown>
-        );
-        return;
+          >;
+          replaceMutableState(
+            currentRawState,
+            internal.toMutableRaw!(rawState) as unknown as Record<
+              PropertyKey,
+              unknown
+            >,
+            store.getState() as Record<PropertyKey, unknown>,
+            nextState as Record<PropertyKey, unknown>
+          );
+          return;
+        }
+        apply(nextState, patches);
+      } finally {
+        lastSnapshot = snapshotPureState(store);
+        isApplyingCoactionState = false;
       }
-      apply(nextState, patches);
     };
   }
   const mutableStore = internal.toMutableRaw(state);
   if (!mutableStore) {
     throw new Error('Pinia store instance is not found');
   }
-  const stopWatch = mutableStore.$subscribe((...args: unknown[]) => {
-    store._subscriptions!.forEach((callback) => callback(...args));
+  let stopWatch: (() => void) | undefined;
+  const cancelReadySubscription = onStoreReady(store, () => {
+    lastSnapshot = snapshotPureState(store);
+    stopWatch = mutableStore.$subscribe((...args: unknown[]) => {
+      syncSharedExternalChange();
+      store._subscriptions!.forEach((callback) => callback(...args));
+    });
   });
   const destroy = () => {
+    cancelReadySubscription();
     instancesMap.delete(state);
-    stopWatch();
+    stopWatch?.();
   };
   store._destroyers!.add(destroy);
 };
