@@ -1,4 +1,9 @@
-import { onStoreReady, type Middleware, type Store } from 'coaction';
+import {
+  onStoreReady,
+  replaceOwnEnumerable,
+  type Middleware,
+  type Store
+} from 'coaction';
 
 export type PersistStorage = {
   getItem: (name: string) => string | null | Promise<string | null>;
@@ -97,6 +102,18 @@ export const persist =
     };
     const enqueuePersistWrite = (payload: string) =>
       enqueuePersistOperation(() => persistedStorage.setItem(name, payload));
+    const applyHydratedState = (nextState: T) => {
+      if (store.share === 'main') {
+        store.setState((draft: any) => {
+          replaceOwnEnumerable(
+            draft,
+            nextState as Record<PropertyKey, unknown>
+          );
+        });
+        return;
+      }
+      store.apply(nextState);
+    };
     const persistState = async () => {
       if (isHydrating || destroyed) {
         return;
@@ -140,7 +157,7 @@ export const persist =
             return;
           }
         }
-        store.apply(merge(persistedState, store.getPureState()) as T);
+        applyHydratedState(merge(persistedState, store.getPureState()) as T);
         if (shouldWriteBack && !destroyed) {
           const payload = serialize({
             state: partialize(store.getPureState()),

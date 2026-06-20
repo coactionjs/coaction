@@ -25,6 +25,50 @@ const createMemoryStorage = (): PersistStorage => {
   };
 };
 
+const createTransportPair = () => {
+  const mainListeners = new Map<string, (...args: any[]) => unknown>();
+  const clientListeners = new Map<string, (...args: any[]) => unknown>();
+  const runAsync = (callback: () => void) => {
+    setTimeout(callback, 0);
+  };
+  return {
+    main: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        mainListeners.set(name, listener);
+      },
+      emit: (event: string | { name: string }, payload?: unknown) => {
+        const name = typeof event === 'string' ? event : event.name;
+        if (name === 'update') {
+          return Promise.resolve(clientListeners.get('update')?.(payload));
+        }
+        return Promise.resolve(undefined);
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    },
+    client: {
+      listen: (name: string, listener: (...args: any[]) => unknown) => {
+        clientListeners.set(name, listener);
+      },
+      emit: (name: string, ...args: unknown[]) => {
+        const listener = mainListeners.get(name);
+        if (!listener) {
+          return Promise.reject(new Error(`Missing listener: ${name}`));
+        }
+        return Promise.resolve(listener(...args));
+      },
+      onConnect: (callback: () => void) => {
+        runAsync(callback);
+      },
+      dispose: () => undefined
+    }
+  };
+};
+
+const delay = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 test('persist and rehydrate', async () => {
   const storage = createMemoryStorage();
   const useStore = create(
@@ -177,6 +221,55 @@ test('does not overwrite storage before automatic hydration runs', async () => {
   expect(useStore.getState().count).toBe(8);
   expect(storage.getItem('counter')).toContain('"count":8');
   expect(setItemSpy).toHaveBeenCalledTimes(1);
+});
+
+test('shared main broadcasts hydration that completes after client full sync', async () => {
+  let resolveHydration!: (value: string) => void;
+  const storage: PersistStorage = {
+    getItem: () =>
+      new Promise((resolve) => {
+        resolveHydration = resolve;
+      }),
+    setItem: () => undefined,
+    removeItem: () => undefined
+  };
+  const transport = createTransportPair();
+  const createCounter = () => ({
+    count: 0
+  });
+  const serverStore = create(createCounter, {
+    name: 'persist-shared-hydration',
+    transport: transport.main as any,
+    middlewares: [
+      persist({
+        name: 'persist-shared-hydration',
+        storage
+      })
+    ]
+  });
+  const clientStore = create(createCounter, {
+    name: 'persist-shared-hydration',
+    clientTransport: transport.client as any
+  });
+
+  await delay();
+  await delay();
+  expect(serverStore.getState().count).toBe(0);
+  expect(clientStore.getState().count).toBe(0);
+
+  resolveHydration(
+    JSON.stringify({
+      state: {
+        count: 5
+      },
+      version: 0
+    })
+  );
+  await nextTick();
+  await delay();
+
+  expect(serverStore.getState().count).toBe(5);
+  expect(clientStore.getState().count).toBe(5);
 });
 
 test('supports version migration', async () => {
