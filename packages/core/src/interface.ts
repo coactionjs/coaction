@@ -374,12 +374,14 @@ export interface ClientTransportOptions {
  */
 export type Asyncify<T extends object, D extends true | false> = {
   [K in keyof T]: T[K] extends (...args: any[]) => any
-    ? (...args: Parameters<T[K]>) => Promise<ReturnType<T[K]>>
+    ? (...args: Parameters<T[K]>) => Promise<Awaited<ReturnType<T[K]>>>
     : D extends false
       ? T[K]
       : {
           [P in keyof T[K]]: T[K][P] extends (...args: any[]) => any
-            ? (...args: Parameters<T[K][P]>) => Promise<ReturnType<T[K][P]>>
+            ? (
+                ...args: Parameters<T[K][P]>
+              ) => Promise<Awaited<ReturnType<T[K][P]>>>
             : T[K][P];
         };
 };

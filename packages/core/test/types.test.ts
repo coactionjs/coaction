@@ -4,7 +4,8 @@ import type {
   PatchTransform,
   Store,
   StoreOptions,
-  StoreTraceEvent
+  StoreTraceEvent,
+  StoreWithAsyncFunction
 } from '../src';
 import { create } from '../src';
 
@@ -67,4 +68,24 @@ test('types object inputs as single stores when not using slices mode', () => {
     () => Promise<string>
   >();
   clientMethodStore.destroy();
+});
+
+test('types async client methods with awaited return values', () => {
+  type Counter = {
+    load: () => Promise<number>;
+    nested: {
+      load: () => Promise<string>;
+    };
+  };
+
+  expectTypeOf<
+    StoreWithAsyncFunction<Counter>['getState'] extends () => infer State
+      ? State['load']
+      : never
+  >().toEqualTypeOf<() => Promise<number>>();
+  expectTypeOf<
+    StoreWithAsyncFunction<Counter, true>['getState'] extends () => infer State
+      ? State['nested']['load']
+      : never
+  >().toEqualTypeOf<() => Promise<string>>();
 });
