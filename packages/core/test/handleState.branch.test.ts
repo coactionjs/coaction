@@ -153,15 +153,33 @@ test('setState fast path ignores unsafe keys', () => {
 
     setState(
       JSON.parse(
-        `{"count":1,"__proto__":{"${pollutedKey}":true},"prototype":{"value":2}}`
+        `{"count":1,"nested":{"value":2,"__proto__":{"${pollutedKey}":true},"constructor":{"value":3}},"__proto__":{"${pollutedKey}":true},"prototype":{"value":2}}`
       )
     );
 
     expect(internal.rootState).toEqual({
-      count: 1
+      count: 1,
+      nested: {
+        value: 2
+      }
     });
+    expect(Object.getPrototypeOf(internal.rootState.nested)).toBe(
+      Object.prototype
+    );
     expect(
       Object.prototype.hasOwnProperty.call(internal.rootState, '__proto__')
+    ).toBeFalsy();
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        internal.rootState.nested,
+        '__proto__'
+      )
+    ).toBeFalsy();
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        internal.rootState.nested,
+        'constructor'
+      )
     ).toBeFalsy();
     expect(objectPrototype[pollutedKey]).toBeUndefined();
   } finally {

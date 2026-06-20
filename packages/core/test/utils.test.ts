@@ -129,7 +129,7 @@ test('replaceOwnEnumerable replaces data keys without copying functions or unsaf
     keep: 1
   } as Record<PropertyKey, unknown>;
   const source = JSON.parse(
-    '{"keep":2,"__proto__":{"polluted":true}}'
+    '{"keep":2,"nested":{"value":3,"__proto__":{"nested":true},"constructor":{"value":4}},"__proto__":{"polluted":true}}'
   ) as Record<PropertyKey, unknown>;
   source[token] = 3;
   source.action = () => undefined;
@@ -137,10 +137,20 @@ test('replaceOwnEnumerable replaces data keys without copying functions or unsaf
   replaceOwnEnumerable(target, source);
 
   expect(target.keep).toBe(2);
+  expect(target.nested).toEqual({
+    value: 3
+  });
+  expect(Object.getPrototypeOf(target.nested)).toBe(Object.prototype);
   expect(target[token]).toBe(3);
   expect(target.stale).toBeUndefined();
   expect(target.action).toBeUndefined();
   expect((target as Record<string, unknown>).polluted).toBeUndefined();
+  expect(Object.prototype.hasOwnProperty.call(target.nested, '__proto__')).toBe(
+    false
+  );
+  expect(
+    Object.prototype.hasOwnProperty.call(target.nested, 'constructor')
+  ).toBe(false);
 });
 
 test('mergeObject ignores unsafe prototype keys', () => {
@@ -153,15 +163,27 @@ test('mergeObject ignores unsafe prototype keys', () => {
       count: 1
     };
     const plainSource = JSON.parse(
-      '{"__proto__":{"polluted":true},"count":2}'
+      '{"__proto__":{"polluted":true},"count":2,"nested":{"value":1,"__proto__":{"nested":true},"constructor":{"value":2}}}'
     ) as Record<string, unknown>;
 
     mergeObject(plainTarget, plainSource);
     expect(plainTarget).toEqual({
-      count: 2
+      count: 2,
+      nested: {
+        value: 1
+      }
     });
     expect(Object.getPrototypeOf(plainTarget)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf((plainTarget as any).nested)).toBe(
+      Object.prototype
+    );
     expect((plainTarget as Record<string, unknown>).polluted).toBeUndefined();
+    expect(
+      Object.prototype.hasOwnProperty.call(
+        (plainTarget as any).nested,
+        '__proto__'
+      )
+    ).toBe(false);
 
     const sliceTarget = {
       nested: {
@@ -170,7 +192,7 @@ test('mergeObject ignores unsafe prototype keys', () => {
     };
     const sliceSource = {
       nested: JSON.parse(
-        `{"value":2,"__proto__":{"${pollutedKey}":true}}`
+        `{"value":2,"__proto__":{"${pollutedKey}":true},"constructor":{"value":3}}`
       ) as Record<string, unknown>
     };
 
@@ -180,6 +202,13 @@ test('mergeObject ignores unsafe prototype keys', () => {
         value: 2
       }
     });
+    expect(Object.getPrototypeOf(sliceTarget.nested)).toBe(Object.prototype);
+    expect(
+      Object.prototype.hasOwnProperty.call(sliceTarget.nested, '__proto__')
+    ).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(sliceTarget.nested, 'constructor')
+    ).toBe(false);
     expect(objectPrototype[pollutedKey]).toBeUndefined();
   } finally {
     delete objectPrototype[pollutedKey];

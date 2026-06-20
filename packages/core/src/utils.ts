@@ -48,7 +48,7 @@ export const assignOwnEnumerable = (
   source: Record<PropertyKey, unknown>
 ) => {
   for (const key of getOwnEnumerableKeys(source)) {
-    setOwnEnumerable(target, key, source[key]);
+    setOwnEnumerable(target, key, sanitizeReplacementState(source[key]));
   }
 };
 
@@ -72,7 +72,7 @@ export const replaceOwnEnumerable = (
     }
   }
   nextKeys.forEach((key) => {
-    setOwnEnumerable(target, key, source[key]);
+    setOwnEnumerable(target, key, sanitizeReplacementState(source[key]));
   });
 };
 
