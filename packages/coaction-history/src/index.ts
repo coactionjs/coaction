@@ -24,6 +24,9 @@ const setOwnEnumerable = (
   target[key] = value;
 };
 
+const isObjectRecord = (value: object) =>
+  Object.prototype.toString.call(value) === '[object Object]';
+
 const toSnapshot = (
   state: unknown,
   visited = new WeakMap<object, unknown>()
@@ -47,6 +50,9 @@ const toSnapshot = (
     return next as unknown as Snapshot;
   }
   if (typeof state === 'object' && state !== null) {
+    if (!isObjectRecord(state)) {
+      return state as Snapshot;
+    }
     if (visited.has(state)) {
       return visited.get(state) as Snapshot;
     }
@@ -86,6 +92,8 @@ const isEqual = (
     if (!aIsArray || !bIsArray || a.length !== b.length) {
       return false;
     }
+  } else if (!isObjectRecord(a) || !isObjectRecord(b)) {
+    return false;
   }
   let seenTargets = visited.get(a);
   if (!seenTargets) {
@@ -136,7 +144,10 @@ const applySnapshot = (
 const isPatchableObject = (
   value: unknown
 ): value is Record<PropertyKey, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  isObjectRecord(value);
 
 const applyPartialSnapshot = (
   target: Record<PropertyKey, unknown>,

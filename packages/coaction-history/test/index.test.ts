@@ -207,6 +207,72 @@ test('undo and redo track symbol keyed state', () => {
   expect((useStore.getState() as any)[token]).toBe(2);
 });
 
+test('undo and redo preserve non-record object values', () => {
+  const before = new Date('2026-01-01T00:00:00.000Z');
+  const after = new Date('2026-01-02T00:00:00.000Z');
+  const useStore = create(
+    (set) => ({
+      stamp: before,
+      setStamp(stamp: Date) {
+        set({
+          stamp
+        });
+      }
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().setStamp(after);
+
+  expect(api.getPast()[0].stamp).toBe(before);
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().stamp).toBe(before);
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getState().stamp).toBe(after);
+});
+
+test('partialized undo and redo replace non-record object values', () => {
+  const before = new Date('2026-01-01T00:00:00.000Z');
+  const after = new Date('2026-01-02T00:00:00.000Z');
+  const useStore = create(
+    (set) => ({
+      nested: {
+        stamp: before,
+        keep: 'yes'
+      },
+      setStamp(stamp: Date) {
+        set((draft) => {
+          draft.nested.stamp = stamp;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          partialize: (state) => ({
+            nested: {
+              stamp: state.nested.stamp
+            }
+          })
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().setStamp(after);
+
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().nested.stamp).toBe(before);
+  expect(useStore.getState().nested.keep).toBe('yes');
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getState().nested.stamp).toBe(after);
+  expect(useStore.getState().nested.keep).toBe('yes');
+});
+
 test('respects history limit', () => {
   const useStore = create(
     (set) => ({
