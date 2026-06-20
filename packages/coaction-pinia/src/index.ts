@@ -268,6 +268,7 @@ export const bindPinia = createBinder({
   handleState: ((options: DefineStoreOptions<any, any, any, any>) => {
     const descriptors: Record<string, PropertyDescriptor> = {};
     options.getters = options.getters ?? {};
+    options.actions = options.actions ?? {};
     for (const key of Object.keys(options.getters)) {
       const getter = options.getters[key];
       if (typeof getter !== 'function') {

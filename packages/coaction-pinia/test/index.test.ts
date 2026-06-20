@@ -288,6 +288,36 @@ test('apply ignores unsafe prototype keys during replacement', () => {
   ).toBe(false);
 });
 
+test('supports state-only stores without actions', () => {
+  type Counter = {
+    count: number;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-state-only',
+          bindPinia({
+            state: () => ({
+              count: 0
+            })
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-state-only'
+    }
+  );
+  const piniaStore = useStore.getPureState() as any;
+
+  expect(useStore.getState().count).toBe(0);
+  useStore.setState({
+    count: 2
+  });
+  expect(useStore.getState().count).toBe(2);
+  expect(piniaStore.count).toBe(2);
+});
+
 test('worker', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);
