@@ -87,7 +87,12 @@ export function setAtPath(target: any, path: PathSegment[], value: unknown) {
     const segment = path[index];
     const nextSegment = path[index + 1];
     const nextValue = current[segment];
-    if (typeof nextValue !== 'object' || nextValue === null) {
+    const needsArray = typeof nextSegment === 'number';
+    if (
+      typeof nextValue !== 'object' ||
+      nextValue === null ||
+      (needsArray ? !Array.isArray(nextValue) : Array.isArray(nextValue))
+    ) {
       current[segment] = typeof nextSegment === 'number' ? [] : {};
     }
     current = current[segment];

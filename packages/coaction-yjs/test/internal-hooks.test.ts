@@ -26,29 +26,75 @@ test('test hooks cover defensive path helpers', () => {
     list: [1, 2, 3],
     missing: ['created']
   });
+  yjsTestHooks.setAtPath(target, ['wrong', 0, 'title'], 'array item');
+  expect(target).toEqual({
+    list: [1, 2, 3],
+    missing: ['created'],
+    wrong: [
+      {
+        title: 'array item'
+      }
+    ]
+  });
+  yjsTestHooks.setAtPath(target, ['list', 'title'], 'map value');
+  expect(target).toEqual({
+    list: {
+      title: 'map value'
+    },
+    missing: ['created'],
+    wrong: [
+      {
+        title: 'array item'
+      }
+    ]
+  });
   yjsTestHooks.setAtPath(target, ['__proto__', 'polluted'], true);
   expect(Object.getPrototypeOf(target)).toBe(Object.prototype);
   expect(({} as any).polluted).toBeUndefined();
 
   yjsTestHooks.deleteAtPath(target, []);
   expect(target).toEqual({
-    list: [1, 2, 3],
-    missing: ['created']
+    list: {
+      title: 'map value'
+    },
+    missing: ['created'],
+    wrong: [
+      {
+        title: 'array item'
+      }
+    ]
   });
   yjsTestHooks.deleteAtPath(target, ['constructor', 'prototype']);
   expect(target).toEqual({
-    list: [1, 2, 3],
-    missing: ['created']
+    list: {
+      title: 'map value'
+    },
+    missing: ['created'],
+    wrong: [
+      {
+        title: 'array item'
+      }
+    ]
   });
-  yjsTestHooks.deleteAtPath(target, ['list', 10]);
+  yjsTestHooks.deleteAtPath(target, ['wrong', 10]);
   expect(target).toEqual({
-    list: [1, 2, 3],
-    missing: ['created']
+    list: {
+      title: 'map value'
+    },
+    missing: ['created'],
+    wrong: [
+      {
+        title: 'array item'
+      }
+    ]
   });
-  yjsTestHooks.deleteAtPath(target, ['list', 1]);
+  yjsTestHooks.deleteAtPath(target, ['wrong', 0]);
   expect(target).toEqual({
-    list: [1, 3],
-    missing: ['created']
+    list: {
+      title: 'map value'
+    },
+    missing: ['created'],
+    wrong: []
   });
 });
 
