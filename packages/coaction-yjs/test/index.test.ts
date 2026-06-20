@@ -133,6 +133,30 @@ test('rejects symbol valued state during binding', () => {
   );
 });
 
+test('rejects function valued state during binding', () => {
+  const store = create(() => ({
+    nested: {
+      value() {
+        return 1;
+      }
+    }
+  }));
+
+  expect(() => bindYjs(store)).toThrow(
+    'Yjs binding does not support function state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at nested.value.'
+  );
+});
+
+test('rejects non-plain object state during binding', () => {
+  const store = create(() => ({
+    stamp: new Date('2024-01-01T00:00:00.000Z')
+  }));
+
+  expect(() => bindYjs(store)).toThrow(
+    'Yjs binding does not support non-plain-object state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at stamp.'
+  );
+});
+
 test('rejects symbol keyed state during later sync', () => {
   const symbolKey = Symbol('yjs-late-state');
   const store = create(() => ({
@@ -172,6 +196,50 @@ test('rejects symbol valued state during later sync', () => {
       });
     }).toThrow(
       'Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at nested.value.'
+    );
+  } finally {
+    binding.destroy();
+  }
+});
+
+test('rejects function valued state during later sync', () => {
+  const store = create(() => ({
+    nested: {
+      value: 0 as number | (() => number)
+    }
+  }));
+  const binding = bindYjs(store);
+
+  try {
+    expect(() => {
+      store.setState({
+        nested: {
+          value() {
+            return 1;
+          }
+        }
+      });
+    }).toThrow(
+      'Yjs binding does not support function state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at nested.value.'
+    );
+  } finally {
+    binding.destroy();
+  }
+});
+
+test('rejects non-plain object state during later sync', () => {
+  const store = create(() => ({
+    stamp: null as Date | null
+  }));
+  const binding = bindYjs(store);
+
+  try {
+    expect(() => {
+      store.setState({
+        stamp: new Date('2024-01-01T00:00:00.000Z')
+      });
+    }).toThrow(
+      'Yjs binding does not support non-plain-object state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at stamp.'
     );
   } finally {
     binding.destroy();
@@ -740,8 +808,7 @@ test('syncs nested array and object diffs from store to yjs', () => {
     >,
     kind: {
       mode: 1
-    } as Record<string, unknown> | string[],
-    stamp: new Date('2024-01-01T00:00:00.000Z')
+    } as Record<string, unknown> | string[]
   }));
   const binding = bindYjs(store, {
     doc,
@@ -762,7 +829,6 @@ test('syncs nested array and object diffs from store to yjs', () => {
     };
     draft.list.push('tail');
     draft.kind = ['array-mode'];
-    draft.stamp = new Date('2024-02-01T00:00:00.000Z');
   });
   store.setState((draft) => {
     draft.list = [1, { value: 2 }, [7], 'done'];
@@ -787,8 +853,6 @@ test('syncs nested array and object diffs from store to yjs', () => {
   expect(next.kind).toEqual({
     back: 1
   });
-  expect(next.stamp).toBeInstanceOf(Date);
-  expect((next.stamp as Date).toISOString()).toBe('2024-02-01T00:00:00.000Z');
   binding.destroy();
 });
 

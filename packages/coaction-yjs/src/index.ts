@@ -23,68 +23,146 @@ const getOwnEnumerableKeys = (value: object) =>
   );
 
 const formatPropertyPath = (path: PropertyKey[]) =>
-  path.map((key) => String(key)).join('.');
+  path.length ? path.map((key) => String(key)).join('.') : '<root>';
 
-type YjsSymbolViolation =
+type YjsStateViolation =
   | {
-      type: 'key';
+      type: 'symbol-key';
       path: PropertyKey[];
     }
   | {
-      type: 'value';
+      type: 'symbol-value';
+      path: PropertyKey[];
+    }
+  | {
+      type:
+        | 'function'
+        | 'non-plain-object'
+        | 'circular-reference'
+        | 'array-hole'
+        | 'array-property';
       path: PropertyKey[];
     };
 
-const findSymbolViolation = (
+const isArrayIndexKey = (key: string, length: number) => {
+  if (key === '') {
+    return false;
+  }
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === key
+  );
+};
+
+const findYjsStateViolation = (
   value: unknown,
   path: PropertyKey[] = [],
-  seen = new WeakSet<object>()
-): YjsSymbolViolation | undefined => {
-  if (typeof value === 'symbol') {
-    return {
-      type: 'value',
-      path
-    };
+  ancestors = new WeakSet<object>()
+): YjsStateViolation | undefined => {
+  switch (typeof value) {
+    case 'symbol':
+      return {
+        type: 'symbol-value',
+        path
+      };
+    case 'function':
+      return {
+        type: 'function',
+        path
+      };
+    default:
+      break;
   }
   if (typeof value !== 'object' || value === null) {
     return undefined;
   }
-  if (seen.has(value)) {
+  if (ancestors.has(value)) {
+    return {
+      type: 'circular-reference',
+      path
+    };
+  }
+  if (Array.isArray(value)) {
+    ancestors.add(value);
+    for (let index = 0; index < value.length; index += 1) {
+      if (!Object.prototype.hasOwnProperty.call(value, index)) {
+        return {
+          type: 'array-hole',
+          path: [...path, index]
+        };
+      }
+    }
+    for (const key of getOwnEnumerableKeys(value)) {
+      const nextPath = [...path, key];
+      if (typeof key === 'symbol') {
+        return {
+          type: 'symbol-key',
+          path: nextPath
+        };
+      }
+      if (!isArrayIndexKey(key, value.length)) {
+        return {
+          type: 'array-property',
+          path: nextPath
+        };
+      }
+      const violation = findYjsStateViolation(
+        value[Number(key)],
+        nextPath,
+        ancestors
+      );
+      if (violation) {
+        return violation;
+      }
+    }
+    ancestors.delete(value);
     return undefined;
   }
-  seen.add(value);
+  if (!isPlainObject(value)) {
+    return {
+      type: 'non-plain-object',
+      path
+    };
+  }
+  ancestors.add(value);
   for (const key of getOwnEnumerableKeys(value)) {
     const nextPath = [...path, key];
     if (typeof key === 'symbol') {
       return {
-        type: 'key',
+        type: 'symbol-key',
         path: nextPath
       };
     }
     const child = (value as Record<PropertyKey, unknown>)[key];
-    if (typeof child === 'function') {
-      continue;
-    }
-    const violation = findSymbolViolation(child, nextPath, seen);
+    const violation = findYjsStateViolation(child, nextPath, ancestors);
     if (violation) {
       return violation;
     }
   }
+  ancestors.delete(value);
   return undefined;
 };
 
 const assertYjsSerializableState = (state: unknown) => {
-  const violation = findSymbolViolation(state);
+  const violation = findYjsStateViolation(state);
   if (!violation) {
     return;
   }
-  if (violation.type === 'key') {
+  if (violation.type === 'symbol-key') {
     throw new Error(
       `Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at ${formatPropertyPath(violation.path)}.`
     );
   }
+  if (violation.type === 'symbol-value') {
+    throw new Error(
+      `Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at ${formatPropertyPath(violation.path)}.`
+    );
+  }
   throw new Error(
-    `Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at ${formatPropertyPath(violation.path)}.`
+    `Yjs binding does not support ${violation.type} state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at ${formatPropertyPath(violation.path)}.`
   );
 };
 
