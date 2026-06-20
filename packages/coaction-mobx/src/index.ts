@@ -17,6 +17,7 @@ type MobxInternal = {
   rootState?: object;
   toMutableRaw?: (key: object) => object | undefined;
   actMutable?: typeof runInAction;
+  notifyStateChange?: () => void;
 };
 
 const getOwnEnumerableKeys = (value: object) =>
@@ -131,7 +132,7 @@ const handleStore = (
     const currentSnapshot = snapshotPureState(store);
     if (isApplyingCoactionState) {
       lastSnapshot = currentSnapshot;
-      return;
+      return true;
     }
     if (store.share === 'main' && lastSnapshot) {
       const rootState = internal.rootState;
@@ -148,8 +149,11 @@ const handleStore = (
       } finally {
         internal.rootState = rootState;
       }
+      lastSnapshot = currentSnapshot;
+      return true;
     }
     lastSnapshot = currentSnapshot;
+    return false;
   };
   const cancelReadySubscription = onStoreReady(store, () => {
     lastSnapshot = snapshotPureState(store);
@@ -161,7 +165,10 @@ const handleStore = (
         return;
       }
       untracked(() => {
-        syncSharedExternalChange();
+        const isCoactionChange = syncSharedExternalChange();
+        if (!isCoactionChange) {
+          internal.notifyStateChange?.();
+        }
         store._subscriptions?.forEach((listener) => listener());
       });
     });
@@ -207,6 +214,7 @@ const handleStore = (
     } finally {
       lastSnapshot = snapshotPureState(store);
       isApplyingCoactionState = false;
+      internal.notifyStateChange?.();
     }
   };
 };

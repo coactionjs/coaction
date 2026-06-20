@@ -27,6 +27,7 @@ type PiniaStoreInstance = {
 type PiniaInternal = {
   rootState?: object;
   toMutableRaw?: (key: object) => PiniaStoreInstance | undefined;
+  notifyStateChange?: () => void;
 };
 
 type StoreWithSubscriptions = Store<object> & {
@@ -148,7 +149,7 @@ const handleStore = (
     const currentSnapshot = snapshotPureState(store);
     if (isApplyingCoactionState) {
       lastSnapshot = currentSnapshot;
-      return;
+      return true;
     }
     if (store.share === 'main' && lastSnapshot) {
       const rootState = internal.rootState;
@@ -165,8 +166,11 @@ const handleStore = (
       } finally {
         internal.rootState = rootState;
       }
+      lastSnapshot = currentSnapshot;
+      return true;
     }
     lastSnapshot = currentSnapshot;
+    return false;
   };
   if (!internal.toMutableRaw) {
     internal.toMutableRaw = (key: object) =>
@@ -216,6 +220,7 @@ const handleStore = (
       } finally {
         lastSnapshot = snapshotPureState(store);
         isApplyingCoactionState = false;
+        internal.notifyStateChange?.();
       }
     };
   }
@@ -227,7 +232,10 @@ const handleStore = (
   const cancelReadySubscription = onStoreReady(store, () => {
     lastSnapshot = snapshotPureState(store);
     stopWatch = mutableStore.$subscribe((...args: unknown[]) => {
-      syncSharedExternalChange();
+      const isCoactionChange = syncSharedExternalChange();
+      if (!isCoactionChange) {
+        internal.notifyStateChange?.();
+      }
       store._subscriptions!.forEach((callback) => callback(...args));
     });
   });

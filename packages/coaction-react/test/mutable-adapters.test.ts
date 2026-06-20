@@ -10,7 +10,7 @@ import {
   bindValtio,
   proxy
 } from '../../coaction-valtio/src';
-import { create } from '../src';
+import { create, observer } from '../src';
 
 type MutableAdapterCase = {
   createStore: () => {
@@ -128,19 +128,30 @@ describe.each(cases)(
         return React.createElement('span', { 'data-testid': 'auto' }, count);
       };
 
+      const ObserverCounter = observer(() => {
+        const state = useStore();
+        return React.createElement(
+          'span',
+          { 'data-testid': 'observer' },
+          state.count
+        );
+      });
+
       render(
         React.createElement(
           React.Fragment,
           null,
           React.createElement(FullStateCounter),
           React.createElement(SelectorCounter),
-          React.createElement(AutoSelectorCounter)
+          React.createElement(AutoSelectorCounter),
+          React.createElement(ObserverCounter)
         ) as any
       );
 
       expect(screen.getByTestId('full').textContent).toBe('0');
       expect(screen.getByTestId('selector').textContent).toBe('0');
       expect(screen.getByTestId('auto').textContent).toBe('0');
+      expect(screen.getByTestId('observer').textContent).toBe('0');
 
       await act(async () => {
         externalUpdate();
@@ -150,6 +161,7 @@ describe.each(cases)(
         expect(screen.getByTestId('full').textContent).toBe('1');
         expect(screen.getByTestId('selector').textContent).toBe('1');
         expect(screen.getByTestId('auto').textContent).toBe('1');
+        expect(screen.getByTestId('observer').textContent).toBe('1');
       });
 
       await act(async () => {
@@ -160,6 +172,7 @@ describe.each(cases)(
         expect(screen.getByTestId('full').textContent).toBe('2');
         expect(screen.getByTestId('selector').textContent).toBe('2');
         expect(screen.getByTestId('auto').textContent).toBe('2');
+        expect(screen.getByTestId('observer').textContent).toBe('2');
       });
     });
   }

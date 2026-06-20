@@ -14,6 +14,7 @@ const instancesMap = new WeakMap<object, object>();
 type ValtioInternal = {
   rootState?: object;
   toMutableRaw?: (key: object) => object | undefined;
+  notifyStateChange?: () => void;
 };
 
 type StoreWithDestroyers = Store<object> & {
@@ -108,7 +109,7 @@ const handleStore = (
       const currentSnapshot = snapshotPureState(store);
       if (isApplyingCoactionState) {
         lastSnapshot = currentSnapshot;
-        return;
+        return true;
       }
       if (store.share === 'main' && lastSnapshot) {
         const rootState = internal.rootState;
@@ -125,8 +126,11 @@ const handleStore = (
         } finally {
           internal.rootState = rootState;
         }
+        lastSnapshot = currentSnapshot;
+        return true;
       }
       lastSnapshot = currentSnapshot;
+      return false;
     };
     store._destroyers = new Set();
     store._listeners = new Set();
@@ -134,7 +138,10 @@ const handleStore = (
     const cancelReadySubscription = onStoreReady(store, () => {
       lastSnapshot = snapshotPureState(store);
       unsubscribeExternal = subscribe(getMutableState(), () => {
-        syncSharedExternalChange();
+        const isCoactionChange = syncSharedExternalChange();
+        if (!isCoactionChange) {
+          internal.notifyStateChange?.();
+        }
         store._listeners?.forEach((listener) => listener());
       });
     });
@@ -177,6 +184,7 @@ const handleStore = (
       } finally {
         lastSnapshot = snapshotPureState(store);
         isApplyingCoactionState = false;
+        internal.notifyStateChange?.();
       }
     };
   }
