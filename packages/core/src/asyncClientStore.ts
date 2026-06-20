@@ -9,7 +9,7 @@ import type {
 import type { Internal } from './internal';
 import { wrapStore } from './wrapStore';
 import { validateSharedStateSerializable } from './sharedState';
-import { sanitizeReplacementState } from './utils';
+import { sanitizePatches, sanitizeReplacementState } from './utils';
 
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
@@ -141,7 +141,8 @@ export const emit = <T extends CreateState>(
   internal: Internal<T>,
   patches?: Patches
 ) => {
-  if (store.transport && patches?.length) {
+  const safePatches = sanitizePatches(patches);
+  if (store.transport && safePatches?.length) {
     validateSharedStateSerializable(internal.rootState);
     internal.sequence += 1;
     // it is not necessary to respond to the update event
@@ -151,7 +152,7 @@ export const emit = <T extends CreateState>(
         respond: false
       },
       {
-        patches: patches,
+        patches: safePatches,
         sequence: internal.sequence
       }
     );
@@ -170,9 +171,10 @@ export const handleDraft = <T extends CreateState>(
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
-  if (finalPatches.patches.length) {
-    store.apply(internal.rootState as T, finalPatches.patches);
+  const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+  if (safePatches.length) {
+    store.apply(internal.rootState as T, safePatches);
     // 3rd party model will send update notifications on its own after `store.apply` in mutableInstance mode
-    emit(store, internal, finalPatches.patches);
+    emit(store, internal, safePatches);
   }
 };

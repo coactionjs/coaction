@@ -108,6 +108,54 @@ test('setState emits patch-hook output instead of raw patches', () => {
   expect(internal.sequence).toBe(1);
 });
 
+test('setState filters unsafe patch-hook output before apply and emit', () => {
+  const safePatch = {
+    op: 'replace',
+    path: ['count'],
+    value: JSON.parse('{"value":2,"__proto__":{"polluted":true}}')
+  };
+  const unsafePatch = {
+    op: 'replace',
+    path: ['__proto__', 'polluted'],
+    value: true
+  };
+  const { setState, store } = createContext({
+    enablePatches: true,
+    patch: () => ({
+      patches: [unsafePatch, safePatch],
+      inversePatches: []
+    })
+  });
+  store.transport = {
+    emit: vi.fn()
+  };
+
+  setState({
+    count: 1
+  });
+
+  const expectedPatches = [
+    {
+      op: 'replace',
+      path: ['count'],
+      value: {
+        value: 2
+      }
+    }
+  ];
+  expect(store.apply).toHaveBeenCalledWith(expect.any(Object), expectedPatches);
+  expect(store.transport.emit).toHaveBeenCalledWith(
+    {
+      name: 'update',
+      respond: false
+    },
+    {
+      patches: expectedPatches,
+      sequence: 1
+    }
+  );
+});
+
 test('setState does not emit when patch hook removes all patches', () => {
   const { setState, store, internal } = createContext({
     enablePatches: true,

@@ -21,7 +21,7 @@ import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
 import {
   getOwnEnumerableKeys,
-  hasUnsafePatchPath,
+  sanitizePatches,
   sanitizeReplacementState
 } from './utils';
 import {
@@ -174,18 +174,7 @@ export const create: Creator = <T extends CreateState>(
         state = internal.rootState as T,
         patches
       ) => {
-        const safePatches = patches
-          ?.filter((patch) => !hasUnsafePatchPath(patch.path))
-          .map((patch) =>
-            Object.prototype.hasOwnProperty.call(patch, 'value')
-              ? {
-                  ...patch,
-                  value: sanitizeReplacementState(
-                    (patch as { value: unknown }).value
-                  )
-                }
-              : patch
-          );
+        const safePatches = sanitizePatches(patches);
         const nextState = sanitizeReplacementState(
           safePatches ? (applyWithMutative(state, safePatches) as T) : state
         );

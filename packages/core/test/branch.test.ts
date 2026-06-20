@@ -646,6 +646,70 @@ test('handleDraft uses patch hook before applying patches', () => {
   expect(apply).toHaveBeenCalledTimes(1);
 });
 
+test('handleDraft filters unsafe patch-hook output before apply and emit', () => {
+  const safePatch = {
+    op: 'replace',
+    path: ['count'],
+    value: 2
+  };
+  const unsafePatch = {
+    op: 'replace',
+    path: ['constructor', 'polluted'],
+    value: true
+  };
+  const apply = vi.fn();
+  const transport = {
+    emit: vi.fn()
+  };
+  handleDraft(
+    {
+      patch: () => ({
+        patches: [unsafePatch, safePatch],
+        inversePatches: []
+      }),
+      apply,
+      transport
+    } as any,
+    {
+      rootState: {
+        count: 0
+      },
+      backupState: {
+        count: 0
+      },
+      sequence: 0,
+      finalizeDraft: () => [
+        undefined,
+        [
+          {
+            op: 'replace',
+            path: ['count'],
+            value: 1
+          }
+        ],
+        []
+      ]
+    } as any
+  );
+
+  expect(apply).toHaveBeenCalledWith(
+    {
+      count: 0
+    },
+    [safePatch]
+  );
+  expect(transport.emit).toHaveBeenCalledWith(
+    {
+      name: 'update',
+      respond: false
+    },
+    {
+      patches: [safePatch],
+      sequence: 1
+    }
+  );
+});
+
 test('WorkerType chooses shared worker global first', async () => {
   const workerDescriptor = Object.getOwnPropertyDescriptor(
     globalThis,

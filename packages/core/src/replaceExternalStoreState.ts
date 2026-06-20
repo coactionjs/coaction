@@ -2,7 +2,7 @@ import { create as createWithMutative, type Patches } from 'mutative';
 import { emit } from './asyncClientStore';
 import type { CreateState, MiddlewareStore } from './interface';
 import type { Internal } from './internal';
-import { replaceOwnEnumerable } from './utils';
+import { replaceOwnEnumerable, sanitizePatches } from './utils';
 
 type ReplaceExternalStoreStateOptions = {
   syncImmutable?: boolean;
@@ -26,7 +26,8 @@ export const replaceExternalStoreState = <T extends CreateState>(
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
-  if (!finalPatches.patches.length) {
+  const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+  if (!safePatches.length) {
     return;
   }
   const updateImmutable = internal.updateImmutable;
@@ -34,9 +35,9 @@ export const replaceExternalStoreState = <T extends CreateState>(
     internal.updateImmutable = undefined;
   }
   try {
-    store.apply(internal.rootState as T, finalPatches.patches);
+    store.apply(internal.rootState as T, safePatches);
   } finally {
     internal.updateImmutable = updateImmutable;
   }
-  emit(store, internal, finalPatches.patches);
+  emit(store, internal, safePatches);
 };

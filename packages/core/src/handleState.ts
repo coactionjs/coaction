@@ -16,6 +16,7 @@ import {
   cloneOwnEnumerable,
   getOwnEnumerableKeys,
   mergeObject,
+  sanitizePatches,
   setOwnEnumerable
 } from './utils';
 import { emit, handleDraft } from './asyncClientStore';
@@ -87,14 +88,13 @@ export const handleState = <T extends CreateState>(
       const finalPatches = store.patch
         ? store.patch({ patches, inversePatches })
         : { patches, inversePatches };
-      if (finalPatches.patches.length) {
-        store.apply(internal.rootState as T, finalPatches.patches);
+      const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+      const safeInversePatches =
+        sanitizePatches(finalPatches.inversePatches) ?? [];
+      if (safePatches.length) {
+        store.apply(internal.rootState as T, safePatches);
       }
-      return [
-        internal.rootState as any,
-        finalPatches.patches,
-        finalPatches.inversePatches
-      ];
+      return [internal.rootState as any, safePatches, safeInversePatches];
     }
   ) => {
     if (store.share === 'client') {

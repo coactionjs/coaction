@@ -23,6 +23,20 @@ export const hasUnsafePatchPath = (path: unknown) => {
   return segments.some(isUnsafePathSegment);
 };
 
+export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
+  patches: T[] | undefined
+) =>
+  patches
+    ?.filter((patch) => !hasUnsafePatchPath(patch.path))
+    .map((patch) =>
+      Object.prototype.hasOwnProperty.call(patch, 'value')
+        ? {
+            ...patch,
+            value: sanitizeReplacementState(patch.value)
+          }
+        : patch
+    );
+
 export const setOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   key: PropertyKey,
