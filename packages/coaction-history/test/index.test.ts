@@ -224,6 +224,54 @@ test('clear history and partialize', () => {
   expect(api.getFuture()).toHaveLength(0);
 });
 
+test('nested partialize preserves untracked sibling keys during undo and redo', () => {
+  const useStore = create(
+    (set) => ({
+      nested: {
+        tracked: 0,
+        keep: 'yes'
+      },
+      increment() {
+        set((draft) => {
+          draft.nested.tracked += 1;
+        });
+      },
+      setKeep(value: string) {
+        set((draft) => {
+          draft.nested.keep = value;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          partialize: (state) => ({
+            nested: {
+              tracked: state.nested.tracked
+            }
+          })
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().increment();
+  useStore.getState().setKeep('changed');
+
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().nested).toEqual({
+    tracked: 0,
+    keep: 'changed'
+  });
+
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getState().nested).toEqual({
+    tracked: 1,
+    keep: 'changed'
+  });
+});
+
 test('snapshot strips functions and keeps array structure', () => {
   const useStore = create(
     (set) => ({

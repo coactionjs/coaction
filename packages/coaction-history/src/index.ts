@@ -110,6 +110,53 @@ const applySnapshot = (
   }
 };
 
+const isPatchableObject = (
+  value: unknown
+): value is Record<PropertyKey, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const applyPartialSnapshot = (
+  target: Record<PropertyKey, unknown>,
+  nextState: object,
+  currentState: object,
+  visited = new WeakMap<object, WeakSet<object>>()
+) => {
+  let seenCurrentStates = visited.get(nextState);
+  if (!seenCurrentStates) {
+    seenCurrentStates = new WeakSet<object>();
+    visited.set(nextState, seenCurrentStates);
+  } else if (seenCurrentStates.has(currentState)) {
+    return;
+  }
+  seenCurrentStates.add(currentState);
+  const next = nextState as Record<PropertyKey, unknown>;
+  const current = currentState as Record<PropertyKey, unknown>;
+  for (const key of getOwnEnumerableKeys(current)) {
+    if (!Object.prototype.hasOwnProperty.call(next, key)) {
+      delete target[key];
+    }
+  }
+  for (const key of getOwnEnumerableKeys(next)) {
+    const nextValue = next[key];
+    const currentValue = current[key];
+    const targetValue = target[key];
+    if (
+      isPatchableObject(nextValue) &&
+      isPatchableObject(currentValue) &&
+      isPatchableObject(targetValue)
+    ) {
+      applyPartialSnapshot(
+        targetValue as Record<PropertyKey, unknown>,
+        nextValue,
+        currentValue,
+        visited
+      );
+      continue;
+    }
+    target[key] = toSnapshot(nextValue);
+  }
+};
+
 const cloneSnapshotList = (snapshots: object[]) =>
   snapshots.map((snapshot) => toSnapshot(snapshot));
 
@@ -129,11 +176,12 @@ export type HistoryApi<T extends object> = {
 };
 
 export const history =
-  <T extends object>({
-    limit = 100,
-    partialize = (state: T) => state
-  }: HistoryOptions<T> = {}): Middleware<T> =>
+  <T extends object>(options: HistoryOptions<T> = {}): Middleware<T> =>
   (store: Store<T>) => {
+    const { limit = 100, partialize = (state: T) => state } = options;
+    const applyHistorySnapshot = options.partialize
+      ? applyPartialSnapshot
+      : applySnapshot;
     const past: object[] = [];
     const future: object[] = [];
     let isTimeTraveling = false;
@@ -194,7 +242,7 @@ export const history =
         isTimeTraveling = true;
         try {
           baseSetState((draft) => {
-            applySnapshot(
+            applyHistorySnapshot(
               draft as unknown as Record<PropertyKey, unknown>,
               previous,
               current
@@ -215,7 +263,7 @@ export const history =
         isTimeTraveling = true;
         try {
           baseSetState((draft) => {
-            applySnapshot(
+            applyHistorySnapshot(
               draft as unknown as Record<PropertyKey, unknown>,
               next,
               current
