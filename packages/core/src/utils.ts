@@ -8,6 +8,21 @@ const isEqual = (x: unknown, y: unknown) => {
 export const isUnsafeKey = (key: string) =>
   key === '__proto__' || key === 'prototype' || key === 'constructor';
 
+export const isUnsafePathSegment = (segment: unknown) =>
+  typeof segment === 'string' && isUnsafeKey(segment);
+
+export const hasUnsafePatchPath = (path: unknown) => {
+  const segments = Array.isArray(path)
+    ? path
+    : typeof path === 'string'
+      ? path
+          .split('/')
+          .filter(Boolean)
+          .map((segment) => segment.replace(/~1/g, '/').replace(/~0/g, '~'))
+      : [];
+  return segments.some(isUnsafePathSegment);
+};
+
 export const setOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   key: PropertyKey,
@@ -90,7 +105,11 @@ export const sanitizeReplacementState = <T>(
     }
     return target as T;
   }
-  const target = {} as Record<PropertyKey, unknown>;
+  const prototype = Object.getPrototypeOf(source);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return source;
+  }
+  const target = Object.create(prototype) as Record<PropertyKey, unknown>;
   seen.set(source, target);
   for (const key of getOwnEnumerableKeys(source)) {
     if (typeof key === 'string' && isUnsafeKey(key)) {

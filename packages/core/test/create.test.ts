@@ -279,4 +279,129 @@ describe('State Management Store Tests', () => {
     const state = store.getState();
     expect(state.text).toBe('world');
   });
+
+  test('apply ignores unsafe keys during full replacement', () => {
+    const useStore = create(() => ({
+      count: 0,
+      nested: {
+        value: 0
+      }
+    }));
+    const payload = JSON.parse(
+      '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"nested":{"value":3,"__proto__":{"nested":true}}}'
+    );
+
+    useStore.apply(payload as any);
+
+    const pureState = useStore.getPureState() as any;
+    expect(useStore.getState().count).toBe(1);
+    expect(useStore.getState().nested.value).toBe(3);
+    expect(Object.getPrototypeOf(pureState)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(pureState.nested)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(pureState, '__proto__')).toBe(
+      false
+    );
+    expect(Object.prototype.hasOwnProperty.call(pureState, 'constructor')).toBe(
+      false
+    );
+    expect(
+      Object.prototype.hasOwnProperty.call(pureState.nested, '__proto__')
+    ).toBe(false);
+  });
+
+  test('apply sanitizes patch values and ignores unsafe patch paths', () => {
+    const useStore = create(() => ({
+      count: 0,
+      nested: {
+        value: 0
+      },
+      list: [] as Array<{ value: number }>
+    }));
+    const nested = JSON.parse(
+      '{"value":2,"__proto__":{"polluted":true},"prototype":{"value":3}}'
+    );
+    const item = JSON.parse(
+      '{"value":4,"__proto__":{"polluted":true},"constructor":{"value":5}}'
+    );
+
+    useStore.apply(useStore.getPureState(), [
+      {
+        op: 'replace',
+        path: ['nested'],
+        value: nested
+      },
+      {
+        op: 'add',
+        path: ['list', 0],
+        value: item
+      },
+      {
+        op: 'add',
+        path: ['__proto__', 'polluted'],
+        value: true
+      },
+      {
+        op: 'add',
+        path: '/constructor/value',
+        value: 2
+      }
+    ] as any);
+
+    const pureState = useStore.getPureState() as any;
+    expect(pureState.nested).toEqual({
+      value: 2
+    });
+    expect(pureState.list[0]).toEqual({
+      value: 4
+    });
+    expect(Object.getPrototypeOf(pureState.nested)).toBe(Object.prototype);
+    expect(Object.getPrototypeOf(pureState.list[0])).toBe(Object.prototype);
+    expect(
+      Object.prototype.hasOwnProperty.call(pureState.nested, '__proto__')
+    ).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(pureState.nested, 'prototype')
+    ).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(pureState.list[0], '__proto__')
+    ).toBe(false);
+    expect(
+      Object.prototype.hasOwnProperty.call(pureState.list[0], 'constructor')
+    ).toBe(false);
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test('apply preserves non-plain object values while sanitizing plain objects', () => {
+    const initialStamp = new Date('2024-01-01T00:00:00.000Z');
+    const nextStamp = new Date('2024-01-02T00:00:00.000Z');
+    const patchStamp = new Date('2024-01-03T00:00:00.000Z');
+    const useStore = create(() => ({
+      stamp: initialStamp,
+      nested: {
+        stamp: initialStamp
+      }
+    }));
+
+    useStore.apply({
+      stamp: nextStamp,
+      nested: {
+        stamp: nextStamp
+      }
+    });
+
+    expect(useStore.getPureState().stamp).toBe(nextStamp);
+    expect(useStore.getPureState().nested.stamp).toBe(nextStamp);
+
+    useStore.apply(useStore.getPureState(), [
+      {
+        op: 'replace',
+        path: ['nested'],
+        value: {
+          stamp: patchStamp
+        }
+      }
+    ] as any);
+
+    expect(useStore.getPureState().nested.stamp).toBe(patchStamp);
+  });
 });

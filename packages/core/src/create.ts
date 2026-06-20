@@ -19,7 +19,11 @@ import { applyMiddlewares } from './applyMiddlewares';
 import { wrapStore } from './wrapStore';
 import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
-import { getOwnEnumerableKeys } from './utils';
+import {
+  getOwnEnumerableKeys,
+  hasUnsafePatchPath,
+  sanitizeReplacementState
+} from './utils';
 import {
   validateSharedActionPaths,
   validateSharedStateSerializable
@@ -170,9 +174,21 @@ export const create: Creator = <T extends CreateState>(
         state = internal.rootState as T,
         patches
       ) => {
-        const nextState = patches
-          ? (applyWithMutative(state, patches) as T)
-          : state;
+        const safePatches = patches
+          ?.filter((patch) => !hasUnsafePatchPath(patch.path))
+          .map((patch) =>
+            Object.prototype.hasOwnProperty.call(patch, 'value')
+              ? {
+                  ...patch,
+                  value: sanitizeReplacementState(
+                    (patch as { value: unknown }).value
+                  )
+                }
+              : patch
+          );
+        const nextState = sanitizeReplacementState(
+          safePatches ? (applyWithMutative(state, safePatches) as T) : state
+        );
         if (store.share === 'main') {
           validateSharedStateSerializable(nextState);
         }
