@@ -292,6 +292,15 @@ export const bindYjs = <T extends object>(
   let pendingSnapshot: Record<string, unknown> | null = null;
   let pendingOperations: RemoteOperation[] = [];
 
+  const restoreLastSyncedState = () => {
+    syncingFromYjs = true;
+    try {
+      store.apply(lastSyncedState as T);
+    } finally {
+      syncingFromYjs = false;
+    }
+  };
+
   const applyRemoteState = (state: Record<string, unknown>) => {
     const next = sanitizePlainValue(state);
     syncingFromYjs = true;
@@ -427,7 +436,12 @@ export const bindYjs = <T extends object>(
     if (destroyed || syncingFromYjs) {
       return;
     }
-    assertYjsSerializableState(store.getPureState());
+    try {
+      assertYjsSerializableState(store.getPureState());
+    } catch (error) {
+      restoreLastSyncedState();
+      throw error;
+    }
     const pureState = clone(store.getPureState());
     if (!isPlainObject(pureState)) {
       return;

@@ -266,10 +266,14 @@ test('rejects function valued state during later sync', () => {
 });
 
 test('rejects non-plain object state during later sync', () => {
+  const doc = new Y.Doc();
   const store = create(() => ({
     stamp: null as Date | null
   }));
-  const binding = bindYjs(store);
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
 
   try {
     expect(() => {
@@ -279,6 +283,11 @@ test('rejects non-plain object state during later sync', () => {
     }).toThrow(
       'Yjs binding does not support non-plain-object state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at stamp.'
     );
+    expect(store.getState().stamp).toBeNull();
+    expect(store.getPureState().stamp).toBeNull();
+    expect(readState(doc, 'counter')).toEqual({
+      stamp: null
+    });
   } finally {
     binding.destroy();
   }
