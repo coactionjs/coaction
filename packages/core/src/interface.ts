@@ -127,7 +127,8 @@ export interface Store<T extends ISlices = ISlices> {
    *
    * @remarks
    * This is a low-level hook used by transports and middleware. Application
-   * code should generally prefer store methods or `setState()`.
+   * code should generally prefer store methods or `setState()`. Client-side
+   * shared-store mirrors reject direct `apply()` calls.
    */
   apply: (state?: T, patches?: Patches) => void;
   /**

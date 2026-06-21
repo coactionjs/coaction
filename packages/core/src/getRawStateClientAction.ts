@@ -168,7 +168,9 @@ export const createClientAction = <T extends CreateState>({
                       throw new Error('Invalid fullSync payload');
                     }
                     if (next.sequence >= sequence) {
-                      store.apply(parseFullSyncState(next.state));
+                      const applyClientState =
+                        internal.applyClientState ?? store.apply.bind(store);
+                      applyClientState(parseFullSyncState(next.state));
                       internal.sequence = next.sequence;
                       finishResolve();
                       return;

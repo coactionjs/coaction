@@ -3,7 +3,14 @@ import {
   mockPorts,
   WorkerMainTransportOptions
 } from 'data-transport';
-import { create, createBinder, type Slice, type Slices } from '../src';
+import {
+  create,
+  createBinder,
+  type Middleware,
+  type Slice,
+  type Slices,
+  type Store
+} from '../src';
 import { bindSymbol } from '../src/constant';
 
 test('base', () => {
@@ -242,6 +249,102 @@ test('worker', async () => {
 }
 `);
   }
+});
+
+test('client mirror rejects direct apply while transport sync still works', async () => {
+  const ports = mockPorts();
+  const serverTransport = createTransport('WebWorkerInternal', ports.main);
+  const clientTransport = createTransport(
+    'WebWorkerClient',
+    ports.create() as WorkerMainTransportOptions
+  );
+  type State = {
+    nested: {
+      a: number;
+      b: number;
+    };
+    setA: (a: number) => void;
+  };
+  const state: Slice<State> = (set) => ({
+    nested: {
+      a: 0,
+      b: 0
+    },
+    setA(a) {
+      set((draft) => {
+        draft.nested.a = a;
+      });
+    }
+  });
+  let capturedApply: Store<State>['apply'] | undefined;
+  const captureApply: Middleware<State> = (store) => {
+    capturedApply = store.apply.bind(store);
+    return store;
+  };
+  const useServerStore = create(state, {
+    transport: serverTransport,
+    name: 'client-apply-rejected'
+  });
+  useServerStore.getState().setA(1);
+  const useClientStore = create(state, {
+    name: 'client-apply-rejected',
+    clientTransport,
+    middlewares: [captureApply]
+  });
+
+  await new Promise((resolve) => {
+    clientTransport.onConnect(() => {
+      setTimeout(resolve);
+    });
+  });
+
+  expect(useClientStore.getState().nested).toEqual({
+    a: 1,
+    b: 0
+  });
+  expect(() => {
+    useClientStore.apply({
+      nested: {
+        a: 99,
+        b: 999
+      },
+      setA() {}
+    });
+  }).toThrow(
+    'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.'
+  );
+  expect(() => {
+    capturedApply!({
+      nested: {
+        a: 99,
+        b: 999
+      },
+      setA() {}
+    });
+  }).toThrow(
+    'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.'
+  );
+  expect(useServerStore.getState().nested).toEqual({
+    a: 1,
+    b: 0
+  });
+  expect(useClientStore.getState().nested).toEqual({
+    a: 1,
+    b: 0
+  });
+
+  await useClientStore.getState().setA(2);
+
+  expect(useServerStore.getState().nested).toEqual({
+    a: 2,
+    b: 0
+  });
+  expect(useClientStore.getState().nested).toEqual({
+    a: 2,
+    b: 0
+  });
+  useServerStore.destroy();
+  useClientStore.destroy();
 });
 
 test('worker execute returns $$Error for missing method', async () => {

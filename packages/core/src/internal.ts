@@ -65,4 +65,8 @@ export interface Internal<T extends CreateState = CreateState> {
    * Adapter-level authority check for low-level mutations.
    */
   assertMutationAllowed?: (operation: MutationOperation) => void;
+  /**
+   * Authorized client-mirror state application used by transports.
+   */
+  applyClientState?: (state?: T, patches?: Patches) => void;
 }

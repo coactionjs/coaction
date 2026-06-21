@@ -19,6 +19,9 @@ const parseFullSyncState = (state: string) => {
   return sanitizeReplacementState(parsed);
 };
 
+const clientApplyErrorMessage =
+  'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.';
+
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
     store: MiddlewareStore<T>;
@@ -29,6 +32,31 @@ export const createAsyncClientStore = <T extends CreateState>(
   const { store: asyncClientStore, internal } = createStore({
     share: 'client'
   });
+  let isApplyingClientState = false;
+  const previousAssertMutationAllowed = internal.assertMutationAllowed;
+  internal.assertMutationAllowed = (operation) => {
+    if (operation === 'apply' && !isApplyingClientState) {
+      throw new Error(clientApplyErrorMessage);
+    }
+    previousAssertMutationAllowed?.(operation);
+  };
+  const baseApply = asyncClientStore.apply.bind(asyncClientStore);
+  asyncClientStore.apply = (state, patches) => {
+    if (!isApplyingClientState) {
+      throw new Error(clientApplyErrorMessage);
+    }
+    return baseApply(state, patches);
+  };
+  internal.applyClientState = (
+    ...args: Parameters<MiddlewareStore<T>['apply']>
+  ) => {
+    isApplyingClientState = true;
+    try {
+      baseApply(...args);
+    } finally {
+      isApplyingClientState = false;
+    }
+  };
   // the transport is in the worker or shared worker, and the client is in the main thread.
   // This store can't be directly executed by any of the store's methods
   // its methods are proxied to the worker or share worker for execution.
@@ -72,7 +100,7 @@ export const createAsyncClientStore = <T extends CreateState>(
         if (latest.sequence < internal.sequence && !canApplyLowerSequence) {
           return;
         }
-        asyncClientStore.apply(parseFullSyncState(latest.state));
+        internal.applyClientState!(parseFullSyncState(latest.state));
         internal.sequence = latest.sequence;
         awaitingReconnectSync = false;
         reconnectSequenceBaseline = null;
@@ -113,7 +141,7 @@ export const createAsyncClientStore = <T extends CreateState>(
           return;
         }
       } else if (options.sequence === internal.sequence + 1) {
-        asyncClientStore.apply(undefined, options.patches);
+        internal.applyClientState!(undefined, options.patches);
         internal.sequence = options.sequence;
         awaitingReconnectSync = false;
         reconnectSequenceBaseline = null;
