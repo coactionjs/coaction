@@ -2,6 +2,8 @@ import { onStoreReady, type Middleware, type Store } from 'coaction';
 
 type Snapshot = Record<PropertyKey, unknown>;
 
+const historySuppressionSymbol = Symbol.for('coaction.history.suppress');
+
 const isUnsafeKey = (key: PropertyKey) =>
   typeof key === 'string' &&
   (key === '__proto__' || key === 'prototype' || key === 'constructor');
@@ -270,9 +272,19 @@ export const history =
     const future: object[] = [];
     let isTimeTraveling = false;
     let isSetStateRecording = false;
+    let suppressionDepth = 0;
     let lastSnapshot: object | undefined;
     let unsubscribeStore: (() => void) | undefined;
     const getSnapshot = () => toSnapshot(partialize(store.getPureState()));
+    const runWithoutRecording = <R>(callback: () => R): R => {
+      suppressionDepth += 1;
+      try {
+        return callback();
+      } finally {
+        suppressionDepth -= 1;
+        lastSnapshot = getSnapshot();
+      }
+    };
     const pushPast = (snapshot: object) => {
       past.push(snapshot);
       if (past.length > limit) {
@@ -309,7 +321,7 @@ export const history =
       lastSnapshot = getSnapshot();
       unsubscribeStore = store.subscribe(() => {
         const current = getSnapshot();
-        if (isSetStateRecording || isTimeTraveling) {
+        if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
           lastSnapshot = current;
           return;
         }
@@ -326,7 +338,7 @@ export const history =
       } finally {
         isSetStateRecording = false;
       }
-      if (isTimeTraveling) {
+      if (isTimeTraveling || suppressionDepth > 0) {
         lastSnapshot = getSnapshot();
         return result;
       }
@@ -385,6 +397,10 @@ export const history =
     Object.assign(store, {
       history: api
     });
+    Object.defineProperty(store, historySuppressionSymbol, {
+      configurable: true,
+      value: runWithoutRecording
+    });
     if (typeof store.destroy === 'function') {
       const baseDestroy = store.destroy;
       let destroyed = false;
@@ -396,6 +412,10 @@ export const history =
         cancelReadySubscription();
         unsubscribeStore?.();
         unsubscribeStore = undefined;
+        const metadataStore = store as unknown as Record<symbol, unknown>;
+        if (metadataStore[historySuppressionSymbol] === runWithoutRecording) {
+          delete metadataStore[historySuppressionSymbol];
+        }
         baseDestroy();
       };
     }

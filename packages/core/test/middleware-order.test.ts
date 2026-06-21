@@ -73,6 +73,65 @@ test('persist observes history undo regardless of middleware order', async () =>
   expect(storage.getItem('persist-inside-history')).toContain('"count":0');
 });
 
+test('history ignores persist hydration regardless of middleware order', async () => {
+  const storage = createMemoryStorage();
+  storage.setItem(
+    'history-before-persist-hydration',
+    JSON.stringify({
+      state: {
+        count: 5
+      },
+      version: 0
+    })
+  );
+  const historyBeforePersist = createCounterStore([
+    history(),
+    persist({
+      name: 'history-before-persist-hydration',
+      storage
+    })
+  ]);
+
+  await nextTick();
+
+  expect(historyBeforePersist.getState().count).toBe(5);
+  expect((historyBeforePersist as any).history.getPast()).toEqual([]);
+  expect((historyBeforePersist as any).history.undo()).toBe(false);
+  expect(historyBeforePersist.getState().count).toBe(5);
+  await nextTick();
+  expect(storage.getItem('history-before-persist-hydration')).toContain(
+    '"count":5'
+  );
+
+  storage.setItem(
+    'persist-before-history-hydration',
+    JSON.stringify({
+      state: {
+        count: 5
+      },
+      version: 0
+    })
+  );
+  const persistBeforeHistory = createCounterStore([
+    persist({
+      name: 'persist-before-history-hydration',
+      storage
+    }),
+    history()
+  ]);
+
+  await nextTick();
+
+  expect(persistBeforeHistory.getState().count).toBe(5);
+  expect((persistBeforeHistory as any).history.getPast()).toEqual([]);
+  expect((persistBeforeHistory as any).history.undo()).toBe(false);
+  expect(persistBeforeHistory.getState().count).toBe(5);
+  await nextTick();
+  expect(storage.getItem('persist-before-history-hydration')).toContain(
+    '"count":5'
+  );
+});
+
 test('history undo is only logged when logger is inside history', () => {
   const bypassedLogger = {
     group: vi.fn(),

@@ -45,6 +45,20 @@ type PersistApi = {
   hasHydrated: () => boolean;
 };
 
+const historySuppressionSymbol = Symbol.for('coaction.history.suppress');
+
+const runWithoutHistoryRecording = <R>(
+  store: Store<any>,
+  callback: () => R
+): R => {
+  const runner = (store as unknown as Record<symbol, unknown>)[
+    historySuppressionSymbol
+  ];
+  return typeof runner === 'function'
+    ? (runner as (callback: () => R) => R)(callback)
+    : callback();
+};
+
 const scheduleMicrotask = (callback: () => void) => {
   if (typeof queueMicrotask === 'function') {
     queueMicrotask(callback);
@@ -116,16 +130,18 @@ export const persist =
       }
     };
     const applyHydratedState = (nextState: T) => {
-      if (store.share === 'main') {
-        store.setState((draft: any) => {
-          replaceOwnEnumerable(
-            draft,
-            nextState as Record<PropertyKey, unknown>
-          );
-        });
-        return;
-      }
-      store.apply(nextState);
+      runWithoutHistoryRecording(store, () => {
+        if (store.share === 'main') {
+          store.setState((draft: any) => {
+            replaceOwnEnumerable(
+              draft,
+              nextState as Record<PropertyKey, unknown>
+            );
+          });
+          return;
+        }
+        store.apply(nextState);
+      });
     };
     const persistState = async () => {
       if (isHydrating || destroyed) {
