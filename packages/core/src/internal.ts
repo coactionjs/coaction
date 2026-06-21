@@ -1,6 +1,8 @@
 import type { Draft, Patches } from 'mutative';
 import type { CreateState, Listener } from './interface';
 
+export type MutationOperation = 'setState' | 'apply';
+
 export type SignalSlot = {
   refresh: () => void;
 };
@@ -59,4 +61,8 @@ export interface Internal<T extends CreateState = CreateState> {
    * The update immutable function.
    */
   updateImmutable?: (state: T) => void;
+  /**
+   * Adapter-level authority check for low-level mutations.
+   */
+  assertMutationAllowed?: (operation: MutationOperation) => void;
 }

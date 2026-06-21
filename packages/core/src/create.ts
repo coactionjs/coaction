@@ -174,6 +174,7 @@ export const create: Creator = <T extends CreateState>(
         state = internal.rootState as T,
         patches
       ) => {
+        internal.assertMutationAllowed?.('apply');
         const safePatches = sanitizePatches(patches);
         const nextState = sanitizeReplacementState(
           safePatches ? (applyWithMutative(state, safePatches) as T) : state

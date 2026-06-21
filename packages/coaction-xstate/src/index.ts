@@ -65,8 +65,14 @@ export const bindXState = createBinder<
     if (store.share === 'client') {
       return;
     }
-    const baseApply = store.apply.bind(store);
     let isApplyingActorSnapshot = false;
+    internal.assertMutationAllowed = (operation) => {
+      if (operation === 'apply' && isApplyingActorSnapshot) {
+        return;
+      }
+      throw new Error(unsupportedMutationMessage);
+    };
+    const baseApply = store.apply.bind(store);
     store.apply = (state, patches) => {
       if (!isApplyingActorSnapshot) {
         throw new Error(unsupportedMutationMessage);

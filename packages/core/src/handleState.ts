@@ -97,6 +97,7 @@ export const handleState = <T extends CreateState>(
       return [internal.rootState as any, safePatches, safeInversePatches];
     }
   ) => {
+    internal.assertMutationAllowed?.('setState');
     if (store.share === 'client') {
       throw new Error(
         `setState() cannot be called in the client store. To update the state, please trigger a store method with setState() instead.`

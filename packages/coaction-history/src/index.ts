@@ -340,6 +340,10 @@ export const history =
         isTimeTraveling = true;
         try {
           applyTimeTravelSnapshot(previous, current);
+        } catch (error) {
+          future.pop();
+          past.push(previous);
+          throw error;
         } finally {
           isTimeTraveling = false;
         }
@@ -355,6 +359,10 @@ export const history =
         isTimeTraveling = true;
         try {
           applyTimeTravelSnapshot(next, current);
+        } catch (error) {
+          past.pop();
+          future.push(next);
+          throw error;
         } finally {
           isTimeTraveling = false;
         }

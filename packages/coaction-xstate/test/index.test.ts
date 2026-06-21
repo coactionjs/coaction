@@ -1,4 +1,5 @@
 import { create, Slices } from 'coaction';
+import { history } from '../../coaction-history/src';
 import { adapt, assign, bindXState, createActor, createMachine } from '../src';
 
 const wait = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -98,6 +99,48 @@ test('base', () => {
   );
   expect(useStore.getState().count).toBe(2);
   expect(actor.getSnapshot().context.count).toBe(2);
+});
+
+test('history cannot time travel actor-owned state through captured mutators', () => {
+  const actor = createCounterActor();
+  const useStore = create(() => adapt(bindXState(actor)), {
+    name: 'test-xstate-history-guard',
+    middlewares: [history()]
+  });
+  const api = (useStore as any).history;
+
+  try {
+    useStore.getState().send({
+      type: 'increment'
+    });
+    useStore.getState().send({
+      type: 'increment'
+    });
+
+    expect(useStore.getState().count).toBe(2);
+    expect(actor.getSnapshot().context.count).toBe(2);
+    expect(api.canUndo()).toBe(true);
+    expect(api.canRedo()).toBe(false);
+
+    expect(() => api.undo()).toThrow(
+      'XState binding state cannot be mutated directly. Please use actor events.'
+    );
+
+    expect(useStore.getState().count).toBe(2);
+    expect(actor.getSnapshot().context.count).toBe(2);
+    expect(api.canUndo()).toBe(true);
+    expect(api.canRedo()).toBe(false);
+
+    actor.send({
+      type: 'increment'
+    });
+
+    expect(useStore.getState().count).toBe(3);
+    expect(actor.getSnapshot().context.count).toBe(3);
+  } finally {
+    useStore.destroy();
+    actor.stop();
+  }
 });
 
 test('shared client ignores direct local actor updates', async () => {
