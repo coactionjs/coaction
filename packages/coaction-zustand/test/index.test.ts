@@ -399,7 +399,8 @@ test('worker client forbids direct zustand mutations', async () => {
   expect(() => {
     clientUnderlyingStore!.setState({ count: 9 });
   }).toThrow('client zustand store cannot be updated');
-  expect(useClientStore.getState().count).toBe(9);
+  expect(clientUnderlyingStore!.getState().count).toBe(1);
+  expect(useClientStore.getState().count).toBe(1);
 });
 
 test('worker', async () => {

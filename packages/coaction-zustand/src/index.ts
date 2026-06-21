@@ -45,14 +45,6 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         if (zustandStore.getState() === internal.rootState) return;
         let isCoactionUpdated = false;
         internal.rootState = zustandStore.getState() as object;
-        const replaceRootState = (nextState: object) => {
-          const nextRootState = {};
-          replaceOwnEnumerable(
-            nextRootState,
-            nextState as Record<PropertyKey, unknown>
-          );
-          internal.rootState = nextRootState;
-        };
         const replaceCoactionState = (
           nextState: object,
           syncImmutable = false
@@ -69,6 +61,7 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
         replaceBoundCoactionState = (nextState) => {
           replaceCoactionState(nextState, true);
         };
+        let isRestoringClientState = false;
         const mergeWithCurrentActions = (state: object) => {
           const nextState = {};
           replaceOwnEnumerable(
@@ -90,12 +83,25 @@ export const bindZustand = ((initializer: StateCreator<any, [], []>) =>
           }
           return nextState;
         };
+        const restoreClientState = () => {
+          isRestoringClientState = true;
+          try {
+            (zustandStore.setState as (state: object, replace: true) => void)(
+              mergeWithCurrentActions(boundStore.getState()),
+              true
+            );
+          } finally {
+            isRestoringClientState = false;
+          }
+        };
         const unsubscribe = zustandStore.subscribe(() => {
+          if (isRestoringClientState) {
+            return;
+          }
           if (!isCoactionUpdated) {
             const nextState = zustandStore.getState() as object;
             if (boundStore.share === 'client') {
-              replaceRootState(nextState);
-              internal.notifyStateChange();
+              restoreClientState();
               throw new Error('client zustand store cannot be updated');
             } else if (boundStore.share === 'main') {
               // emit to all clients

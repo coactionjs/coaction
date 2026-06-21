@@ -49,12 +49,14 @@ export type WorkerBinderAdapterContract = {
   createServerState: (...args: any[]) => any;
   createClientState: (...args: any[]) => any;
   readValue: (store: any) => number;
+  readClientExternal?: () => number;
   invokeServer: (store: any) => Awaitable<unknown>;
   expectedValueAfterServerUpdate: number;
   invokeClient: (store: any) => unknown;
   expectedValueAfterClientUpdate: number;
   writeServerExternal?: () => Awaitable<unknown>;
   expectedValueAfterServerExternalWrite?: number;
+  writeClientExternal?: () => Awaitable<unknown>;
   cleanup?: () => Awaitable<void>;
 };
 
@@ -202,6 +204,31 @@ export const runBinderAdapterContract = ({
                 contract.expectedValueAfterServerExternalWrite
               );
             });
+          }
+
+          if (contract.writeClientExternal) {
+            const expectedAuthoritativeValue =
+              typeof contract.expectedValueAfterServerExternalWrite === 'number'
+                ? contract.expectedValueAfterServerExternalWrite
+                : contract.expectedValueAfterClientUpdate;
+            try {
+              await contract.writeClientExternal();
+            } catch {
+              // Some adapters can reject direct client writes synchronously.
+            }
+            await waitForNextTick();
+            await vi.waitFor(() => {
+              expect(contract.readValue(clientStore)).toBe(
+                expectedAuthoritativeValue
+              );
+            });
+            if (contract.readClientExternal) {
+              await vi.waitFor(() => {
+                expect(contract.readClientExternal!()).toBe(
+                  expectedAuthoritativeValue
+                );
+              });
+            }
           }
         } finally {
           clientStore?.destroy();

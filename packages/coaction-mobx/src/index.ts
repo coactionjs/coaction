@@ -146,6 +146,57 @@ const toSnapshot = (
 const snapshotPureState = (store: Store<object>) =>
   toSnapshot(store.getPureState()) as Record<PropertyKey, unknown>;
 
+const isEqualSnapshot = (
+  left: unknown,
+  right: unknown,
+  visited = new WeakMap<object, WeakSet<object>>()
+): boolean => {
+  if (Object.is(left, right)) {
+    return true;
+  }
+  if (
+    typeof left !== 'object' ||
+    left === null ||
+    typeof right !== 'object' ||
+    right === null
+  ) {
+    return false;
+  }
+  const leftIsArray = Array.isArray(left);
+  const rightIsArray = Array.isArray(right);
+  if (leftIsArray || rightIsArray) {
+    if (!leftIsArray || !rightIsArray || left.length !== right.length) {
+      return false;
+    }
+  } else if (!isObjectRecord(left) || !isObjectRecord(right)) {
+    return false;
+  }
+  let seenTargets = visited.get(left);
+  if (!seenTargets) {
+    seenTargets = new WeakSet<object>();
+    visited.set(left, seenTargets);
+  } else if (seenTargets.has(right)) {
+    return true;
+  }
+  seenTargets.add(right);
+  const leftRecord = left as Record<PropertyKey, unknown>;
+  const rightRecord = right as Record<PropertyKey, unknown>;
+  const leftKeys = getOwnEnumerableKeys(left);
+  const rightKeys = getOwnEnumerableKeys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!Object.prototype.hasOwnProperty.call(rightRecord, key)) {
+      return false;
+    }
+    if (!isEqualSnapshot(leftRecord[key], rightRecord[key], visited)) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const deleteUnsafeEnumerableKeys = (
   value: unknown,
   seen = new WeakSet<object>()
@@ -206,11 +257,41 @@ const handleStore = (
   let isApplyingCoactionState = false;
   let lastSnapshot: Record<PropertyKey, unknown> | undefined;
   let unsubscribeExternal: (() => void) | undefined;
+  const restoreClientState = (snapshot: Record<PropertyKey, unknown>) => {
+    const mutableState = internal.toMutableRaw!(rawState);
+    if (!mutableState) {
+      return;
+    }
+    isApplyingCoactionState = true;
+    try {
+      runInAction(() => {
+        const currentRawState = (internal.rootState ?? rawState) as Record<
+          PropertyKey,
+          unknown
+        >;
+        replaceMutableState(
+          currentRawState,
+          mutableState as Record<PropertyKey, unknown>,
+          store.getState() as Record<PropertyKey, unknown>,
+          snapshot
+        );
+      });
+    } finally {
+      lastSnapshot = snapshotPureState(store);
+      isApplyingCoactionState = false;
+    }
+  };
   const syncSharedExternalChange = () => {
     const currentSnapshot = snapshotPureState(store);
     if (isApplyingCoactionState) {
       lastSnapshot = currentSnapshot;
-      return true;
+      return 'handled';
+    }
+    if (store.share === 'client' && lastSnapshot) {
+      if (!isEqualSnapshot(currentSnapshot, lastSnapshot)) {
+        restoreClientState(lastSnapshot);
+      }
+      return 'ignored';
     }
     if (store.share === 'main' && lastSnapshot) {
       const rootState = internal.rootState;
@@ -228,10 +309,10 @@ const handleStore = (
         internal.rootState = rootState;
       }
       lastSnapshot = currentSnapshot;
-      return true;
+      return 'handled';
     }
     lastSnapshot = currentSnapshot;
-    return false;
+    return 'external';
   };
   const cancelReadySubscription = onStoreReady(store, () => {
     runInAction(() => {
@@ -257,8 +338,11 @@ const handleStore = (
         return;
       }
       untracked(() => {
-        const isCoactionChange = syncSharedExternalChange();
-        if (!isCoactionChange) {
+        const change = syncSharedExternalChange();
+        if (change === 'ignored') {
+          return;
+        }
+        if (change === 'external') {
           internal.notifyStateChange?.();
         }
         store._subscriptions?.forEach((listener) => listener());

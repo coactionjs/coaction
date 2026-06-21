@@ -44,10 +44,16 @@ runBinderAdapterContract({
       createServerState: () => adapt(serverExternal),
       createClientState: () => adapt(clientExternal),
       readValue: (store) => store.getState().count,
+      readClientExternal: () => clientExternal.getState().count,
       invokeServer: (store) => store.getState().increment(),
       expectedValueAfterServerUpdate: 1,
       invokeClient: (store) => store.getState().increment(),
-      expectedValueAfterClientUpdate: 2
+      expectedValueAfterClientUpdate: 2,
+      writeClientExternal: () => {
+        clientExternal.setState({
+          count: 9
+        });
+      }
     };
   }
 });

@@ -60,6 +60,7 @@ runBinderAdapterContract({
       },
       createClientState: () => client.storeDefinition,
       readValue: (store) => store.getState().count,
+      readClientExternal: () => client.external.count,
       invokeServer: (store) => store.getState().increment(),
       expectedValueAfterServerUpdate: 1,
       invokeClient: (store) => store.getState().increment(),
@@ -67,7 +68,10 @@ runBinderAdapterContract({
       writeServerExternal: () => {
         serverExternal!.count = 7;
       },
-      expectedValueAfterServerExternalWrite: 7
+      expectedValueAfterServerExternalWrite: 7,
+      writeClientExternal: () => {
+        client.external.count = 9;
+      }
     };
   }
 });
