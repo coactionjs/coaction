@@ -3,6 +3,28 @@ import { makeAutoObservable } from 'mobx';
 import { bindMobx } from '../../coaction-mobx/src';
 import { history } from '../src';
 
+test('throws when used with a client store mirror', () => {
+  expect(() => {
+    create(
+      () => ({
+        count: 0
+      }),
+      {
+        name: 'history-client-mirror',
+        clientTransport: {
+          dispose: () => undefined,
+          emit: () => Promise.resolve(undefined),
+          listen: () => undefined,
+          onConnect: () => undefined
+        } as any,
+        middlewares: [history()]
+      }
+    );
+  }).toThrow(
+    'history() is not supported in client store mode. Apply history() to the main shared store instead.'
+  );
+});
+
 test('undo and redo', () => {
   const useStore = create(
     (set) => ({

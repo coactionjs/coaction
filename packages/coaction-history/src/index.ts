@@ -254,6 +254,11 @@ export type HistoryApi<T extends object> = {
 export const history =
   <T extends object>(options: HistoryOptions<T> = {}): Middleware<T> =>
   (store: Store<T>) => {
+    if (store.share === 'client') {
+      throw new Error(
+        'history() is not supported in client store mode. Apply history() to the main shared store instead.'
+      );
+    }
     const { limit = 100, partialize = (state: T) => state } = options;
     const applyHistorySnapshot = options.partialize
       ? applyPartialSnapshot
