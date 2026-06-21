@@ -15,13 +15,14 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '24'
           cache: pnpm
           registry-url: 'https://registry.npmjs.org'
+      - run: npm install -g npm@latest
+      - run: npm --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
       - run: pnpm run publish -- --provenance
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
           CI: true
