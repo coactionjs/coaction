@@ -1,5 +1,6 @@
 import { create } from 'coaction';
 import * as Y from 'yjs';
+import { history } from '../../coaction-history/src';
 import { bindYjs, yjs } from '../src';
 
 const wait = (ms = 0) =>
@@ -511,6 +512,64 @@ test('middleware hydrates from existing yjs state during creation', () => {
   );
 
   expect(store.getState().count).toBe(5);
+});
+
+test('history ignores initial yjs hydration regardless of middleware order', () => {
+  const createHydratedDoc = (key: string) => {
+    const doc = new Y.Doc();
+    const root = doc.getMap<any>(key);
+    const state = new Y.Map<any>();
+    state.set('count', 7);
+    root.set('state', state);
+    return doc;
+  };
+  const historyBeforeYjsDoc = createHydratedDoc('history-before-yjs');
+  const historyBeforeYjs = create(
+    () => ({
+      count: 0
+    }),
+    {
+      middlewares: [
+        history(),
+        yjs({
+          doc: historyBeforeYjsDoc,
+          key: 'history-before-yjs'
+        })
+      ]
+    }
+  ) as any;
+
+  expect(historyBeforeYjs.getState().count).toBe(7);
+  expect(historyBeforeYjs.history.getPast()).toEqual([]);
+  expect(historyBeforeYjs.history.undo()).toBe(false);
+  expect(historyBeforeYjs.getState().count).toBe(7);
+  expect(readState(historyBeforeYjsDoc, 'history-before-yjs')).toEqual({
+    count: 7
+  });
+
+  const yjsBeforeHistoryDoc = createHydratedDoc('yjs-before-history');
+  const yjsBeforeHistory = create(
+    () => ({
+      count: 0
+    }),
+    {
+      middlewares: [
+        yjs({
+          doc: yjsBeforeHistoryDoc,
+          key: 'yjs-before-history'
+        }),
+        history()
+      ]
+    }
+  ) as any;
+
+  expect(yjsBeforeHistory.getState().count).toBe(7);
+  expect(yjsBeforeHistory.history.getPast()).toEqual([]);
+  expect(yjsBeforeHistory.history.undo()).toBe(false);
+  expect(yjsBeforeHistory.getState().count).toBe(7);
+  expect(readState(yjsBeforeHistoryDoc, 'yjs-before-history')).toEqual({
+    count: 7
+  });
 });
 
 test('throws in client share mode', () => {

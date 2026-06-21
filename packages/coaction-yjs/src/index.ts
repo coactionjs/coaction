@@ -22,6 +22,19 @@ import { createYMap, toPlainObject } from './yjsValue';
 export * from 'yjs';
 
 const STATE_KEY = 'state';
+const historySuppressionSymbol = Symbol.for('coaction.history.suppress');
+
+const runWithoutHistoryRecording = <R>(
+  store: Store<any>,
+  callback: () => R
+): R => {
+  const runner = (store as unknown as Record<symbol, unknown>)[
+    historySuppressionSymbol
+  ];
+  return typeof runner === 'function'
+    ? (runner as (callback: () => R) => R)(callback)
+    : callback();
+};
 
 const getOwnEnumerableKeys = (value: object) =>
   Reflect.ownKeys(value).filter(
@@ -527,15 +540,17 @@ export const bindYjs = <T extends object>(
     lastSyncedState = nextState;
   };
   const applyInitialRemoteState = (state: Record<string, unknown>) => {
-    try {
-      applyRemoteState(state);
-    } catch (error) {
-      if (isYjsSerializableStateError(error)) {
-        restoreRootState();
-        return;
+    runWithoutHistoryRecording(store, () => {
+      try {
+        applyRemoteState(state);
+      } catch (error) {
+        if (isYjsSerializableStateError(error)) {
+          restoreRootState();
+          return;
+        }
+        throw error;
       }
-      throw error;
-    }
+    });
   };
   const existingStateMap = getStateMap();
   if (existingStateMap) {
