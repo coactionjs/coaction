@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": true,
+  "trailingComma": "none",
+  "bracketSpacing": true,
+  "endOfLine": "lf",
+  "insertFinalNewline": true,
+  "ignorePatterns": [
+    "node_modules/**",
+    ".pnpm-store/**",
+    ".turbo/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "packages/*/dist/**",
+    "packages/*/.turbo/**",
+    "examples/*/dist/**",
+    "examples/*/node_modules/**",
+    "examples/*/yarn.lock",
+    "pnpm-lock.yaml"
+  ]
+}

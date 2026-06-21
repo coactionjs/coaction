@@ -273,7 +273,7 @@ export type YjsBindingOptions = {
   key?: string;
 };
 
-export type YjsBinding<T extends object> = {
+export type YjsBinding<_T extends object> = {
   doc: Y.Doc;
   map: Y.Map<any>;
   syncNow: () => void;

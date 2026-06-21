@@ -112,7 +112,7 @@ test('replace action strips nested functions from payload', () => {
 test('replace action preserves sparse array holes and properties', () => {
   const reducer = withCoactionReducer((state = {} as any) => state);
   const token = Symbol('array-token');
-  const items = [] as any[];
+  const items = [] as any[] & Record<PropertyKey, any>;
   items.length = 2;
   items[1] = {
     count: 1,

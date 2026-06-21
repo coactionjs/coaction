@@ -19,6 +19,9 @@ jobs:
       - name: Install and test coverage
         run: |
           pnpm install --frozen-lockfile
+          pnpm lint
+          pnpm typecheck
+          pnpm build
           pnpm test:coverage
       - name: Coverage
         uses: romeovs/lcov-reporter-action@v0.4.0

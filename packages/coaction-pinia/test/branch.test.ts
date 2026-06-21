@@ -229,8 +229,9 @@ test('shared sync snapshots preserve sparse array shape', async () => {
     replaceExternalStoreState
   } = await loadBinding();
   const tag = Symbol('array-tag');
+  type SparseArray = any[] & Record<PropertyKey, any>;
   const makeList = (label: string, includeUndefined: boolean) => {
-    const list = [] as any[];
+    const list = [] as SparseArray;
     list.length = 2;
     if (includeUndefined) {
       list[0] = undefined;

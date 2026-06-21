@@ -1,22 +1,31 @@
 {
   "name": "coaction-monorepo",
+  "version": "2.0.0",
   "private": true,
   "description": "An efficient and flexible state management library for building high-performance, multithreading web applications.",
-  "engines": {
-    "node": ">=20.19.0"
+  "homepage": "https://github.com/coactionjs/coaction#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coactionjs/coaction.git"
   },
   "main": "index.js",
   "scripts": {
     "postinstall": "manypkg check",
-    "build": "pnpm -r --filter './packages/*' run build",
-    "clean": "turbo run clean",
-    "watch": "pnpm -r --parallel --filter './packages/*' run dev",
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "watch": "pnpm dev",
+    "clean": "turbo run clean && rm -rf coverage .turbo .publish",
     "fix": "manypkg fix",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
-    "typecheck": "tsc --noEmit",
+    "lint": "oxlint packages scripts examples docs .github *.config.* global.d.ts",
+    "lint:fix": "oxlint --fix packages scripts examples docs .github *.config.* global.d.ts",
+    "format": "oxfmt --check \"{packages,scripts,examples,docs,.github}/**/*.{js,mjs,cjs,ts,tsx,json,md,mdx,css,html,vue,yml,yaml}\" \".changeset/**/*.{json,md}\" \".vscode/**/*.json\" \".ox*.json\" \"package.json\" tsconfig*.json \"turbo.json\" \"typedoc.core.json\" \"vitest.config.mjs\" \"playwright.config.ts\" \"babel.config.js\" \"pnpm-workspace.yaml\" \"README.md\"",
+    "format:fix": "oxfmt \"{packages,scripts,examples,docs,.github}/**/*.{js,mjs,cjs,ts,tsx,json,md,mdx,css,html,vue,yml,yaml}\" \".changeset/**/*.{json,md}\" \".vscode/**/*.json\" \".ox*.json\" \"package.json\" tsconfig*.json \"turbo.json\" \"typedoc.core.json\" \"vitest.config.mjs\" \"playwright.config.ts\" \"babel.config.js\" \"pnpm-workspace.yaml\" \"README.md\"",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
+    "check": "turbo run quality && pnpm typecheck && pnpm build && pnpm test",
     "test": "turbo run test && pnpm run test:e2e",
     "test:e2e": "vitest run examples/e2e/test",
     "test:e2e:browser": "playwright test -c playwright.config.ts",
@@ -26,47 +35,13 @@
     "changeset:check": "node ./scripts/validate-changesets.js",
     "changeset:minor-all": "node ./scripts/add-minor-all-changeset.js",
     "version": "pnpm run changeset version",
-    "publish": "pnpm -r --filter './packages/*' publish --access=public --no-git-checks",
+    "publish": "node ./scripts/publish-packages.mjs",
     "benchmark:mobx": "tsx ./packages/coaction-mobx/test/benchmark/index.ts",
     "benchmark:zustand-positioning": "NODE_ENV='production' tsx ./scripts/benchmark-zustand-positioning.ts",
     "benchmark": "NODE_ENV='production' tsx ./scripts/benchmark.ts",
     "docs:api": "node ./scripts/generate-api-docs.js",
     "docs:api:check": "pnpm run docs:api && node ./scripts/check-clean-path.js docs/api/core",
     "prepare": "husky"
-  },
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/coactionjs/coaction.git"
-  },
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
-  },
-  "homepage": "https://github.com/coactionjs/coaction#readme",
-  "config": {
-    "commitizen": {
-      "path": "cz-conventional-changelog"
-    }
-  },
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,mdx,css,html,vue,yml,yaml}": [
-      "prettier --write",
-      "git add"
-    ]
-  },
-  "version": "2.0.0",
-  "packageManager": "pnpm@10.29.3",
-  "pnpm": {
-    "overrides": {
-      "tslib": "^2.3.1"
-    }
   },
   "devDependencies": {
     "@actions/exec": "^3.0.0",
@@ -76,8 +51,9 @@
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.28.5",
     "@changesets/changelog-github": "^0.6.0",
-    "@changesets/cli": "^2.30.0",
-    "@eslint/js": "^9.39.4",
+    "@changesets/cli": "^2.31.0",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@manypkg/cli": "^0.25.1",
     "@manypkg/get-packages": "^3.1.0",
     "@playwright/test": "^1.58.2",
@@ -85,36 +61,55 @@
     "@testing-library/vue": "^8.1.0",
     "@types/benchmark": "^2.1.5",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.0",
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
     "@vue/compiler-sfc": "^3.5.30",
     "babel-preset-solid": "^1.9.10",
     "benchmark": "^2.1.4",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
-    "eslint": "^9.39.4",
-    "eslint-config-prettier": "^10.1.8",
-    "globals": "^17.4.0",
     "husky": "^9.1.7",
     "immer": "^11.1.4",
     "jsdom": "^28.1.0",
     "lint-staged": "^16.3.3",
     "mobx": "^6.15.0",
-    "prettier": "^3.8.1",
+    "oxfmt": "^0.55.0",
+    "oxlint": "^1.70.0",
     "quickchart-js": "^3.1.3",
+    "rolldown": "^1.1.2",
+    "rolldown-plugin-dts": "^0.26.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.8.1",
-    "tsup": "^8.5.0",
     "tsx": "^4.21.0",
-    "turbo": "^2.8.16",
+    "turbo": "^2.9.18",
     "typedoc": "^0.28.17",
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.0",
-    "vitest": "^4.1.0",
+    "vitest": "^4.1.9",
     "vue": "^3.5.30",
     "webpack-dev-middleware": "^7.4.5",
     "zustand": "^5.0.11",
     "zustand-mutative": "^1.3.1"
-  }
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs}": [
+      "oxlint --fix",
+      "oxfmt"
+    ],
+    "*.{json,md,mdx,css,html,vue,yml,yaml}": [
+      "oxfmt"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "packageManager": "pnpm@11.8.0",
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

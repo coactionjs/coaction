@@ -1,2 +1,8 @@
 packages:
   - packages/*
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  tslib: ^2.3.1

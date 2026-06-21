@@ -2,7 +2,7 @@ name: Node.js Package
 
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   publish-npm:
@@ -21,8 +21,7 @@ jobs:
       - run: npm install -g npm@latest
       - run: npm --version
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
+      - run: pnpm check
       - run: pnpm run publish -- --provenance
         env:
           CI: true

@@ -5,13 +5,24 @@
   "keywords": [
     "coaction"
   ],
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
-  ],
   "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-logger#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
   "license": "MIT",
+  "author": "unadlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coactionjs/coaction.git",
+    "directory": "packages/coaction-logger"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,23 +32,15 @@
     },
     "./package.json": "./package.json"
   },
-  "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coactionjs/coaction.git",
-    "directory": "packages/coaction-logger"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "clean": "rm -rf dist",
     "test": "vitest run test",
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
-  },
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
+    "build": "node ../../scripts/build-package.mjs",
+    "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "devDependencies": {
     "coaction": "workspace:*",
@@ -46,10 +49,7 @@
   "peerDependencies": {
     "coaction": "^2.0.0"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "author": "unadlib",
-  "types": "dist/index.d.ts"
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

@@ -9,8 +9,7 @@ const run = (command, args) => {
 run('pnpm', ['exec', 'typedoc', '--options', 'typedoc.core.json']);
 run('pnpm', [
   'exec',
-  'prettier',
-  '--write',
+  'oxfmt',
   'docs/api/core/**/*.md',
   'docs/api/core/index.md',
   'docs/api/core/modules.md'

@@ -3,17 +3,28 @@
   "version": "2.0.0",
   "description": "A Coaction integration tool for MobX",
   "keywords": [
-    "state",
     "coaction",
-    "mobx"
-  ],
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+    "mobx",
+    "state"
   ],
   "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-mobx#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
   "license": "MIT",
+  "author": "unadlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coactionjs/coaction.git",
+    "directory": "packages/coaction-mobx"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -23,28 +34,18 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "dist/index.d.ts",
-  "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coactionjs/coaction.git",
-    "directory": "packages/coaction-mobx"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "clean": "rm -rf dist",
     "test": "vitest run test",
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
+    "build": "node ../../scripts/build-package.mjs",
+    "dev": "node ../../scripts/build-package.mjs --watch"
   },
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
-  },
-  "peerDependencies": {
-    "coaction": "^2.0.0",
-    "mobx": "^6.13.2"
+  "dependencies": {
+    "mutability": "^1.2.1"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
@@ -61,12 +62,11 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
-  "dependencies": {
-    "mutability": "^1.2.1"
+  "peerDependencies": {
+    "coaction": "^2.0.0",
+    "mobx": "^6.13.2"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "author": "unadlib"
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

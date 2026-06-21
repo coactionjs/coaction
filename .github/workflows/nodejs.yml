@@ -1,6 +1,7 @@
 name: Node CI
 
-on: [push]
+on:
+  push:
 
 jobs:
   build:
@@ -8,7 +9,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        node-version: [22.x, 24.x]
 
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +19,10 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
-      - name: Install, build, and test
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check quality, types, build, and tests
         run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-          pnpm test
+          pnpm check
         env:
           CI: true

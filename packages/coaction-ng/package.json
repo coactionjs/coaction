@@ -3,18 +3,29 @@
   "version": "2.0.0",
   "description": "A Coaction integration tool for Angular",
   "keywords": [
-    "state",
-    "coaction",
     "angular",
-    "signals"
-  ],
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+    "coaction",
+    "signals",
+    "state"
   ],
   "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-ng#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
   "license": "MIT",
+  "author": "unadlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coactionjs/coaction.git",
+    "directory": "packages/coaction-ng"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,36 +35,25 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "dist/index.d.ts",
-  "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coactionjs/coaction.git",
-    "directory": "packages/coaction-ng"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "clean": "rm -rf dist",
     "test": "vitest run test",
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
-  },
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
-  },
-  "peerDependencies": {
-    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0",
-    "coaction": "^2.0.0"
+    "build": "node ../../scripts/build-package.mjs",
+    "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "devDependencies": {
     "@angular/core": "^21.2.4",
     "coaction": "workspace:*"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
+  "peerDependencies": {
+    "@angular/core": "^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0 || ^21.0.0",
+    "coaction": "^2.0.0"
   },
-  "author": "unadlib"
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

@@ -3,18 +3,29 @@
   "version": "2.0.0",
   "description": "A Coaction integration tool for React",
   "keywords": [
-    "state",
     "coaction",
+    "hook",
     "react",
-    "hook"
-  ],
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+    "state"
   ],
   "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-react#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
   "license": "MIT",
+  "author": "unadlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coactionjs/coaction.git",
+    "directory": "packages/coaction-react"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,29 +35,15 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "dist/index.d.ts",
-  "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coactionjs/coaction.git",
-    "directory": "packages/coaction-react"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "clean": "rm -rf dist",
     "test": "vitest run test",
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
-  },
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
-  },
-  "peerDependencies": {
-    "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0",
-    "coaction": "^2.0.0",
-    "react": "^17.0.0 || ^18.0.0 || ^19.0.0"
+    "build": "node ../../scripts/build-package.mjs",
+    "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "dependencies": {
     "use-sync-external-store": "^1.6.0"
@@ -65,9 +62,12 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
+  "peerDependencies": {
+    "@types/react": "^17.0.0 || ^18.0.0 || ^19.0.0",
+    "coaction": "^2.0.0",
+    "react": "^17.0.0 || ^18.0.0 || ^19.0.0"
   },
-  "author": "unadlib"
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

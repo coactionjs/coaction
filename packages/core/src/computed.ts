@@ -122,7 +122,7 @@ const defaultMemoize = (func: (...args: any) => any) => {
   const lastArgs: WeakMap<object, IArguments | null> = new WeakMap();
   const lastResult: WeakMap<object, unknown> = new WeakMap();
   const fallbackReceiver = {};
-  return function (this: ThisType<unknown>) {
+  return function (this: unknown) {
     const receiver =
       (typeof this === 'object' && this !== null) || typeof this === 'function'
         ? (this as object)
@@ -145,10 +145,10 @@ const createSelectorCreatorWithArray = (
     dependenciesFunc: (that: any) => any[],
     resultFunc: (...args: any) => any
   ) => {
-    const memoizedResultFunc = memoize(function (this: ThisType<unknown>) {
+    const memoizedResultFunc = memoize(function (this: unknown) {
       return resultFunc.apply(this, arguments as any);
     });
-    return function (this: ThisType<unknown>) {
+    return function (this: unknown) {
       return memoizedResultFunc.apply(
         this,
         dependenciesFunc.apply(null, [this])

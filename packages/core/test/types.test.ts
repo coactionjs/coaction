@@ -5,7 +5,7 @@ import type {
   Store,
   StoreOptions,
   StoreTraceEvent,
-  StoreWithAsyncFunction
+  AsyncStore
 } from '../src';
 import { create } from '../src';
 
@@ -33,7 +33,7 @@ test('types object inputs as single stores when not using slices mode', () => {
   const objectStore = create({
     count: 0
   });
-  const methodStore = create(
+  const methodStore = create<{ ping: () => string }>(
     {
       ping() {
         return 'pong';
@@ -43,7 +43,7 @@ test('types object inputs as single stores when not using slices mode', () => {
       sliceMode: 'single'
     }
   );
-  const clientMethodStore = create(
+  const clientMethodStore = create<{ ping: () => string }>(
     {
       ping() {
         return 'pong';
@@ -56,17 +56,18 @@ test('types object inputs as single stores when not using slices mode', () => {
         emit: () => Promise.resolve(undefined),
         listen: () => undefined,
         onConnect: () => undefined
-      } as NonNullable<
+      } as unknown as NonNullable<
         ClientStoreOptions<{ ping: () => string }>['clientTransport']
       >
     }
   );
 
+  type MethodPing = ReturnType<typeof methodStore.getState>['ping'];
+  type ClientMethodPing = ReturnType<typeof clientMethodStore.getState>['ping'];
+
   expectTypeOf(objectStore.getState().count).toEqualTypeOf<number>();
-  expectTypeOf(methodStore.getState().ping).toEqualTypeOf<() => string>();
-  expectTypeOf(clientMethodStore.getState().ping).toEqualTypeOf<
-    () => Promise<string>
-  >();
+  expectTypeOf<MethodPing>().toEqualTypeOf<() => string>();
+  expectTypeOf<ClientMethodPing>().toEqualTypeOf<() => Promise<string>>();
   clientMethodStore.destroy();
 });
 
@@ -78,14 +79,15 @@ test('types async client methods with awaited return values', () => {
     };
   };
 
-  expectTypeOf<
-    StoreWithAsyncFunction<Counter>['getState'] extends () => infer State
-      ? State['load']
-      : never
-  >().toEqualTypeOf<() => Promise<number>>();
-  expectTypeOf<
-    StoreWithAsyncFunction<Counter, true>['getState'] extends () => infer State
-      ? State['nested']['load']
-      : never
-  >().toEqualTypeOf<() => Promise<string>>();
+  type AsyncCounterState = ReturnType<AsyncStore<Counter>['getState']>;
+  type AsyncCounterSlicesState = ReturnType<
+    AsyncStore<Counter, true>['getState']
+  >;
+
+  expectTypeOf<AsyncCounterState['load']>().toEqualTypeOf<
+    () => Promise<number>
+  >();
+  expectTypeOf<AsyncCounterSlicesState['nested']['load']>().toEqualTypeOf<
+    () => Promise<string>
+  >();
 });

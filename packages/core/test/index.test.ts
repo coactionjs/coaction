@@ -308,8 +308,8 @@ test('client mirror rejects direct apply while transport sync still works', asyn
         a: 99,
         b: 999
       },
-      setA() {}
-    });
+      setA(_a: number) {}
+    } as any);
   }).toThrow(
     'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.'
   );
@@ -319,7 +319,7 @@ test('client mirror rejects direct apply while transport sync still works', asyn
         a: 99,
         b: 999
       },
-      setA() {}
+      setA(_a: number) {}
     });
   }).toThrow(
     'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.'

@@ -1,7 +1,7 @@
 {
   "name": "mobx-base",
-  "private": true,
   "version": "0.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,11 +9,11 @@
     "preview": "vite preview",
     "host": "npx http-server -p 5173 dist"
   },
+  "dependencies": {
+    "mobx": "^6.13.2"
+  },
   "devDependencies": {
     "typescript": "^5.5.3",
     "vite": "^5.4.1"
-  },
-  "dependencies": {
-    "mobx": "^6.13.2"
   }
 }

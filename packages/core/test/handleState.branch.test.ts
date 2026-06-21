@@ -158,12 +158,12 @@ test('setState filters unsafe patch-hook output before apply and emit', () => {
 
 test('setState filters custom updater returned patches before emit', () => {
   const safePatch = {
-    op: 'replace',
+    op: 'replace' as const,
     path: ['count'],
     value: 2
   };
   const unsafePatch = {
-    op: 'replace',
+    op: 'replace' as const,
     path: ['prototype', 'polluted'],
     value: true
   };

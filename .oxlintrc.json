@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "env": {
+    "builtin": true,
+    "browser": true,
+    "node": true,
+    "vitest": true,
+    "worker": true
+  },
+  "plugins": [
+    "typescript",
+    "import",
+    "react",
+    "jsx-a11y",
+    "vitest",
+    "node",
+    "vue"
+  ],
+  "rules": {
+    "import/default": "off",
+    "vitest/no-conditional-expect": "off",
+    "vitest/no-conditional-tests": "off",
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/valid-expect": "off",
+    "vitest/valid-title": "off"
+  },
+  "overrides": [
+    {
+      "files": ["packages/**/test/**/*.ts"],
+      "rules": {
+        "no-unused-vars": "off",
+        "react/no-children-prop": "off",
+        "vitest/expect-expect": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/**",
+    ".pnpm-store/**",
+    ".turbo/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "packages/*/dist/**",
+    "packages/*/.turbo/**",
+    "examples/*/dist/**",
+    "examples/*/node_modules/**"
+  ]
+}

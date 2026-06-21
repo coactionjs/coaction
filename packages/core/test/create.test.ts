@@ -498,8 +498,9 @@ describe('State Management Store Tests', () => {
 
   test('preserves sparse arrays and enumerable array properties', () => {
     const tag = Symbol('array-tag');
+    type SparseArray = any[] & Record<PropertyKey, any>;
     const makeList = (label: string, includeUndefined: boolean) => {
-      const list = [] as any[];
+      const list = [] as SparseArray;
       list.length = 2;
       if (includeUndefined) {
         list[0] = undefined;
@@ -518,7 +519,7 @@ describe('State Management Store Tests', () => {
       }
     }));
 
-    const initialList = useStore.getPureState().list as any[];
+    const initialList = useStore.getPureState().list as SparseArray;
     expect(initialList.length).toBe(2);
     expect(Object.prototype.hasOwnProperty.call(initialList, 0)).toBe(false);
     expect(initialList[1]).toBe('initial');
@@ -526,7 +527,7 @@ describe('State Management Store Tests', () => {
     expect(initialList[tag]).toBe('initial');
 
     useStore.getState().replaceList();
-    const nextList = useStore.getPureState().list as any[];
+    const nextList = useStore.getPureState().list as SparseArray;
     expect(nextList.length).toBe(2);
     expect(Object.prototype.hasOwnProperty.call(nextList, 0)).toBe(true);
     expect(nextList[0]).toBeUndefined();

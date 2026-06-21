@@ -163,7 +163,7 @@ test('manual get dependencies distinguish sparse holes from undefined', () => {
     list: makeList(false),
     dependencyVersion: get(
       (state) => state.list,
-      () => {
+      (..._deps: (string | undefined)[]) => {
         selectorCalls += 1;
         return selectorCalls;
       }

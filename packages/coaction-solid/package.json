@@ -3,18 +3,29 @@
   "version": "2.0.0",
   "description": "A Coaction integration tool for Solid",
   "keywords": [
-    "state",
     "coaction",
+    "signals",
     "solid",
-    "signals"
-  ],
-  "authors": [
-    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+    "state"
   ],
   "homepage": "https://github.com/coactionjs/coaction/tree/main/packages/coaction-solid#readme",
+  "bugs": {
+    "url": "https://github.com/coactionjs/coaction/issues"
+  },
   "license": "MIT",
+  "author": "unadlib",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coactionjs/coaction.git",
+    "directory": "packages/coaction-solid"
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -24,36 +35,25 @@
     },
     "./package.json": "./package.json"
   },
-  "types": "dist/index.d.ts",
-  "sideEffects": false,
-  "files": [
-    "dist"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coactionjs/coaction.git",
-    "directory": "packages/coaction-solid"
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "clean": "rm -rf dist",
     "test": "vitest run test",
-    "build": "tsup index.ts --format cjs,esm --dts --clean --out-dir dist",
-    "dev": "tsup index.ts --format cjs,esm --dts --watch --out-dir dist"
-  },
-  "bugs": {
-    "url": "https://github.com/coactionjs/coaction/issues"
-  },
-  "peerDependencies": {
-    "coaction": "^2.0.0",
-    "solid-js": "^1.8.0"
+    "build": "node ../../scripts/build-package.mjs",
+    "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "devDependencies": {
     "coaction": "workspace:*",
     "solid-js": "^1.9.10"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
+  "peerDependencies": {
+    "coaction": "^2.0.0",
+    "solid-js": "^1.8.0"
   },
-  "author": "unadlib"
+  "authors": [
+    "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"
+  ]
 }

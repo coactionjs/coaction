@@ -243,7 +243,7 @@ export type HistoryOptions<T extends object> = {
   partialize?: (state: T) => object;
 };
 
-export type HistoryApi<T extends object> = {
+export type HistoryApi<_T extends object> = {
   undo: () => boolean;
   redo: () => boolean;
   clear: () => void;
