@@ -88,6 +88,11 @@ export const persist =
     onRehydrateStorage
   }: PersistOptions<T>): Middleware<T> =>
   (store: Store<T>) => {
+    if (store.share === 'client') {
+      throw new Error(
+        'persist() is not supported in client store mode. Apply persist() to the main shared store instead.'
+      );
+    }
     const persistedStorage = storage ?? createNoopStorage();
     let hasHydrated = false;
     let isHydrating = false;

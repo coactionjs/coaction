@@ -110,6 +110,32 @@ test('persist and rehydrate', async () => {
   expect(rehydratedStore.getState().count).toBe(1);
 });
 
+test('throws when used with a client store mirror', () => {
+  const transport = createTransportPair();
+  const createCounter = () => ({
+    count: 0
+  });
+  const createClientStore = (skipHydration = false) =>
+    create(createCounter, {
+      name: 'persist-client-mirror',
+      clientTransport: transport.client as any,
+      middlewares: [
+        persist({
+          name: 'persist-client-mirror',
+          storage: createMemoryStorage(),
+          skipHydration
+        })
+      ]
+    });
+
+  expect(() => createClientStore()).toThrow(
+    'persist() is not supported in client store mode. Apply persist() to the main shared store instead.'
+  );
+  expect(() => createClientStore(true)).toThrow(
+    'persist() is not supported in client store mode. Apply persist() to the main shared store instead.'
+  );
+});
+
 test('persists mutable adapter updates from final store subscription', async () => {
   const writes: Array<{ state: { count: number } }> = [];
   const storage: PersistStorage = {
