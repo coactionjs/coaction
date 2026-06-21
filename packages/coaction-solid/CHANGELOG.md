@@ -4,11 +4,18 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Solid binding for Coaction 2.0's signal-backed core and creator
+  typing model.
+- Reworked auto-selectors so nested plain objects can be traversed without
+  hiding framework calls in property getters.
 
 ### Patch Changes
 
+- Treated non-plain objects and arrays as auto-selector leaves.
+- Included symbol keys and ignored non-enumerable keys when generating
+  auto-selectors.
+- Updated creator typings for object single-store creators and symbol-keyed
+  slices inherited from the core.
 - Updated dependencies
   - coaction@2.0.0
 

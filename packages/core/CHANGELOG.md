@@ -4,8 +4,34 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Rebuilt computed state on top of `alien-signals`, including cached getters,
+  dependency-aware invalidation, exported signal primitives, and reactive
+  tracking utilities for framework bindings.
+- Added the formal external store adapter API through
+  `defineExternalStoreAdapter()` and the compatibility `createBinder()` alias,
+  with lifecycle-ready hooks and helper utilities for exact external-store
+  replacement.
+- Tightened shared-store semantics for 2.0 by requiring JSON-serializable shared
+  state, rejecting symbol/unsafe execute paths, validating `fullSync` payloads,
+  and preventing client mirrors from mutating through `apply()` or adapter
+  bypasses.
+- Expanded state-shape support for local stores, including symbol-keyed slices,
+  symbol-keyed actions, circular references, sparse arrays, non-enumerable raw
+  descriptors, and object single-store creators.
+
+### Patch Changes
+
+- Hardened patch handling by sanitizing custom updater patches, patch-hook
+  output, low-level `apply()` state, client `fullSync` state, and nested
+  enumerable merges.
+- Preserved cycles, sparse arrays, and hidden descriptors while copying,
+  initializing, replacing, and reading state.
+- Improved async client behavior by awaiting async method return types,
+  validating sequence catch-up/full-sync fallbacks, and guarding SharedWorker
+  client detection.
+- Ensured middleware can observe external store updates consistently while
+  keeping adapter markers hidden unless they must remain copyable for keyed
+  adapters.
 
 ## 1.5.0
 

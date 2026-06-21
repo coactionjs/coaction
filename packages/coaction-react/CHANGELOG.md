@@ -4,11 +4,25 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Added `observer()` and `<Observer>` for automatic render dependency tracking
+  without explicit selectors.
+- Rebuilt React selector subscriptions on Coaction 2.0's signal-backed computed
+  state so selector results are cached per subscription and only notify when
+  their selected value changes.
+- Added versioned multi-store selector snapshots for `createSelector()` so
+  selectors spanning multiple stores do not reuse stale snapshots.
 
 ### Patch Changes
 
+- Cached selector snapshots that return objects and isolated selector
+  subscription state across concurrent subscribers.
+- Synchronized observer tracker snapshots and refreshed mutable adapter object
+  reads for MobX, Pinia, and Valtio-backed stores.
+- Treated non-plain objects and arrays as auto-selector leaves, recursed through
+  plain object auto-selectors, included symbol keys, and ignored
+  non-enumerable keys.
+- Updated creator typings for object single-store creators and async client
+  method returns.
 - Updated dependencies
   - coaction@2.0.0
 

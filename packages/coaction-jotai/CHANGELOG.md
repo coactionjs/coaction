@@ -4,11 +4,18 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Jotai adapter for Coaction 2.0's formal external store adapter
+  contract.
+- Hardened atom synchronization across local and shared stores so Coaction and
+  Jotai subscribers observe the same state transitions.
 
 ### Patch Changes
 
+- Notified Coaction subscribers after atom syncs initiated from Coaction.
+- Preserved safe property keys during atom-state copying while continuing to
+  filter unsafe keys.
+- Guarded shared client atom writes and restored client mirrors after rejected
+  external writes.
 - Updated dependencies
   - coaction@2.0.0
 

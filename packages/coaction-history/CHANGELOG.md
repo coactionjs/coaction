@@ -4,11 +4,19 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the history middleware for Coaction 2.0's stricter middleware and
+  shared-store contracts.
+- Hardened history snapshots so undo/redo can safely preserve sparse arrays,
+  symbol keys, cyclic graphs, non-record values, and nested partial siblings.
 
 ### Patch Changes
 
+- Rejected usage on client mirror stores, where local undo/redo would diverge
+  from the authoritative main store.
+- Ignored unsafe snapshot keys and cloned exposed snapshots to avoid accidental
+  mutation or prototype-pollution paths.
+- Suppressed initial persistence and Yjs hydration from the undo/redo stack so
+  restored remote state does not appear as a user action.
 - Updated dependencies
   - coaction@2.0.0
 

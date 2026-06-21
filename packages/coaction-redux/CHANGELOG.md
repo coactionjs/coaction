@@ -4,11 +4,19 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Redux adapter for Coaction 2.0's formal external store adapter
+  contract.
+- Reworked replacement dispatch handling so Redux state and Coaction state stay
+  synchronized during Coaction-initiated and Redux-initiated replacements.
 
 ### Patch Changes
 
+- Notified Coaction subscribers after replacement dispatches initiated by
+  Coaction.
+- Preserved circular replace payloads, symbol keys, array properties, and
+  non-record snapshot values where Redux state allows them.
+- Sanitized unsafe replacement keys and avoided leaking binder symbol markers
+  into Redux state.
 - Updated dependencies
   - coaction@2.0.0
 

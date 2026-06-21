@@ -4,11 +4,17 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the XState adapter for Coaction 2.0's formal external store adapter
+  contract.
+- Made XState actor context the authoritative mutation path by blocking direct
+  Coaction mutations and middleware bypasses.
 
 ### Patch Changes
 
+- Subscribed to the actor after Coaction store initialization.
+- Ignored client actor writes and rejected unsupported client-side mutations.
+- Sanitized unsafe initial context keys and exact snapshot replacements.
+- Made adapter destroy handling idempotent.
 - Updated dependencies
   - coaction@2.0.0
 

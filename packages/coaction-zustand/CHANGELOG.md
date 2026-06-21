@@ -4,11 +4,21 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Zustand adapter for Coaction 2.0's formal external store adapter
+  contract and signal-backed notification model.
+- Reworked shared replacement and external-write synchronization so Zustand
+  source stores, Coaction raw state, and public state remain aligned.
 
 ### Patch Changes
 
+- Synced shared replace updates back to the source Zustand store and published
+  shared main external writes through Coaction.
+- Honored Zustand initializer `replace` semantics and supported initializer
+  `set`/`get` fallbacks before the Coaction store is bound.
+- Restored shared client state after rejected external writes.
+- Refreshed Coaction signals after external Zustand writes and made
+  adapter-installed destroy wrappers idempotent.
+- Declared the required Zustand peer dependency for runtime integrations.
 - Updated dependencies
   - coaction@2.0.0
 

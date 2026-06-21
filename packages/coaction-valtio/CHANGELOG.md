@@ -4,11 +4,21 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Valtio adapter for Coaction 2.0's formal external store adapter
+  API and signal-backed notification model.
+- Reworked mutable replacement and shared-store synchronization so Valtio proxy
+  state, Coaction raw state, and public state are replaced exactly.
 
 ### Patch Changes
 
+- Preserved sparse arrays, circular references, and non-record snapshot values
+  during snapshots and replacements.
+- Sanitized unsafe initial and replacement keys while preserving valid symbol
+  and array metadata.
+- Restored shared client state after rejected external writes and published
+  shared main external writes through Coaction.
+- Made adapter-installed destroy wrappers idempotent and refreshed Coaction
+  signals after external mutable updates.
 - Updated dependencies
   - coaction@2.0.0
 

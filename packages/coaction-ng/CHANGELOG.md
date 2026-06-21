@@ -4,11 +4,16 @@
 
 ### Major Changes
 
-- Release Coaction 2.0 with alien-signals-backed computed state, React selector
-  reactivity, and a formal external store adapter API.
+- Updated the Angular binding for Coaction 2.0's signal-backed core.
+- Kept the `state` and `select()` signal APIs stable while aligning their
+  invalidation behavior with Coaction's 2.0 versioned state updates.
 
 ### Patch Changes
 
+- Notified consumers of stable object signals when the underlying Coaction state
+  changes.
+- Updated creator typings for object single-store creators and symbol-keyed
+  slices inherited from the core.
 - Updated dependencies
   - coaction@2.0.0
 
