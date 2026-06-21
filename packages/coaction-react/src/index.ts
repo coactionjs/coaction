@@ -43,6 +43,7 @@ type TrackedRender = {
 
 let observerRenderDepth = 0;
 const observerUncommittedCleanupMs = 10_000;
+const reactStoreVersionSymbol = Symbol.for('coaction.react.storeVersion');
 
 const isObserverRendering = () => observerRenderDepth > 0;
 
@@ -568,6 +569,9 @@ export const create: Creator = (createState: any, options: any) => {
     );
     return store.getState();
   }) as StoreReturn<any>;
+  Object.defineProperty(useStore, reactStoreVersionSymbol, {
+    value: () => fullStateVersion
+  });
   useStore.auto = getAutoSelectors;
   return useStore;
 };
@@ -582,6 +586,17 @@ interface CreateSelector {
   ): <P>(selector: (...args: ExtractState<T>) => P) => P;
 }
 
+const areVersionsEqual = (left: number[], right: number[]) =>
+  left.length === right.length &&
+  left.every((value, index) => Object.is(value, right[index]));
+
+const readReactStoreVersion = (store: StoreReturn<any>) => {
+  const getVersion = (store as any)[reactStoreVersionSymbol];
+  return typeof getVersion === 'function'
+    ? (getVersion() as number)
+    : undefined;
+};
+
 /**
  * create selector for multiple stores
  */
@@ -589,15 +604,30 @@ export const createSelector: CreateSelector = (
   ...stores: StoreReturn<any>[]
 ) => {
   return (selector: (...args: any[]) => any) => {
+    const fallbackVersions = stores.map(() => 0);
+    const readStoreVersion = (store: StoreReturn<any>, index: number) =>
+      readReactStoreVersion(store) ?? fallbackVersions[index];
+    const readVersions = () => stores.map(readStoreVersion);
     const readSelected = (readStore: (store: StoreReturn<any>) => unknown) =>
       selector.apply(
         null,
         stores.map((store) => readStore(store))
       );
+    let currentVersions = readVersions();
     let currentValue = readSelected((store) => store.getState());
     const serverValue = readSelected((store) => store.getInitialState());
+    const readSnapshot = () => {
+      const nextVersions = readVersions();
+      if (!areVersionsEqual(currentVersions, nextVersions)) {
+        currentVersions = nextVersions;
+        currentValue = readSelected((store) => store.getState());
+      }
+      return currentValue;
+    };
     const notifyIfChanged = (listener: () => void) => {
+      const nextVersions = readVersions();
       const nextValue = readSelected((store) => store.getState());
+      currentVersions = nextVersions;
       if (!Object.is(currentValue, nextValue)) {
         currentValue = nextValue;
         listener();
@@ -605,14 +635,17 @@ export const createSelector: CreateSelector = (
     };
     return useSyncExternalStore(
       (callback) => {
-        const callbacks = stores.map((store) =>
+        const callbacks = stores.map((store, index) =>
           store.subscribe(() => {
+            if (typeof readReactStoreVersion(store) === 'undefined') {
+              fallbackVersions[index] += 1;
+            }
             notifyIfChanged(callback);
           })
         );
         return () => callbacks.forEach((cb) => cb());
       },
-      () => currentValue,
+      readSnapshot,
       () => serverValue
     );
   };

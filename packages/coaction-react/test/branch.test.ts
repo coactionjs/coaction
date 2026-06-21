@@ -43,6 +43,51 @@ test('uses getInitialState as fallback snapshot for selector and multi-selector'
   expect(typeof useSyncExternalStore.mock.calls[2][2]).toBe('function');
 });
 
+test('multi-store selector detects updates before subscription commits', async () => {
+  vi.resetModules();
+  const storeRef: { useCounter?: any } = {};
+  let didUpdateBeforeSubscribe = false;
+  const snapshots: unknown[] = [];
+  const useSyncExternalStore = vi.fn(
+    (
+      subscribe: (listener: () => void) => () => void,
+      getSnapshot: () => unknown
+    ) => {
+      snapshots.push(getSnapshot());
+      if (!didUpdateBeforeSubscribe) {
+        didUpdateBeforeSubscribe = true;
+        storeRef.useCounter!.getState().increment();
+      }
+      const unsubscribe = subscribe(() => undefined);
+      snapshots.push(getSnapshot());
+      unsubscribe();
+      return snapshots[snapshots.length - 1];
+    }
+  );
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore
+  }));
+
+  const { create, createSelector } = await import('../src');
+  storeRef.useCounter = create((set) => ({
+    count: 0,
+    increment() {
+      set((draft) => {
+        draft.count += 1;
+      });
+    }
+  }));
+  const useStep = create(() => ({
+    step: 2
+  }));
+  const selectTotal = createSelector(storeRef.useCounter, useStep);
+
+  const total = selectTotal((counter, step) => counter.count + step.step);
+
+  expect(total).toBe(3);
+  expect(snapshots).toEqual([2, 3]);
+});
+
 test('autoSelector in slices mode ignores non-object slice values', async () => {
   vi.resetModules();
   const useSyncExternalStore = vi.fn(
