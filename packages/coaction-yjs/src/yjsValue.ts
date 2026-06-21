@@ -28,6 +28,9 @@ export function toPlainValue(value: unknown): unknown {
   if (value instanceof Y.Array) {
     return toPlainArray(value);
   }
+  if (value instanceof Y.AbstractType) {
+    return toPlainValue(value.toJSON());
+  }
   if (Array.isArray(value) || isPlainObject(value)) {
     return sanitizePlainValue(value);
   }

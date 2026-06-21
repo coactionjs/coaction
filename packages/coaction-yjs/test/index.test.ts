@@ -351,6 +351,115 @@ test('hydrates existing yjs state as an exact replacement', () => {
   binding.destroy();
 });
 
+test('rejects existing yjs non-plain snapshot and restores local state', () => {
+  const doc = new Y.Doc();
+  const map = doc.getMap<any>('counter');
+  const state = new Y.Map<any>();
+  const nested = new Y.Map<any>();
+  nested.set('stamp', new Date('2024-02-01T00:00:00.000Z'));
+  state.set('nested', nested);
+  map.set('state', state);
+  const store = create(() => ({
+    count: 0,
+    nested: {
+      stamp: null as Date | null
+    }
+  }));
+
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+
+  expect(store.getState().nested.stamp).toBeNull();
+  expect(readState(doc, 'counter')).toEqual({
+    count: 0,
+    nested: {
+      stamp: null
+    }
+  });
+  binding.destroy();
+});
+
+test('rejects remote yjs non-plain map value and keeps binding usable', async () => {
+  const doc = new Y.Doc();
+  const store = create(() => ({
+    count: 0,
+    stamp: null as Date | null
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  let state = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+
+  doc.transact(() => {
+    state.set('stamp', new Date('2024-01-01T00:00:00.000Z'));
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().stamp).toBeNull();
+    expect(readState(doc, 'counter')).toEqual({
+      count: 0,
+      stamp: null
+    });
+  });
+
+  state = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+  doc.transact(() => {
+    state.set('count', 2);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBe(2);
+  });
+  expect(readState(doc, 'counter')).toEqual({
+    count: 2,
+    stamp: null
+  });
+  binding.destroy();
+});
+
+test('rejects remote yjs non-plain array value and restores yjs state', async () => {
+  const doc = new Y.Doc();
+  const store = create(() => ({
+    items: [
+      {
+        stamp: null as Date | null
+      }
+    ]
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const state = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+  const items = state.get('items') as Y.Array<any>;
+  const invalidItem = new Y.Map<any>();
+  invalidItem.set('stamp', new Date('2024-01-01T00:00:00.000Z'));
+
+  doc.transact(() => {
+    items.delete(0, 1);
+    items.insert(0, [invalidItem]);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().items).toEqual([
+      {
+        stamp: null
+      }
+    ]);
+    expect(readState(doc, 'counter')).toEqual({
+      items: [
+        {
+          stamp: null
+        }
+      ]
+    });
+  });
+  binding.destroy();
+});
+
 test('works as middleware', () => {
   const doc = new Y.Doc();
   const store = create(

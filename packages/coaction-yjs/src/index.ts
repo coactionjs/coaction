@@ -58,6 +58,13 @@ type YjsStateViolation =
       path: PropertyKey[];
     };
 
+class YjsSerializableStateError extends Error {}
+
+const isYjsSerializableStateError = (
+  error: unknown
+): error is YjsSerializableStateError =>
+  error instanceof YjsSerializableStateError;
+
 const isArrayIndexKey = (key: string, length: number) => {
   if (key === '') {
     return false;
@@ -160,24 +167,35 @@ const findYjsStateViolation = (
   return undefined;
 };
 
-const assertYjsSerializableState = (state: unknown) => {
-  const violation = findYjsStateViolation(state);
+const assertYjsSerializableState = (
+  state: unknown,
+  path: PropertyKey[] = []
+) => {
+  const violation = findYjsStateViolation(state, path);
   if (!violation) {
     return;
   }
   if (violation.type === 'symbol-key') {
-    throw new Error(
+    throw new YjsSerializableStateError(
       `Yjs binding does not support symbol-keyed state because Y.Map keys are strings. Found symbol key at ${formatPropertyPath(violation.path)}.`
     );
   }
   if (violation.type === 'symbol-value') {
-    throw new Error(
+    throw new YjsSerializableStateError(
       `Yjs binding does not support symbol-valued state because symbols cannot be cloned into Yjs documents. Found symbol value at ${formatPropertyPath(violation.path)}.`
     );
   }
-  throw new Error(
+  throw new YjsSerializableStateError(
     `Yjs binding does not support ${violation.type} state because only plain objects, arrays, and primitive values round-trip through Yjs updates. Found unsupported value at ${formatPropertyPath(violation.path)}.`
   );
+};
+
+const assertRemoteOperationsSerializable = (operations: RemoteOperation[]) => {
+  for (const operation of operations) {
+    if (operation.type === 'set') {
+      assertYjsSerializableState(operation.value, operation.path);
+    }
+  }
 };
 
 const createRootReplacementPatches = (
@@ -302,6 +320,7 @@ export const bindYjs = <T extends object>(
   };
 
   const applyRemoteState = (state: Record<string, unknown>) => {
+    assertYjsSerializableState(state);
     const next = sanitizePlainValue(state);
     syncingFromYjs = true;
     try {
@@ -344,6 +363,7 @@ export const bindYjs = <T extends object>(
     if (operations.length === 0) {
       return;
     }
+    assertRemoteOperationsSerializable(operations);
     syncingFromYjs = true;
     try {
       store.setState((draft) => {
@@ -396,6 +416,10 @@ export const bindYjs = <T extends object>(
           setTimeout(scheduleFlushFromYjs, 0);
           return;
         }
+        if (isYjsSerializableStateError(error)) {
+          restoreRootState();
+          return;
+        }
         throw error;
       }
     }
@@ -410,6 +434,10 @@ export const bindYjs = <T extends object>(
       if (isSetStateReentryError(error)) {
         pendingOperations = [...operations, ...pendingOperations];
         setTimeout(scheduleFlushFromYjs, 0);
+        return;
+      }
+      if (isYjsSerializableStateError(error)) {
+        restoreRootState();
         return;
       }
       throw error;
@@ -463,13 +491,22 @@ export const bindYjs = <T extends object>(
   };
 
   let stateMap!: Y.Map<unknown>;
-  const observeStateMap = (nextStateMap: Y.Map<unknown>) => {
-    if (stateMap === nextStateMap) {
+  let stateMapObserved = false;
+  const unobserveStateMap = () => {
+    if (!stateMapObserved) {
       return;
     }
     stateMap.unobserveDeep(stateObserver);
+    stateMapObserved = false;
+  };
+  const observeStateMap = (nextStateMap: Y.Map<unknown>) => {
+    if (stateMap === nextStateMap && stateMapObserved) {
+      return;
+    }
+    unobserveStateMap();
     stateMap = nextStateMap;
     stateMap.observeDeep(stateObserver);
+    stateMapObserved = true;
   };
   const migrateRootState = (nextState: Record<string, unknown>) => {
     const migrated = createYMap(nextState);
@@ -489,10 +526,21 @@ export const bindYjs = <T extends object>(
     observeStateMap(restored);
     lastSyncedState = nextState;
   };
+  const applyInitialRemoteState = (state: Record<string, unknown>) => {
+    try {
+      applyRemoteState(state);
+    } catch (error) {
+      if (isYjsSerializableStateError(error)) {
+        restoreRootState();
+        return;
+      }
+      throw error;
+    }
+  };
   const existingStateMap = getStateMap();
   if (existingStateMap) {
     stateMap = existingStateMap;
-    applyRemoteState(toPlainObject(stateMap));
+    applyInitialRemoteState(toPlainObject(stateMap));
   } else {
     const currentState = map.get(STATE_KEY);
     if (isPlainObject(currentState)) {
@@ -500,7 +548,7 @@ export const bindYjs = <T extends object>(
       doc.transact(() => {
         map.set(STATE_KEY, stateMap);
       }, localOrigin);
-      applyRemoteState(currentState);
+      applyInitialRemoteState(currentState);
     } else {
       const pureState = clone(store.getPureState());
       stateMap = createYMap(isPlainObject(pureState) ? pureState : {});
@@ -509,7 +557,7 @@ export const bindYjs = <T extends object>(
       }, localOrigin);
     }
   }
-  stateMap.observeDeep(stateObserver);
+  observeStateMap(stateMap);
 
   const observer = (event: Y.YMapEvent<any>) => {
     if (event.transaction.origin === localOrigin) {
@@ -553,7 +601,7 @@ export const bindYjs = <T extends object>(
       destroyed = true;
       unsubscribe();
       map.unobserve(observer);
-      stateMap.unobserveDeep(stateObserver);
+      unobserveStateMap();
       if (!options.doc) {
         doc.destroy();
       }
