@@ -87,8 +87,17 @@ test('base', () => {
       count: 100
     })
   ).toThrow(
-    'setState is not supported with xstate binding. Please use actor events.'
+    'XState binding state cannot be mutated directly. Please use actor events.'
   );
+  expect(() =>
+    useStore.apply({
+      count: 100
+    } as any)
+  ).toThrow(
+    'XState binding state cannot be mutated directly. Please use actor events.'
+  );
+  expect(useStore.getState().count).toBe(2);
+  expect(actor.getSnapshot().context.count).toBe(2);
 });
 
 test('shared client ignores direct local actor updates', async () => {

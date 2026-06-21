@@ -39,6 +39,9 @@ const assignContext = (
   }
 };
 
+const unsupportedMutationMessage =
+  'XState binding state cannot be mutated directly. Please use actor events.';
+
 /**
  * Bind an XState actor to Coaction.
  */
@@ -57,21 +60,31 @@ export const bindXState = createBinder<
       throw new Error('xstate actor is not found');
     }
     store.setState = () => {
-      throw new Error(
-        'setState is not supported with xstate binding. Please use actor events.'
-      );
+      throw new Error(unsupportedMutationMessage);
     };
     if (store.share === 'client') {
       return;
     }
+    const baseApply = store.apply.bind(store);
+    let isApplyingActorSnapshot = false;
+    store.apply = (state, patches) => {
+      if (!isApplyingActorSnapshot) {
+        throw new Error(unsupportedMutationMessage);
+      }
+      return baseApply(state, patches);
+    };
+    const applyActorSnapshot = (context: Record<PropertyKey, unknown>) => {
+      isApplyingActorSnapshot = true;
+      try {
+        replaceExternalStoreState(store, internal, context);
+      } finally {
+        isApplyingActorSnapshot = false;
+      }
+    };
     let subscription: { unsubscribe: () => void } | undefined;
     const cancelReadySubscription = onStoreReady(store, () => {
       subscription = actor.subscribe((snapshot) => {
-        replaceExternalStoreState(
-          store,
-          internal,
-          snapshot.context as Record<PropertyKey, unknown>
-        );
+        applyActorSnapshot(snapshot.context as Record<PropertyKey, unknown>);
       });
     });
     const baseDestroy = store.destroy;

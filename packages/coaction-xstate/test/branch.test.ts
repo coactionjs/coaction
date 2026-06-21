@@ -85,6 +85,7 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
   const internal = {};
   const store: any = {
     setState: vi.fn(),
+    apply: vi.fn(),
     destroy: baseDestroy
   };
   capturedHandleStore(store as any, rawState, copyState, internal);
@@ -101,7 +102,14 @@ test('supports actor-driven updates and unsubscribes on destroy', async () => {
       count: 2
     })
   ).toThrow(
-    'setState is not supported with xstate binding. Please use actor events.'
+    'XState binding state cannot be mutated directly. Please use actor events.'
+  );
+  expect(() =>
+    store.apply({
+      count: 2
+    })
+  ).toThrow(
+    'XState binding state cannot be mutated directly. Please use actor events.'
   );
   store.destroy();
   expect(cancelReadySubscription).toHaveBeenCalledTimes(1);
@@ -133,6 +141,7 @@ test('destroy unsubscribes actor only once', async () => {
   const baseDestroy = vi.fn();
   const store: any = {
     setState: vi.fn(),
+    apply: vi.fn(),
     destroy: baseDestroy
   };
 
