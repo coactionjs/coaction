@@ -46,7 +46,7 @@
     "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "devDependencies": {
-    "@angular/core": "^21.2.4",
+    "@angular/core": "^22.0.2",
     "coaction": "workspace:*"
   },
   "peerDependencies": {
