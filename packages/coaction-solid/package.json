@@ -47,7 +47,7 @@
   },
   "devDependencies": {
     "coaction": "workspace:*",
-    "solid-js": "^1.9.10"
+    "solid-js": "^1.9.13"
   },
   "peerDependencies": {
     "coaction": "^2.0.0",
