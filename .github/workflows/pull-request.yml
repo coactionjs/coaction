@@ -35,9 +35,16 @@ jobs:
         with:
           lcov-file: ./coverage/lcov.info
   browser-e2e:
-    name: Browser E2E
+    name: Browser E2E (${{ matrix.browser }})
     if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser:
+          - chromium
+          - firefox
+          - webkit
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -48,7 +55,7 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run browser E2E
-        run: pnpm test:e2e:browser
+        run: pnpm exec playwright test -c playwright.config.ts --project=${{ matrix.browser }}
