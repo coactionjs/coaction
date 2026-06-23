@@ -479,6 +479,14 @@ Yes. State synchronization between multiple tabs is supported via `data-transpor
 
 ## Contributing
 
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports should follow
+[SECURITY.md](./SECURITY.md), and participation is covered by
+[CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+
+Pull request CI is intentionally maintainer-gated: a maintainer adds the
+`run-ci` label when a PR is ready for CI. After that label is present, later
+pushes to the same PR continue to run the PR workflow.
+
 <details>
 <summary><b>Maintainer Guide</b></summary>
 
