@@ -1,4 +1,10 @@
-on: ['pull_request']
+on:
+  pull_request:
+    types:
+      - labeled
+      - reopened
+      - synchronize
+      - ready_for_review
 
 name: Test Coverage
 permissions:
@@ -7,6 +13,7 @@ permissions:
 jobs:
   build:
     name: Build
+    if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +36,7 @@ jobs:
           lcov-file: ./coverage/lcov.info
   browser-e2e:
     name: Browser E2E
+    if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

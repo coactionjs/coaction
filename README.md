@@ -23,11 +23,7 @@ Modern web applications are becoming increasingly complex, pushing the boundarie
 
 While Web Workers (and SharedWorker) offer a path towards parallelism, they introduce challenges around state management, data synchronization, and maintaining coherent application logic across threads.
 
-<div align="center">
-<br/>
-<img src="./coaction-concept.svg" alt="Coaction Concept" width="680" />
-<br/><br/>
-</div>
+<img src="./coaction-concept.svg" alt="Coaction Concept" />
 
 **Coaction was created to bridge this gap** — a state management solution that truly embraces the multithreading nature of modern web applications, without sacrificing developer experience.
 
