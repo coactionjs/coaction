@@ -45,7 +45,7 @@
   },
   "devDependencies": {
     "@actions/exec": "^3.0.0",
-    "@babel/core": "^7.29.0",
+    "@babel/core": "^8.0.1",
     "@babel/plugin-transform-class-properties": "^7.27.1",
     "@babel/preset-env": "^7.29.0",
     "@babel/preset-react": "^7.28.5",
