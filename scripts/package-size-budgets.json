@@ -1,0 +1,53 @@
+{
+  "@coaction/history": {
+    "maxGzipBytes": 3500
+  },
+  "@coaction/jotai": {
+    "maxGzipBytes": 1800
+  },
+  "@coaction/logger": {
+    "maxGzipBytes": 2200
+  },
+  "@coaction/mobx": {
+    "maxGzipBytes": 3500
+  },
+  "@coaction/ng": {
+    "maxGzipBytes": 1200
+  },
+  "@coaction/persist": {
+    "maxGzipBytes": 2500
+  },
+  "@coaction/pinia": {
+    "maxGzipBytes": 3500
+  },
+  "@coaction/react": {
+    "maxGzipBytes": 5000
+  },
+  "@coaction/redux": {
+    "maxGzipBytes": 2200
+  },
+  "@coaction/solid": {
+    "maxGzipBytes": 1800
+  },
+  "@coaction/svelte": {
+    "maxGzipBytes": 1200
+  },
+  "@coaction/valtio": {
+    "maxGzipBytes": 3500
+  },
+  "@coaction/vue": {
+    "maxGzipBytes": 1800
+  },
+  "@coaction/xstate": {
+    "maxGzipBytes": 1800
+  },
+  "@coaction/yjs": {
+    "maxGzipBytes": 8000
+  },
+  "@coaction/zustand": {
+    "maxGzipBytes": 1800
+  },
+  "coaction": {
+    "maxGzipBytes": 16000
+  }
+}

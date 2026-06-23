@@ -24,6 +24,8 @@ jobs:
           pnpm lint
           pnpm typecheck
           pnpm build
+          pnpm package:quality
+          pnpm package:size
           pnpm test:coverage
       - name: Coveralls
         uses: coverallsapp/github-action@master

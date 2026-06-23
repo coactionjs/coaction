@@ -29,6 +29,8 @@ jobs:
           pnpm lint
           pnpm typecheck
           pnpm build
+          pnpm package:quality
+          pnpm package:size
           pnpm test:coverage
       - name: Coverage
         uses: romeovs/lcov-reporter-action@v0.4.0

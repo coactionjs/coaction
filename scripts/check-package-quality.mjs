@@ -1,0 +1,72 @@
+#!/usr/bin/env node
+
+import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const rootDir = resolve(scriptDir, '..');
+const packagesDir = join(rootDir, 'packages');
+const pnpmBin = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+
+const readPackages = () =>
+  readdirSync(packagesDir)
+    .map((dir) => join(packagesDir, dir, 'package.json'))
+    .filter(existsSync)
+    .map((packageJsonPath) => {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+
+      return {
+        dir: dirname(packageJsonPath),
+        json: packageJson
+      };
+    })
+    .filter(({ json }) => !json.private)
+    .sort((a, b) => a.json.name.localeCompare(b.json.name));
+
+const run = (label, args) => {
+  console.log(`\n== ${label} ==`);
+
+  const result = spawnSync(pnpmBin, args, {
+    cwd: rootDir,
+    stdio: 'inherit'
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+};
+
+for (const { dir, json } of readPackages()) {
+  const relativeDir = relative(rootDir, dir);
+
+  run(`${json.name}: publint`, [
+    'exec',
+    'publint',
+    'run',
+    relativeDir,
+    '--strict',
+    '--level',
+    'warning',
+    '--pack',
+    'pnpm'
+  ]);
+
+  run(`${json.name}: attw`, [
+    'exec',
+    'attw',
+    '--pack',
+    relativeDir,
+    '--format',
+    'table',
+    '--no-emoji',
+    '--no-color'
+  ]);
+}
+
+console.log('\nPackage quality checks passed.');
