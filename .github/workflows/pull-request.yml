@@ -61,3 +61,52 @@ jobs:
         run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run browser E2E
         run: pnpm exec playwright test -c playwright.config.ts --project=${{ matrix.browser }}
+  benchmark:
+    name: Benchmark Report
+    if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
+      - name: Run benchmarks
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          {
+            echo "## pnpm benchmark"
+            pnpm benchmark
+            echo
+            echo "## pnpm benchmark:zustand-positioning"
+            pnpm benchmark:zustand-positioning
+          } 2>&1 | tee benchmark.txt
+      - name: Write benchmark summary
+        if: always()
+        run: |
+          {
+            echo "## Benchmark Report"
+            echo
+            echo "Informational only. This job does not block pull requests."
+            echo
+            echo '```text'
+            tail -n 200 benchmark.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: |
+            benchmark.txt
+            benchmark.jpg
+          if-no-files-found: ignore
