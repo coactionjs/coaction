@@ -390,26 +390,26 @@ Coaction is designed to work with a wide range of libraries and frameworks.
 
 ### Frameworks
 
-| Framework | Package                                              |
-| :-------- | :--------------------------------------------------- |
-| React     | `@coaction/react`                                    |
-| Vue       | `@coaction/vue`                                      |
-| Angular   | `@coaction/ng`                                       |
-| Svelte    | `@coaction/svelte`                                   |
-| Solid     | `@coaction/solid`                                    |
-| Yjs       | [`@coaction/yjs`](./packages/coaction-yjs/README.md) |
+| Framework | Package                                                    |
+| :-------- | :--------------------------------------------------------- |
+| React     | [`@coaction/react`](./packages/coaction-react/README.md)   |
+| Vue       | [`@coaction/vue`](./packages/coaction-vue/README.md)       |
+| Angular   | [`@coaction/ng`](./packages/coaction-ng/README.md)         |
+| Svelte    | [`@coaction/svelte`](./packages/coaction-svelte/README.md) |
+| Solid     | [`@coaction/solid`](./packages/coaction-solid/README.md)   |
+| Yjs       | [`@coaction/yjs`](./packages/coaction-yjs/README.md)       |
 
 ### State Management Libraries
 
-| Library       | Package             |
-| :------------ | :------------------ |
-| MobX          | `@coaction/mobx`    |
-| Pinia         | `@coaction/pinia`   |
-| Zustand       | `@coaction/zustand` |
-| Redux Toolkit | `@coaction/redux`   |
-| Jotai         | `@coaction/jotai`   |
-| XState        | `@coaction/xstate`  |
-| Valtio        | `@coaction/valtio`  |
+| Library       | Package                                                      |
+| :------------ | :----------------------------------------------------------- |
+| MobX          | [`@coaction/mobx`](./packages/coaction-mobx/README.md)       |
+| Pinia         | [`@coaction/pinia`](./packages/coaction-pinia/README.md)     |
+| Zustand       | [`@coaction/zustand`](./packages/coaction-zustand/README.md) |
+| Redux Toolkit | [`@coaction/redux`](./packages/coaction-redux/README.md)     |
+| Jotai         | [`@coaction/jotai`](./packages/coaction-jotai/README.md)     |
+| XState        | [`@coaction/xstate`](./packages/coaction-xstate/README.md)   |
+| Valtio        | [`@coaction/valtio`](./packages/coaction-valtio/README.md)   |
 
 > **Note:** Slices mode is a core `coaction` feature. Third-party state adapters only support whole-store binding.
 
@@ -419,11 +419,11 @@ keeping Coaction subscriptions and signal-backed selectors refreshed.
 
 ### Middlewares
 
-| Middleware | Package             |
-| :--------- | :------------------ |
-| Logger     | `@coaction/logger`  |
-| Persist    | `@coaction/persist` |
-| Undo/Redo  | `@coaction/history` |
+| Middleware | Package                                                      |
+| :--------- | :----------------------------------------------------------- |
+| Logger     | [`@coaction/logger`](./packages/coaction-logger/README.md)   |
+| Persist    | [`@coaction/persist`](./packages/coaction-persist/README.md) |
+| Undo/Redo  | [`@coaction/history`](./packages/coaction-history/README.md) |
 
 ### Yjs Collaboration
 
