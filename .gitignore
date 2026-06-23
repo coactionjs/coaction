@@ -136,3 +136,8 @@ dist
 # playwright
 playwright-report/
 test-results/
+
+# benchmark gate output
+benchmark-report.md
+benchmark-results.json
+benchmark.txt

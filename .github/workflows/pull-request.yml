@@ -62,10 +62,9 @@ jobs:
       - name: Run browser E2E
         run: pnpm exec playwright test -c playwright.config.ts --project=${{ matrix.browser }}
   benchmark:
-    name: Benchmark Report
+    name: Benchmark Gate
     if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -78,29 +77,18 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build packages
         run: pnpm build
-      - name: Run benchmarks
-        continue-on-error: true
+      - name: Run benchmark regression gate
         run: |
           set -o pipefail
-          {
-            echo "## pnpm benchmark"
-            pnpm benchmark
-            echo
-            echo "## pnpm benchmark:zustand-positioning"
-            pnpm benchmark:zustand-positioning
-          } 2>&1 | tee benchmark.txt
+          pnpm benchmark:check 2>&1 | tee benchmark.txt
       - name: Write benchmark summary
         if: always()
         run: |
-          {
-            echo "## Benchmark Report"
-            echo
-            echo "Informational only. This job does not block pull requests."
-            echo
-            echo '```text'
-            tail -n 200 benchmark.txt || true
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          cat benchmark-report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          echo >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 120 benchmark.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
       - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -108,5 +96,6 @@ jobs:
           name: benchmark-report
           path: |
             benchmark.txt
-            benchmark.jpg
+            benchmark-report.md
+            benchmark-results.json
           if-no-files-found: ignore

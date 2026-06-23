@@ -1,53 +1,206 @@
 {
   "@coaction/history": {
-    "maxGzipBytes": 3500
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 2310,
+        "maxGzipBytes": 2660
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 2344,
+        "maxGzipBytes": 2700
+      }
+    }
   },
   "@coaction/jotai": {
-    "maxGzipBytes": 1800
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1087,
+        "maxGzipBytes": 1340
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1223,
+        "maxGzipBytes": 1480
+      }
+    }
   },
   "@coaction/logger": {
-    "maxGzipBytes": 2200
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1322,
+        "maxGzipBytes": 1580
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1363,
+        "maxGzipBytes": 1620
+      }
+    }
   },
   "@coaction/mobx": {
-    "maxGzipBytes": 3500
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 2274,
+        "maxGzipBytes": 2620
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 2316,
+        "maxGzipBytes": 2670
+      }
+    }
   },
   "@coaction/ng": {
-    "maxGzipBytes": 1200
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 431,
+        "maxGzipBytes": 690
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 587,
+        "maxGzipBytes": 840
+      }
+    }
   },
   "@coaction/persist": {
-    "maxGzipBytes": 2500
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1666,
+        "maxGzipBytes": 1920
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1711,
+        "maxGzipBytes": 1970
+      }
+    }
   },
   "@coaction/pinia": {
-    "maxGzipBytes": 3500
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 2287,
+        "maxGzipBytes": 2640
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 2402,
+        "maxGzipBytes": 2770
+      }
+    }
   },
   "@coaction/react": {
-    "maxGzipBytes": 5000
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 2972,
+        "maxGzipBytes": 3420
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 3484,
+        "maxGzipBytes": 4010
+      }
+    }
   },
   "@coaction/redux": {
-    "maxGzipBytes": 2200
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1388,
+        "maxGzipBytes": 1640
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1522,
+        "maxGzipBytes": 1780
+      }
+    }
   },
   "@coaction/solid": {
-    "maxGzipBytes": 1800
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 965,
+        "maxGzipBytes": 1220
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1097,
+        "maxGzipBytes": 1350
+      }
+    }
   },
   "@coaction/svelte": {
-    "maxGzipBytes": 1200
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 422,
+        "maxGzipBytes": 680
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 569,
+        "maxGzipBytes": 820
+      }
+    }
   },
   "@coaction/valtio": {
-    "maxGzipBytes": 3500
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 2111,
+        "maxGzipBytes": 2430
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 2240,
+        "maxGzipBytes": 2580
+      }
+    }
   },
   "@coaction/vue": {
-    "maxGzipBytes": 1800
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1072,
+        "maxGzipBytes": 1330
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1199,
+        "maxGzipBytes": 1450
+      }
+    }
   },
   "@coaction/xstate": {
-    "maxGzipBytes": 1800
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1053,
+        "maxGzipBytes": 1310
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1195,
+        "maxGzipBytes": 1450
+      }
+    }
   },
   "@coaction/yjs": {
-    "maxGzipBytes": 8000
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 5258,
+        "maxGzipBytes": 6050
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 5740,
+        "maxGzipBytes": 6610
+      }
+    }
   },
   "@coaction/zustand": {
-    "maxGzipBytes": 1800
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 1105,
+        "maxGzipBytes": 1360
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 1159,
+        "maxGzipBytes": 1410
+      }
+    }
   },
   "coaction": {
-    "maxGzipBytes": 16000
+    "files": {
+      "dist/index.mjs": {
+        "baselineGzipBytes": 11590,
+        "maxGzipBytes": 13330
+      },
+      "dist/index.js": {
+        "baselineGzipBytes": 12041,
+        "maxGzipBytes": 13850
+      }
+    }
   }
 }
