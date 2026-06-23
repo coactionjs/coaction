@@ -6,7 +6,7 @@
 
 **An efficient and flexible state management library for building<br/>high-performance, multithreading web applications.**
 
-[![CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)](https://github.com/coactionjs/coaction/actions)
+[![Node CI](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml/badge.svg)](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml)
 [![Coverage](https://coveralls.io/repos/github/coactionjs/coaction/badge.svg?branch=main)](https://coveralls.io/github/coactionjs/coaction?branch=main)
 [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction)
 [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
