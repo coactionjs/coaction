@@ -1,10 +1,6 @@
 # Migrating from Zustand
 
-Coaction uses a Zustand-like store creation API, so many stores can be moved in
-small steps. The goal of a migration should not be to rewrite every selector or
-action immediately. Start with API compatibility, then adopt Coaction features
-where they remove real code: cached getters, mutable updates, slices, external
-adapters, and worker-backed shared mode.
+Coaction uses a Zustand-like store creation API, so many stores can be moved in small steps. The goal of a migration should not be to rewrite every selector or action immediately. Start with API compatibility, then adopt Coaction features where they remove real code: cached getters, mutable updates, slices, external adapters, and worker-backed shared mode.
 
 ## 1. Install Coaction
 
@@ -20,8 +16,7 @@ Core or non-React usage only needs:
 npm install coaction
 ```
 
-Coaction 2.0 includes `alien-signals` internally. Do not install
-`@coaction/alien-signals`.
+Coaction 2.0 includes `alien-signals` internally. Do not install `@coaction/alien-signals`.
 
 ## 2. Change the Import
 
@@ -51,8 +46,7 @@ const useCounter = create((set, get) => ({
 }));
 ```
 
-This can stay close to the original code. After it works, move update-heavy
-actions to Coaction's draft style when that improves readability.
+This can stay close to the original code. After it works, move update-heavy actions to Coaction's draft style when that improves readability.
 
 ```ts
 const useCounter = create((set) => ({
@@ -105,13 +99,11 @@ Then React components can subscribe to the computed value directly:
 const total = useCart((state) => state.total);
 ```
 
-Accessor getters are cached through Coaction's built-in `alien-signals`
-runtime.
+Accessor getters are cached through Coaction's built-in `alien-signals` runtime.
 
 ## 5. Use `get(deps, selector)` for Manual Dependencies
 
-Keep accessor getters as the default. Use Coaction's manual computed form when
-the dependency list should be explicit, such as cross-slice derived data.
+Keep accessor getters as the default. Use Coaction's manual computed form when the dependency list should be explicit, such as cross-slice derived data.
 
 ```ts
 const cart = (set, get) => ({
@@ -123,8 +115,7 @@ const cart = (set, get) => ({
 });
 ```
 
-The same `get` helper still reads the current store when called with no
-arguments:
+The same `get` helper still reads the current store when called with no arguments:
 
 ```ts
 const count = get().count;
@@ -141,8 +132,7 @@ const useStore = create((...args) => ({
 }));
 ```
 
-Coaction can keep a single flat store, but it also supports namespaced slices as
-a core mode:
+Coaction can keep a single flat store, but it also supports namespaced slices as a core mode:
 
 ```ts
 const useStore = create(
@@ -168,9 +158,7 @@ const useStore = create(
 );
 ```
 
-Use `sliceMode: 'slices'` explicitly when passing an object of slice factories.
-Use `sliceMode: 'single'` if an object-shaped store only contains methods and
-should not be inferred as slices.
+Use `sliceMode: 'slices'` explicitly when passing an object of slice factories. Use `sliceMode: 'single'` if an object-shaped store only contains methods and should not be inferred as slices.
 
 ## 7. Update React Selector Usage
 
@@ -180,8 +168,7 @@ Direct selectors remain the normal React path:
 const count = useStore((state) => state.counter.count);
 ```
 
-If you prefer automatic render tracking without selectors, wrap the component
-with `observer()` and read the store directly during render:
+If you prefer automatic render tracking without selectors, wrap the component with `observer()` and read the store directly during render:
 
 ```tsx
 const Counter = observer(() => {
@@ -204,8 +191,7 @@ function Counter() {
 }
 ```
 
-`useStore({ autoSelector: true })` remains available as an alias, but
-`useStore.auto()` is the clearer form for new code.
+`useStore({ autoSelector: true })` remains available as an alias, but `useStore.auto()` is the clearer form for new code.
 
 ## 8. Replace Middleware One at a Time
 
@@ -220,8 +206,7 @@ Map common Zustand middleware to Coaction features deliberately:
 | custom external runtimes | Use `defineExternalStoreAdapter()` for whole-store adapters                   |
 | existing Zustand runtime | Use `@coaction/zustand` when the Zustand store should remain the source store |
 
-Middleware should be moved after the base store behavior is verified. This makes
-it easier to separate state-shape changes from integration changes.
+Middleware should be moved after the base store behavior is verified. This makes it easier to separate state-shape changes from integration changes.
 
 ## 9. Decide Whether to Keep Zustand Underneath
 
@@ -237,17 +222,13 @@ Use `@coaction/zustand` when:
 
 - an existing Zustand store is already public API
 - other modules depend on the Zustand store directly
-- Coaction should wrap the whole store for framework binding or shared-mode
-  orchestration
+- Coaction should wrap the whole store for framework binding or shared-mode orchestration
 
-Third-party state adapters are whole-store integrations. They are not supported
-inside Coaction slices mode.
+Third-party state adapters are whole-store integrations. They are not supported inside Coaction slices mode.
 
 ## 10. Consider Shared Mode Last
 
-Do not start a migration by moving the store into a worker. First make the
-local store pass its tests. Then introduce shared mode where the architecture
-actually needs it.
+Do not start a migration by moving the store into a worker. First make the local store pass its tests. Then introduce shared mode where the architecture actually needs it.
 
 ```ts
 const worker = new Worker(new URL('./worker.ts', import.meta.url), {
@@ -257,9 +238,7 @@ const worker = new Worker(new URL('./worker.ts', import.meta.url), {
 const useStore = create(createCounterStore, { worker });
 ```
 
-In shared mode, the worker/main store is the mutation authority. Client stores
-read mirrored state and call methods that execute on the main store. Direct
-client-side `setState()` calls are rejected.
+In shared mode, the worker/main store is the mutation authority. Client stores read mirrored state and call methods that execute on the main store. Direct client-side `setState()` calls are rejected.
 
 ## Migration Checklist
 
@@ -267,9 +246,7 @@ client-side `setState()` calls are rejected.
 - Keep simple object updates until the store is passing tests.
 - Convert repeated derived selectors into accessor getters.
 - Use `get(deps, selector)` only where explicit dependencies help.
-- Move Zustand slice spreading to `sliceMode: 'slices'` only when namespaces are
-  useful.
+- Move Zustand slice spreading to `sliceMode: 'slices'` only when namespaces are useful.
 - Replace middleware one at a time.
-- Keep existing Zustand stores through `@coaction/zustand` when replacing the
-  underlying runtime would be too disruptive.
+- Keep existing Zustand stores through `@coaction/zustand` when replacing the underlying runtime would be too disruptive.
 - Introduce worker-backed shared mode after local behavior is stable.

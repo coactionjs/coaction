@@ -1,30 +1,23 @@
 # Coaction vs Zustand
 
-This page compares Coaction with Zustand from the perspective of application
-state, derived data, React subscription behavior, and integration boundaries.
+This page compares Coaction with Zustand from the perspective of application state, derived data, React subscription behavior, and integration boundaries.
 
-Zustand is an excellent minimal React state library. Coaction intentionally
-keeps a familiar Zustand-like creation API, then adds a larger default runtime:
-cached getters, explicit computed dependencies, mutable update ergonomics,
-framework adapters, external-store adapters, and optional worker-backed shared
-state.
+Zustand is an excellent minimal React state library. Coaction intentionally keeps a familiar Zustand-like creation API, then adds a larger default runtime: cached getters, explicit computed dependencies, mutable update ergonomics, framework adapters, external-store adapters, and optional worker-backed shared state.
 
-Use this comparison to decide whether the extra runtime surface is useful for a
-project. If all you need is a tiny hook store with a few selectors, Zustand is
-often the simpler fit.
+Use this comparison to decide whether the extra runtime surface is useful for a project. If all you need is a tiny hook store with a few selectors, Zustand is often the simpler fit.
 
 ## Positioning
 
-| Axis                 | Coaction                                                                  | Zustand                                                                       |
-| :------------------- | :------------------------------------------------------------------------ | :---------------------------------------------------------------------------- |
-| Primary shape        | Zustand-like store runtime with built-in computed and synchronization     | Minimal React hook store with vanilla core                                    |
-| Default update style | Mutable draft updates and object replacement                              | Immutable object replacement by default; mutable syntax through Immer         |
-| Derived state        | Accessor getters are cached; `get(deps, selector)` supports manual deps   | Selectors and userland derived functions; no built-in computed getter runtime |
-| React selectors      | Selectors are backed by signal computed values in `@coaction/react`       | Hook selectors use equality checks; selector subscriptions via middleware     |
-| Slices               | Core namespace slices with explicit `sliceMode`                           | Documented pattern and utilities, not a core namespace runtime                |
-| Workers              | Local, main, and client store modes with transport-backed synchronization | Vanilla stores can run outside React; no built-in worker authority model      |
-| External stores      | `defineExternalStoreAdapter()` formalizes whole-store integrations        | Middleware and ecosystem-first extension model                                |
-| Runtime philosophy   | More built-in production behavior                                         | Smaller, less opinionated core                                                |
+| Axis                 | Coaction                                                                                                   | Zustand                                                                            |
+| :------------------- | :--------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------- |
+| Primary shape        | Zustand-like store runtime with built-in computed and synchronization                                      | Minimal React hook store with vanilla core                                         |
+| Default update style | Mutable draft updates and partial object merges                                                            | Immutable partial updates with shallow merge by default; mutable syntax with Immer |
+| Derived state        | Accessor getters are cached; `get(deps, selector)` supports manual deps                                    | Selectors and userland derived functions; no built-in computed getter runtime      |
+| React subscriptions  | `observer()` auto-tracks store/slice fields on the signal graph; `useStore(selector)` uses equality checks | Hook selectors use equality checks; selector subscriptions via middleware          |
+| Slices               | Core namespace slices with explicit `sliceMode`                                                            | Documented pattern and utilities, not a core namespace runtime                     |
+| Workers              | Local, main, and client store modes with transport-backed synchronization                                  | Vanilla stores can run outside React; no built-in worker authority model           |
+| External stores      | `defineExternalStoreAdapter()` formalizes whole-store integrations                                         | Middleware and ecosystem-first extension model                                     |
+| Runtime philosophy   | More built-in production behavior                                                                          | Smaller, less opinionated core                                                     |
 
 ## Store Creation
 
@@ -54,14 +47,11 @@ const useCounter = create((set) => ({
 }));
 ```
 
-The main DX difference is that Coaction treats mutable draft updates as a
-first-class path. Zustand keeps immutable replacement as the default and uses
-middleware such as `immer` when mutable syntax is desired.
+The main DX difference is that Coaction treats mutable draft updates as a first-class path. Zustand keeps immutable partial updates with shallow merging as the default and uses middleware such as `immer` when mutable syntax is desired.
 
 ## Derived State
 
-Coaction 2.0 includes `alien-signals` in the core package. Accessor getters are
-cached computed values by default.
+Coaction 2.0 includes `alien-signals` in the core package. Accessor getters are cached computed values by default.
 
 ```ts
 const useCart = create((set) => ({
@@ -80,8 +70,7 @@ const useCart = create((set) => ({
 }));
 ```
 
-When the dependency list should be explicit, use the `get(deps, selector)`
-computed form:
+When the dependency list should be explicit, use the `get(deps, selector)` computed form:
 
 ```ts
 const cart = (set, get) => ({
@@ -93,10 +82,7 @@ const cart = (set, get) => ({
 });
 ```
 
-In Zustand, derived state is usually expressed as a selector, a helper
-function, a memoized selector, or state that is manually maintained by actions.
-That is flexible, but the cache and dependency strategy belong to application
-code.
+In Zustand, derived state is usually expressed as a selector, a helper function, a memoized selector, or state that is manually maintained by actions. That is flexible, but the cache and dependency strategy belong to application code.
 
 ```ts
 const total = useCart((state) =>
@@ -104,7 +90,7 @@ const total = useCart((state) =>
 );
 ```
 
-## React Selector DX
+## React Subscription DX
 
 Coaction keeps Zustand's explicit selector style:
 
@@ -112,8 +98,7 @@ Coaction keeps Zustand's explicit selector style:
 const total = useCart((state) => state.total);
 ```
 
-For repeated field-level subscriptions, `@coaction/react` also exposes a cached
-auto-selector map:
+For repeated explicit subscriptions, `@coaction/react` also exposes a cached auto-selector map:
 
 ```tsx
 const selectors = useCart.auto();
@@ -124,10 +109,7 @@ function CartTotal() {
 }
 ```
 
-Zustand also has strong selector ergonomics, including strict equality by
-default, `useShallow`, and `subscribeWithSelector` middleware. Coaction's
-difference is that selector reactivity is part of the signal-backed runtime
-used by getters and external adapter refreshes.
+Zustand also has strong selector ergonomics, including strict equality by default, `useShallow`, and `subscribeWithSelector` middleware. The explicit `useStore(selector)` path in `@coaction/react` is at parity with that model: it recomputes and compares with `Object.is`. Coaction's differentiator is `observer()`, which tracks store or slice fields directly on the signal graph so components can skip selectors entirely. For the focused single-thread case, see [Why Coaction Without Multithreading](./single-thread.md).
 
 ## Slices
 
@@ -157,14 +139,11 @@ const useStore = create(
 );
 ```
 
-Zustand supports slice composition as a documented pattern. Coaction's advantage
-is the namespaced runtime contract; Zustand's advantage is lower ceremony and
-less framework-level opinion.
+Zustand supports slice composition as a documented pattern. Coaction's advantage is the namespaced runtime contract; Zustand's advantage is lower ceremony and less framework-level opinion.
 
 ## Worker-Backed State
 
-Coaction has a built-in local/main/client authority model. The same store source
-can run locally or be shared through a worker transport.
+Coaction has a built-in local/main/client authority model. The same store source can run locally or be shared through a worker transport.
 
 ```ts
 const worker = new Worker(new URL('./worker.ts', import.meta.url), {
@@ -174,13 +153,9 @@ const worker = new Worker(new URL('./worker.ts', import.meta.url), {
 const useStore = create(counterStore, { worker });
 ```
 
-In client mode, reads are local mirrors and methods proxy execution to the main
-store. Direct client-side `setState()` is rejected because the client is not the
-mutation authority.
+In client mode, reads are local mirrors and methods proxy execution to the main store. Direct client-side `setState()` is rejected because the client is not the mutation authority.
 
-Zustand vanilla stores can be used outside React, including in worker code, but
-cross-thread authority, method proxying, sequencing, and patch synchronization
-are not built into the Zustand store contract.
+Zustand vanilla stores can be used outside React, including in worker code, but cross-thread authority, method proxying, sequencing, and patch synchronization are not built into the Zustand store contract.
 
 ## External Store Integration
 
@@ -190,14 +165,9 @@ Coaction 2.0 exposes `defineExternalStoreAdapter()` from the core package:
 import { defineExternalStoreAdapter } from 'coaction';
 ```
 
-Official adapters such as `@coaction/zustand`, `@coaction/mobx`, and
-`@coaction/pinia` use this whole-store adapter contract. This matters when an
-external runtime needs to remain the underlying store while Coaction provides
-framework binding, shared mode, subscriptions, and signal-backed selector
-refresh.
+Official adapters such as `@coaction/zustand`, `@coaction/mobx`, and `@coaction/pinia` use this whole-store adapter contract. This matters when an external runtime needs to remain the underlying store while Coaction provides framework binding, shared mode, subscriptions, and adapter refresh hooks.
 
-Zustand's extension model is middleware-first. That is a better fit when you
-want to keep the store simple and compose behavior only as needed.
+Zustand's extension model is middleware-first. That is a better fit when you want to keep the store simple and compose behavior only as needed.
 
 ## When Zustand Is Still Better
 
@@ -219,11 +189,8 @@ Choose Coaction when:
 
 ## Summary
 
-Coaction should not be positioned as "Zustand, but bigger." The stronger
-positioning is:
+Coaction should not be positioned as "Zustand, but bigger." The stronger positioning is:
 
-> Zustand-like state management with built-in computed state, mutable updates,
-> reactive selectors, and worker-ready synchronization.
+> Zustand-like state management with built-in computed state, mutable updates, observer-based render tracking, and worker-ready synchronization.
 
-That framing acknowledges Zustand's main strength while making Coaction's
-default production surface clear.
+That framing acknowledges Zustand's main strength while making Coaction's default production surface clear.
