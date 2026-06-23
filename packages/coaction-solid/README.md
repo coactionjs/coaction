@@ -1,8 +1,6 @@
 # @coaction/solid
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/solid.svg)](https://www.npmjs.com/package/@coaction/solid)
-![license](https://img.shields.io/npm/l/@coaction/solid)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/solid.svg)](https://www.npmjs.com/package/@coaction/solid) ![license](https://img.shields.io/npm/l/@coaction/solid)
 
 A Coaction integration tool for Solid.
 

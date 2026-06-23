@@ -1,8 +1,6 @@
 # @coaction/logger
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/logger.svg)](https://www.npmjs.com/package/@coaction/logger)
-![license](https://img.shields.io/npm/l/@coaction/logger)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/logger.svg)](https://www.npmjs.com/package/@coaction/logger) ![license](https://img.shields.io/npm/l/@coaction/logger)
 
 A logger middleware for Coaction.
 

@@ -10,8 +10,7 @@
 
 Defined in: [packages/core/src/interface.ts:270](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L270)
 
-Derived state object produced by mapping slice factories to their return
-types.
+Derived state object produced by mapping slice factories to their return types.
 
 ## Type Parameters
 

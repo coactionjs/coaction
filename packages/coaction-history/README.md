@@ -1,8 +1,6 @@
 # @coaction/history
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/history.svg)](https://www.npmjs.com/package/@coaction/history)
-![license](https://img.shields.io/npm/l/@coaction/history)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/history.svg)](https://www.npmjs.com/package/@coaction/history) ![license](https://img.shields.io/npm/l/@coaction/history)
 
 A undo/redo middleware for Coaction.
 

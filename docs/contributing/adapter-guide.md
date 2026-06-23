@@ -7,19 +7,15 @@ This guide is for adding or changing an official adapter package.
 Before writing code, decide which family the new integration belongs to.
 
 - Binder-backed adapter
-  - Bridges an external whole-store runtime into Coaction through
-    `defineExternalStoreAdapter()` or the compatibility alias `createBinder()`
+  - Bridges an external whole-store runtime into Coaction through `defineExternalStoreAdapter()` or the compatibility alias `createBinder()`
   - Examples: Zustand, MobX, Pinia, Redux, Jotai, Valtio, XState
 - Middleware integration
   - Extends a Coaction-owned store without replacing store ownership
   - Examples: logger, persist, history, yjs
 - Framework wrapper
-  - Adapts a Coaction store to framework-specific subscription and lifecycle
-    behavior
+  - Adapts a Coaction store to framework-specific subscription and lifecycle behavior
 
-If the integration needs to own its own external state runtime, it is usually a
-binder-backed adapter. If it only decorates a Coaction store, it is usually
-middleware.
+If the integration needs to own its own external state runtime, it is usually a binder-backed adapter. If it only decorates a Coaction store, it is usually middleware.
 
 ## 2. Follow the Contract
 
@@ -41,11 +37,8 @@ For a binder-backed adapter:
 1. Build the binding through `defineExternalStoreAdapter()`
 2. Normalize external state in `handleState`
 3. Wire Coaction lifecycle into the external runtime in `handleStore`
-4. Preserve the store contract when overriding `subscribe()`, `destroy()`, or
-   `apply()`
-5. Call `internal.notifyStateChange()` after direct external immutable writes
-   that update `internal.rootState` without using `store.setState()` or
-   `store.apply()`
+4. Preserve the store contract when overriding `subscribe()`, `destroy()`, or `apply()`
+5. Call `internal.notifyStateChange()` after direct external immutable writes that update `internal.rootState` without using `store.setState()` or `store.apply()`
 
 Implementation expectations:
 
@@ -56,8 +49,7 @@ Implementation expectations:
 
 ## 4. Add Contract Coverage
 
-Official binder-backed adapters must use the shared contract suite in
-`packages/core/test/binderAdapterContract.ts`.
+Official binder-backed adapters must use the shared contract suite in `packages/core/test/binderAdapterContract.ts`.
 
 Required:
 
@@ -74,9 +66,7 @@ Keep package-specific tests for unique behavior:
 
 ## 5. Update the Support Matrix
 
-Every adapter change must update
-[support-matrix.md](../architecture/support-matrix.md) when it changes any
-official guarantee:
+Every adapter change must update [support-matrix.md](../architecture/support-matrix.md) when it changes any official guarantee:
 
 - local support
 - shared main/client support
@@ -93,5 +83,4 @@ At minimum:
 - compatibility notes match the support matrix
 - limitations are stated directly, not implied
 
-If the adapter expands or narrows support, update the root README maintenance
-links when needed.
+If the adapter expands or narrows support, update the root README maintenance links when needed.

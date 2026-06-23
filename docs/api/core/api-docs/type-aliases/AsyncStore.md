@@ -10,8 +10,7 @@
 
 Defined in: [packages/core/src/interface.ts:394](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L394)
 
-Store shape returned by [create](../variables/create.md) when acting as a client of a shared
-store.
+Store shape returned by [create](../variables/create.md) when acting as a client of a shared store.
 
 ## Type Parameters
 

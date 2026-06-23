@@ -10,8 +10,7 @@
 
 Defined in: [packages/core/src/binder.ts:107](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L107)
 
-Define a whole-store adapter for integrating an external state runtime with
-Coaction.
+Define a whole-store adapter for integrating an external state runtime with Coaction.
 
 ## Type Parameters
 
@@ -31,5 +30,4 @@ Coaction.
 
 ## Remarks
 
-This is the stable 2.x name for adapter authors. `createBinder()` remains as
-a compatibility alias for existing official and community integrations.
+This is the stable 2.x name for adapter authors. `createBinder()` remains as a compatibility alias for existing official and community integrations.

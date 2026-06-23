@@ -30,5 +30,4 @@ Store enhancer invoked during store creation.
 
 ## Remarks
 
-Middleware may mutate the received store in place or return a replacement
-store object, but it must preserve the [Store](../interfaces/Store.md) contract.
+Middleware may mutate the received store in place or return a replacement store object, but it must preserve the [Store](../interfaces/Store.md) contract.

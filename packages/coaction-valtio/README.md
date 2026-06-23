@@ -1,8 +1,6 @@
 # @coaction/valtio
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/valtio.svg)](https://www.npmjs.com/package/@coaction/valtio)
-![license](https://img.shields.io/npm/l/@coaction/valtio)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/valtio.svg)](https://www.npmjs.com/package/@coaction/valtio) ![license](https://img.shields.io/npm/l/@coaction/valtio)
 
 A Coaction integration tool for Valtio.
 

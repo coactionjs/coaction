@@ -1,8 +1,6 @@
 # @coaction/xstate
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/xstate.svg)](https://www.npmjs.com/package/@coaction/xstate)
-![license](https://img.shields.io/npm/l/@coaction/xstate)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/xstate.svg)](https://www.npmjs.com/package/@coaction/xstate) ![license](https://img.shields.io/npm/l/@coaction/xstate)
 
 A Coaction integration tool for XState.
 

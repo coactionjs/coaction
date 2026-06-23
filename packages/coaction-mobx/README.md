@@ -1,8 +1,6 @@
 # @coaction/mobx
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/mobx.svg)](https://www.npmjs.com/package/@coaction/mobx)
-![license](https://img.shields.io/npm/l/@coaction/mobx)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/mobx.svg)](https://www.npmjs.com/package/@coaction/mobx) ![license](https://img.shields.io/npm/l/@coaction/mobx)
 
 A Coaction integration tool for MobX
 

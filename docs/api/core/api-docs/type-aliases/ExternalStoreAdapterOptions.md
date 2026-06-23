@@ -24,8 +24,7 @@ Defined in: [packages/core/src/binder.ts:5](https://github.com/coactionjs/coacti
 
 Defined in: [packages/core/src/binder.ts:10](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L10)
 
-Normalize a third-party store instance into a raw state object plus the
-binding hook used during initialization.
+Normalize a third-party store instance into a raw state object plus the binding hook used during initialization.
 
 #### Type Parameters
 
@@ -45,8 +44,7 @@ binding hook used during initialization.
 
 > **bind**: (`state`) => `T`
 
-Convert the external state object into the raw state shape used by
-Coaction.
+Convert the external state object into the raw state shape used by Coaction.
 
 ###### Parameters
 
@@ -68,8 +66,7 @@ Copy of the incoming state object that Coaction should consume.
 
 > `optional` **key**: keyof `T`
 
-Optional nested key when the adapter exposes a single child object from
-the third-party store.
+Optional nested key when the adapter exposes a single child object from the third-party store.
 
 ---
 

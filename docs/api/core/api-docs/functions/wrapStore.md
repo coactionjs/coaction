@@ -34,7 +34,4 @@ Convert a store object into Coaction's callable store shape.
 
 ## Remarks
 
-Framework bindings use this to attach selector-aware readers while
-preserving the underlying store API on the returned function object. Most
-applications should call [create](../variables/create.md) instead of using `wrapStore()`
-directly.
+Framework bindings use this to attach selector-aware readers while preserving the underlying store API on the returned function object. Most applications should call [create](../variables/create.md) instead of using `wrapStore()` directly.

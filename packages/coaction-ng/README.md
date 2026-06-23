@@ -1,8 +1,6 @@
 # @coaction/ng
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/ng.svg)](https://www.npmjs.com/package/@coaction/ng)
-![license](https://img.shields.io/npm/l/@coaction/ng)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/ng.svg)](https://www.npmjs.com/package/@coaction/ng) ![license](https://img.shields.io/npm/l/@coaction/ng)
 
 A Coaction integration tool for Angular.
 

@@ -1,8 +1,6 @@
 # @coaction/jotai
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/jotai.svg)](https://www.npmjs.com/package/@coaction/jotai)
-![license](https://img.shields.io/npm/l/@coaction/jotai)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/jotai.svg)](https://www.npmjs.com/package/@coaction/jotai) ![license](https://img.shields.io/npm/l/@coaction/jotai)
 
 A Coaction integration tool for Jotai.
 

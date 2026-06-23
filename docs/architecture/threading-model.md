@@ -53,37 +53,30 @@ The client store may not:
 - assume local mutations are authoritative
 - bypass sequence handling
 
-This model keeps transport semantics simple. Client-side state is eventually
-consistent with the main store, but write authority never moves to the client.
+This model keeps transport semantics simple. Client-side state is eventually consistent with the main store, but write authority never moves to the client.
 
 ## Execution Flow for Shared Methods
 
 When a client invokes a store method:
 
 1. the client method wrapper emits `execute`
-2. the main store resolves the method path and executes it against the current
-   state object
+2. the main store resolves the method path and executes it against the current state object
 3. the main store mutates state and may emit a patch `update`
 4. the main store returns `[result, sequence]`
 5. the client waits until its mirrored sequence catches up
-6. if sequencing is stale or a gap is detected, the client falls back to
-   `fullSync`
+6. if sequencing is stale or a gap is detected, the client falls back to `fullSync`
 
-This means the returned promise represents both remote execution and the local
-mirror catching up to the corresponding state version.
+This means the returned promise represents both remote execution and the local mirror catching up to the corresponding state version.
 
 ## External Writes
 
-"External write" means a state change initiated outside a normal Coaction store
-method, for example:
+"External write" means a state change initiated outside a normal Coaction store method, for example:
 
 - a third-party store notifies Coaction about a direct mutation
-- a transport reconnect requires replacing mirrored client state through
-  `fullSync`
+- a transport reconnect requires replacing mirrored client state through `fullSync`
 - Yjs replays remote document updates into Coaction
 
-These writes are supported, but they must flow through the owning runtime's
-contract:
+These writes are supported, but they must flow through the owning runtime's contract:
 
 - binder-backed adapters must update Coaction through their store hook
 - clients must accept transport-driven `update` or `fullSync`
@@ -104,8 +97,7 @@ Officially unsupported:
 - binder-backed adapter nested inside slices mode
 - shared stores created with patch generation explicitly disabled
 
-For package-level combinations such as adapters and middlewares, use the
-[support matrix](./support-matrix.md) as the source of truth.
+For package-level combinations such as adapters and middlewares, use the [support matrix](./support-matrix.md) as the source of truth.
 
 ## Guarantee Levels
 
@@ -116,9 +108,6 @@ The runtime makes three distinct guarantee levels:
 - Best-effort synchronization
   - client reconnect recovery through `fullSync`
 - Integration-defined behavior
-  - external state libraries, persistence backends, CRDT providers, framework
-    lifecycles
+  - external state libraries, persistence backends, CRDT providers, framework lifecycles
 
-When documenting package-level features, maintainers should say which level a
-feature belongs to. If a guarantee is integration-defined, the docs should not
-present it as a core invariant.
+When documenting package-level features, maintainers should say which level a feature belongs to. If a guarantee is integration-defined, the docs should not present it as a core invariant.

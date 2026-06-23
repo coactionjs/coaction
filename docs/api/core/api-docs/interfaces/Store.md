@@ -8,14 +8,11 @@
 
 Defined in: [packages/core/src/interface.ts:65](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L65)
 
-Runtime store contract returned by [create](../variables/create.md) before framework-specific
-wrappers add selectors or reactivity helpers.
+Runtime store contract returned by [create](../variables/create.md) before framework-specific wrappers add selectors or reactivity helpers.
 
 ## Remarks
 
-`getState()` returns methods and getters alongside plain data. Methods
-extracted from the returned object keep the correct `this` binding when they
-are later invoked.
+`getState()` returns methods and getters alongside plain data. Methods extracted from the returned object keep the correct `this` binding when they are later invoked.
 
 ## Extended by
 
@@ -53,8 +50,7 @@ Apply patches to the current state.
 
 #### Remarks
 
-This is a low-level hook used by transports and middleware. Application
-code should generally prefer store methods or `setState()`.
+This is a low-level hook used by transports and middleware. Application code should generally prefer store methods or `setState()`.
 
 ---
 
@@ -72,8 +68,7 @@ Tear down the store.
 
 #### Remarks
 
-`destroy()` is idempotent. It clears subscriptions and disposes any
-attached transport.
+`destroy()` is idempotent. It clears subscriptions and disposes any attached transport.
 
 ---
 
@@ -105,8 +100,7 @@ Return the current state without methods or getters.
 
 #### Remarks
 
-Useful for serialization, inspection, or tests that only care about raw
-data.
+Useful for serialization, inspection, or tests that only care about raw data.
 
 ---
 
@@ -124,8 +118,7 @@ Read the current state object.
 
 #### Remarks
 
-The returned object includes methods and getters. Methods destructured from
-this object continue to execute against the latest store state.
+The returned object includes methods and getters. Methods destructured from this object continue to execute against the latest store state.
 
 ---
 
@@ -167,8 +160,7 @@ Defined in: [packages/core/src/interface.ts:149](https://github.com/coactionjs/c
 
 #### Deprecated
 
-Middleware compatibility hook. Prefer typing middleware stores
-with `MiddlewareStore`.
+Middleware compatibility hook. Prefer typing middleware stores with `MiddlewareStore`.
 
 ---
 
@@ -200,9 +192,7 @@ Low-level updater hook used by transports and middleware integrations.
 
 #### Remarks
 
-Pass a deep-partial object to merge fields, or pass an updater to edit a
-Mutative draft. Passing `null` is a no-op. Client-side shared stores intentionally reject direct
-`setState()` calls; trigger a store method instead.
+Pass a deep-partial object to merge fields, or pass an updater to edit a Mutative draft. Passing `null` is a no-op. Client-side shared stores intentionally reject direct `setState()` calls; trigger a store method instead.
 
 ---
 
@@ -212,8 +202,7 @@ Mutative draft. Passing `null` is a no-op. Client-side shared stores intentional
 
 Defined in: [packages/core/src/interface.ts:116](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L116)
 
-Indicates whether the store is local, the main shared store, or a client
-mirror of a shared store.
+Indicates whether the store is local, the main shared store, or a client mirror of a shared store.
 
 ---
 
@@ -261,8 +250,7 @@ Defined in: [packages/core/src/interface.ts:154](https://github.com/coactionjs/c
 
 #### Deprecated
 
-Middleware compatibility hook. Prefer typing middleware stores
-with `MiddlewareStore`.
+Middleware compatibility hook. Prefer typing middleware stores with `MiddlewareStore`.
 
 ---
 

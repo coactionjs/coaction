@@ -1,8 +1,6 @@
 # @coaction/redux
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/redux.svg)](https://www.npmjs.com/package/@coaction/redux)
-![license](https://img.shields.io/npm/l/@coaction/redux)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/redux.svg)](https://www.npmjs.com/package/@coaction/redux) ![license](https://img.shields.io/npm/l/@coaction/redux)
 
 A Coaction integration tool for Redux Toolkit.
 

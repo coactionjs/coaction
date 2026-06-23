@@ -30,8 +30,7 @@ Enable patch generation.
 
 #### Remarks
 
-Required for async client stores and useful for middleware or mutable
-integrations that depend on patch streams.
+Required for async client stores and useful for middleware or mutable integrations that depend on patch streams.
 
 ---
 
@@ -65,8 +64,7 @@ Control how `createState` should be interpreted.
 
 #### Remarks
 
-- auto: infer from createState shape. Object maps whose values are all
-  functions are ambiguous, so prefer setting `sliceMode` explicitly.
+- auto: infer from createState shape. Object maps whose values are all functions are ambiguous, so prefer setting `sliceMode` explicitly.
 - slices: force slices mode.
 - single: force single-store mode.
 
@@ -90,5 +88,4 @@ Defined in: [packages/core/src/interface.ts:286](https://github.com/coactionjs/c
 
 #### Deprecated
 
-Internal worker-mode override retained for compatibility.
-Prefer passing `transport` or letting the runtime infer the environment.
+Internal worker-mode override retained for compatibility. Prefer passing `transport` or letting the runtime infer the environment.

@@ -1,8 +1,6 @@
 # @coaction/svelte
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/svelte.svg)](https://www.npmjs.com/package/@coaction/svelte)
-![license](https://img.shields.io/npm/l/@coaction/svelte)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/svelte.svg)](https://www.npmjs.com/package/@coaction/svelte) ![license](https://img.shields.io/npm/l/@coaction/svelte)
 
 A Coaction integration tool for Svelte.
 

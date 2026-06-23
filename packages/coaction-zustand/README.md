@@ -1,8 +1,6 @@
 # @coaction/zustand
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/zustand.svg)](https://www.npmjs.com/package/@coaction/zustand)
-![license](https://img.shields.io/npm/l/@coaction/zustand)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/zustand.svg)](https://www.npmjs.com/package/@coaction/zustand) ![license](https://img.shields.io/npm/l/@coaction/zustand)
 
 A Coaction integration tool for Zustand
 

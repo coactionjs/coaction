@@ -42,6 +42,4 @@ Factory for a named slice inside a slices store.
 
 ## Remarks
 
-The returned object becomes the value stored under the slice key. When an
-object input only contains functions, prefer explicit `sliceMode` to avoid
-ambiguity between slices and a plain method-only store.
+The returned object becomes the value stored under the slice key. When an object input only contains functions, prefer explicit `sliceMode` to avoid ambiguity between slices and a plain method-only store.

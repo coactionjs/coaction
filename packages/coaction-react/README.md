@@ -1,8 +1,6 @@
 # @coaction/react
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/react.svg)](https://www.npmjs.com/package/@coaction/react)
-![license](https://img.shields.io/npm/l/@coaction/react)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/react.svg)](https://www.npmjs.com/package/@coaction/react) ![license](https://img.shields.io/npm/l/@coaction/react)
 
 A Coaction integration tool for React
 
@@ -18,9 +16,7 @@ npm install coaction @coaction/react
 
 `@coaction/react` currently supports React 17, 18, and 19.
 
-The package intentionally uses `use-sync-external-store/shim` internally so the
-same published build can work across those React versions. Removing the shim
-would require dropping React 17 support in a future major release.
+The package intentionally uses `use-sync-external-store/shim` internally so the same published build can work across those React versions. Removing the shim would require dropping React 17 support in a future major release.
 
 ## Usage
 
@@ -44,11 +40,7 @@ const CounterComponent = observer(() => {
 });
 ```
 
-Wrap components with `observer()` when you want MobX/Vue-style automatic render
-tracking. Inside an observed render, `useStore()` does not subscribe to the
-whole store; the component re-renders only when the Coaction state/getters it
-read during render change. Without `observer()`, `useStore()` remains a
-whole-store subscription.
+Wrap components with `observer()` when you want MobX/Vue-style automatic render tracking. Inside an observed render, `useStore()` does not subscribe to the whole store; the component re-renders only when the Coaction state/getters it read during render change. Without `observer()`, `useStore()` remains a whole-store subscription.
 
 For smaller render regions, use `<Observer>`:
 
@@ -65,8 +57,7 @@ const CounterValue = () => (
 );
 ```
 
-For selector-heavy components, `autoSelector` returns a cached selector map
-instead of values. Hook calls stay explicit:
+For selector-heavy components, `autoSelector` returns a cached selector map instead of values. Hook calls stay explicit:
 
 ```tsx
 const selectors = useStore.auto();
@@ -80,10 +71,7 @@ const CounterComponent = () => {
 
 `useStore({ autoSelector: true })` is kept as an alias for `useStore.auto()`.
 
-`autoSelector` is generated from the store shape known during initialization.
-If your application adds new keys at runtime, prefer explicit selectors such as
-`useStore((state) => state.dynamic[key])` for those paths instead of expecting
-the cached selector map to grow dynamically.
+`autoSelector` is generated from the store shape known during initialization. If your application adds new keys at runtime, prefer explicit selectors such as `useStore((state) => state.dynamic[key])` for those paths instead of expecting the cached selector map to grow dynamically.
 
 ## Documentation
 

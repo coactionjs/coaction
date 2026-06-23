@@ -38,5 +38,4 @@ Factory for a single store object.
 
 ## Remarks
 
-Return a plain object containing state, getters, and methods. Methods and
-getters may use `this` to access the live store state.
+Return a plain object containing state, getters, and methods. Methods and getters may use `this` to access the live store state.

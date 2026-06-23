@@ -1,7 +1,6 @@
 # Support Matrix
 
-This document records the officially supported feature combinations for the
-current codebase.
+This document records the officially supported feature combinations for the current codebase.
 
 ## Status Legend
 
@@ -10,12 +9,9 @@ current codebase.
 - Limited
   - works with a narrower guarantee than the surrounding feature might imply
 - Unsupported
-  - not part of the maintained contract; may throw, diverge, or remain
-    untested
+  - not part of the maintained contract; may throw, diverge, or remain untested
 
-When in doubt, prefer documenting a combination as Limited or Unsupported
-instead of implying a stronger guarantee than the test suite and runtime checks
-actually enforce.
+When in doubt, prefer documenting a combination as Limited or Unsupported instead of implying a stronger guarantee than the test suite and runtime checks actually enforce.
 
 ## Core Store Modes
 
@@ -32,8 +28,7 @@ actually enforce.
 
 ## Binder-Backed Adapter Matrix
 
-Binder-backed adapters are whole-store adapters. They are never supported as a
-slice nested inside a Coaction slices store.
+Binder-backed adapters are whole-store adapters. They are never supported as a slice nested inside a Coaction slices store.
 
 | Adapter             | Local whole store | Shared main/client | Slices mode | Notes                                                                                                    |
 | :------------------ | :---------------- | :----------------- | :---------- | :------------------------------------------------------------------------------------------------------- |
@@ -50,17 +45,12 @@ slice nested inside a Coaction slices store.
 - Binder-backed adapters are whole-store bridges.
   - Do not mount them under a slice key inside a Coaction slices object.
 - Shared support means Coaction method execution is part of the contract.
-  - It does not automatically mean every out-of-band write to the underlying
-    external store is mirrored across a client/main topology.
-- Local external writes are part of the maintained contract for official
-  binder-backed adapters.
-- Shared external writes to the underlying adapter store are not yet a uniform
-  cross-adapter contract.
-- Client-bound external writes are only supported when the adapter explicitly
-  says so.
+  - It does not automatically mean every out-of-band write to the underlying external store is mirrored across a client/main topology.
+- Local external writes are part of the maintained contract for official binder-backed adapters.
+- Shared external writes to the underlying adapter store are not yet a uniform cross-adapter contract.
+- Client-bound external writes are only supported when the adapter explicitly says so.
   - `@coaction/zustand` rejects them at runtime.
-  - `@coaction/mobx` and `@coaction/pinia` currently leave them
-    integration-defined and should not be treated as authoritative.
+  - `@coaction/mobx` and `@coaction/pinia` currently leave them integration-defined and should not be treated as authoritative.
 
 ## Middleware and Integration Matrix
 
@@ -97,8 +87,7 @@ Client stores may not:
 
 - call `setState()` directly
 - become an independent mutation authority
-- assume local middleware can authoritatively persist, time-travel, or merge
-  state
+- assume local middleware can authoritatively persist, time-travel, or merge state
 
 ### Middleware Guarantees in Worker/Client Topologies
 
@@ -119,25 +108,19 @@ Client stores may not:
 
 ### Framework Auto-Selector Boundaries
 
-Framework packages that expose `autoSelector` or equivalent generated selector
-maps currently build those maps from the state descriptors available during
-initialization.
+Framework packages that expose `autoSelector` or equivalent generated selector maps currently build those maps from the state descriptors available during initialization.
 
 Implications:
 
 - known keys get stable generated selectors
 - dynamically added keys are not promoted into the generated selector map later
-- dynamic paths should use explicit selectors instead of relying on
-  `autoSelector`
+- dynamic paths should use explicit selectors instead of relying on `autoSelector`
 
-For React specifically, `autoSelector` returns a cached selector map rather than
-implicitly reading values. Call `useStore(selectorMap.someKey)` to subscribe to
-that field.
+For React specifically, `autoSelector` returns a cached selector map rather than implicitly reading values. Call `useStore(selectorMap.someKey)` to subscribe to that field.
 
 ### Yjs Data Model Constraints
 
-`@coaction/yjs` synchronizes the store's pure data, not Coaction runtime
-behavior.
+`@coaction/yjs` synchronizes the store's pure data, not Coaction runtime behavior.
 
 Constraints:
 
@@ -145,16 +128,13 @@ Constraints:
 - methods and getters are excluded from the synchronized payload
 - nested data is stored as `Y.Map` and `Y.Array`
 - scalar conflict resolution follows Yjs semantics
-- commutative behavior should be modeled with CRDT-native Yjs structures when
-  needed
+- commutative behavior should be modeled with CRDT-native Yjs structures when needed
 
 ### Officially Supported vs Not Yet Supported
 
 The test suite now distinguishes between:
 
 - officially maintained adapter contracts
-- combinations that may appear to work in isolated cases but are not yet a
-  repository-level support promise
+- combinations that may appear to work in isolated cases but are not yet a repository-level support promise
 
-When extending support, update this matrix and add contract coverage in the same
-change.
+When extending support, update this matrix and add contract coverage in the same change.

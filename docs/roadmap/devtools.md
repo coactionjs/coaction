@@ -1,20 +1,15 @@
 # DevTools Roadmap
 
-This document defines the current DevTools position for Coaction and the shape
-of a future first-party DevTools package.
+This document defines the current DevTools position for Coaction and the shape of a future first-party DevTools package.
 
-Coaction already exposes middleware hooks, method trace events, patch streams,
-store subscriptions, and pure-state snapshots. Those pieces are enough for
-logging and project-specific tooling, but they are not yet a complete
-Zustand/Redux-DevTools-style product experience.
+Coaction already exposes middleware hooks, method trace events, patch streams, store subscriptions, and pure-state snapshots. Those pieces are enough for logging and project-specific tooling, but they are not yet a complete Zustand/Redux-DevTools-style product experience.
 
 ## Current State
 
 Available today:
 
 - `@coaction/logger` for console-oriented method, patch, and timing output
-- middleware access to `setState()`, `apply()`, `destroy()`, `patch()`, and
-  `trace()` compatibility hooks
+- middleware access to `setState()`, `apply()`, `destroy()`, `patch()`, and `trace()` compatibility hooks
 - `getPureState()` for serializable state snapshots without methods or getters
 - patch generation in shared mode and when `enablePatches` is enabled
 - local/main/client store metadata through `store.share`
@@ -29,9 +24,7 @@ Not available today:
 
 ## Why This Matters
 
-Zustand users often expect DevTools support through middleware. Coaction has a
-larger runtime surface than Zustand, so debugging should eventually cover more
-than action names and state snapshots.
+Zustand users often expect DevTools support through middleware. Coaction has a larger runtime surface than Zustand, so debugging should eventually cover more than action names and state snapshots.
 
 A Coaction DevTools story should explain:
 
@@ -51,8 +44,7 @@ A future package should likely be named:
 @coaction/devtools
 ```
 
-The first API should be middleware-first, because that matches the current
-runtime extension model:
+The first API should be middleware-first, because that matches the current runtime extension model:
 
 ```ts
 import { create } from 'coaction';
@@ -67,8 +59,7 @@ const store = create(createState, {
 });
 ```
 
-React-specific UI helpers can come later. The first useful contract is a stable
-event stream that other tools can consume.
+React-specific UI helpers can come later. The first useful contract is a stable event stream that other tools can consume.
 
 ## Event Model
 
@@ -98,9 +89,7 @@ The initial event stream should include:
   - signal slot refresh after external immutable writes
   - selector notification after selected value changes
 
-The public event schema should avoid exposing private `Internal` fields. If an
-internal value must be inspected, expose it through a stable adapter in core
-first.
+The public event schema should avoid exposing private `Internal` fields. If an internal value must be inspected, expose it through a stable adapter in core first.
 
 ## Shared Mode Requirements
 
@@ -108,8 +97,7 @@ DevTools must respect Coaction's authority model:
 
 - main stores own mutation execution
 - client stores are mirrors
-- client-side method calls should be displayed as proxy requests, not local
-  mutations
+- client-side method calls should be displayed as proxy requests, not local mutations
 - direct client-side `setState()` remains unsupported
 - persisted or replayed updates should target the authority store
 
@@ -117,9 +105,7 @@ This is the largest difference from a simple local-store DevTools integration.
 
 ## Computed and Selector Requirements
 
-Coaction 2.0 uses `alien-signals` internally for cached getters and React
-selector reactivity. DevTools should not start by exposing the full signal graph.
-That would couple tooling to implementation details too early.
+Coaction 2.0 uses `alien-signals` internally for cached getters and React selector reactivity. DevTools should not start by exposing the full signal graph. That would couple tooling to implementation details too early.
 
 The first useful computed-state view is simpler:
 
@@ -128,13 +114,11 @@ The first useful computed-state view is simpler:
 - show when signal-backed selector subscriptions notify React
 - show when adapter-triggered writes call `notifyStateChange()`
 
-Full dependency graph visualization can be considered later if real debugging
-use cases justify the extra API surface.
+Full dependency graph visualization can be considered later if real debugging use cases justify the extra API surface.
 
 ## Compatibility With Redux DevTools
 
-Redux DevTools protocol support is useful, but it should be treated as an
-adapter target rather than the only DevTools product.
+Redux DevTools protocol support is useful, but it should be treated as an adapter target rather than the only DevTools product.
 
 Recommended order:
 
@@ -154,8 +138,7 @@ The first DevTools package should not:
 - depend on React
 - expose private runtime internals as public API
 - require patch generation for every local store by default
-- promise deterministic replay for non-serializable state, methods, getters, or
-  external runtime objects
+- promise deterministic replay for non-serializable state, methods, getters, or external runtime objects
 
 ## Near-Term Documentation Position
 
@@ -164,8 +147,7 @@ Until `@coaction/devtools` exists, public docs should say:
 - use `@coaction/logger` for console-level tracing
 - use `getPureState()` for serializable snapshots
 - enable patches only when middleware or shared synchronization needs them
-- install persistence, history, and future DevTools on the authority store in
-  shared mode
+- install persistence, history, and future DevTools on the authority store in shared mode
 - do not present client-local tooling as authoritative state history
 
 This is enough to avoid overclaiming while still making the roadmap explicit.

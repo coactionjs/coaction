@@ -1,14 +1,10 @@
 # coaction
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction)
-![license](https://img.shields.io/npm/l/coaction)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction) ![license](https://img.shields.io/npm/l/coaction)
 
 An efficient and flexible state management library for building high-performance, multithreading web applications.
 
-Coaction 2.0 uses `alien-signals` internally for cached getter/computed state,
-React selector reactivity, and adapter-facing subscriptions. The core package
-also re-exports the signal primitives for advanced integrations.
+Coaction 2.0 uses `alien-signals` internally for cached getter/computed state, React selector reactivity, and adapter-facing subscriptions. The core package also re-exports the signal primitives for advanced integrations.
 
 ## Installation
 
@@ -36,8 +32,7 @@ const store = create((set) => ({
 }));
 ```
 
-Accessor getters are cached automatically through the built-in signal runtime.
-Use `get(deps, selector)` when you want to declare dependencies manually:
+Accessor getters are cached automatically through the built-in signal runtime. Use `get(deps, selector)` when you want to declare dependencies manually:
 
 ```ts
 const store = create((set, get) => ({
@@ -54,15 +49,13 @@ const store = create((set, get) => ({
 }));
 ```
 
-Advanced integrations can import the native signal primitives and adapter helper
-directly from `coaction`:
+Advanced integrations can import the native signal primitives and adapter helper directly from `coaction`:
 
 ```ts
 import { computed, defineExternalStoreAdapter, effect, signal } from 'coaction';
 ```
 
-Store methods using `this` are rebound to the latest state when invoked from
-`getState()`, so destructuring remains safe:
+Store methods using `this` are rebound to the latest state when invoked from `getState()`, so destructuring remains safe:
 
 ```ts
 const store = create((set) => ({
@@ -85,11 +78,7 @@ increment();
 
 ### Store Shape Mode (`sliceMode`)
 
-`create()` uses `sliceMode: 'auto'` by default. For backward compatibility,
-`auto` still treats a non-empty object whose enumerable values are all
-functions as slices. That shape is ambiguous with a plain store that only
-contains methods, so development builds warn and you should set `sliceMode`
-explicitly.
+`create()` uses `sliceMode: 'auto'` by default. For backward compatibility, `auto` still treats a non-empty object whose enumerable values are all functions as slices. That shape is ambiguous with a plain store that only contains methods, so development builds warn and you should set `sliceMode` explicitly.
 
 You can force behavior explicitly:
 

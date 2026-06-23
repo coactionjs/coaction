@@ -1,8 +1,6 @@
 # @coaction/pinia
 
-![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg)
-[![npm](https://img.shields.io/npm/v/@coaction/pinia.svg)](https://www.npmjs.com/package/@coaction/pinia)
-![license](https://img.shields.io/npm/l/@coaction/pinia)
+![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/pinia.svg)](https://www.npmjs.com/package/@coaction/pinia) ![license](https://img.shields.io/npm/l/@coaction/pinia)
 
 A Coaction integration tool for Pinia
 
