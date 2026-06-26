@@ -4,19 +4,14 @@
 
 ### Major Changes
 
-- Updated the Redux adapter for Coaction 2.0's formal external store adapter
-  contract.
-- Reworked replacement dispatch handling so Redux state and Coaction state stay
-  synchronized during Coaction-initiated and Redux-initiated replacements.
+- Updated the Redux adapter for Coaction 2.0's formal external store adapter contract.
+- Reworked replacement dispatch handling so Redux state and Coaction state stay synchronized during Coaction-initiated and Redux-initiated replacements.
 
 ### Patch Changes
 
-- Notified Coaction subscribers after replacement dispatches initiated by
-  Coaction.
-- Preserved circular replace payloads, symbol keys, array properties, and
-  non-record snapshot values where Redux state allows them.
-- Sanitized unsafe replacement keys and avoided leaking binder symbol markers
-  into Redux state.
+- Notified Coaction subscribers after replacement dispatches initiated by Coaction.
+- Preserved circular replace payloads, symbol keys, array properties, and non-record snapshot values where Redux state allows them.
+- Sanitized unsafe replacement keys and avoided leaking binder symbol markers into Redux state.
 - Updated dependencies
   - coaction@2.0.0
 
@@ -24,8 +19,7 @@
 
 ### Minor Changes
 
-- Notified Coaction subscribers after external Redux writes and added official
-  binder-adapter contract coverage for local whole-store usage.
+- Notified Coaction subscribers after external Redux writes and added official binder-adapter contract coverage for local whole-store usage.
 - Aligned the peer dependency with `coaction@^1.5.0`.
 
 ## 1.4.1

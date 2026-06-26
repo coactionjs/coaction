@@ -5,13 +5,11 @@
 ### Major Changes
 
 - Updated the logger middleware for Coaction 2.0's middleware store contract.
-- Kept action, patch, and trace logging compatible with the stricter 2.0 state
-  and patch sanitization rules.
+- Kept action, patch, and trace logging compatible with the stricter 2.0 state and patch sanitization rules.
 
 ### Patch Changes
 
-- Made serialized logging tolerate circular references, BigInt values, and other
-  unserializable values.
+- Made serialized logging tolerate circular references, BigInt values, and other unserializable values.
 - Fixed trace timing when a trace starts at timestamp `0`.
 - Updated dependencies
   - coaction@2.0.0

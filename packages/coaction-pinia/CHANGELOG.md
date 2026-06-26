@@ -4,20 +4,15 @@
 
 ### Major Changes
 
-- Updated the Pinia adapter for Coaction 2.0's formal external store adapter API
-  and signal-backed notification model.
-- Reworked mutable replacement and shared-store synchronization so Pinia state,
-  Coaction raw state, and public state are replaced exactly.
+- Updated the Pinia adapter for Coaction 2.0's formal external store adapter API and signal-backed notification model.
+- Reworked mutable replacement and shared-store synchronization so Pinia state, Coaction raw state, and public state are replaced exactly.
 
 ### Patch Changes
 
 - Supported state-only Pinia stores.
-- Preserved sparse arrays, circular references, and non-record snapshot values
-  during snapshots and replacements.
-- Sanitized unsafe initial and replacement keys while preserving valid symbol
-  and array metadata.
-- Restored shared client state after rejected external writes and published
-  shared main external writes through Coaction.
+- Preserved sparse arrays, circular references, and non-record snapshot values during snapshots and replacements.
+- Sanitized unsafe initial and replacement keys while preserving valid symbol and array metadata.
+- Restored shared client state after rejected external writes and published shared main external writes through Coaction.
 - Made subscription cleanup and destroy wrappers idempotent.
 - Updated dependencies
   - coaction@2.0.0
@@ -26,8 +21,7 @@
 
 ### Minor Changes
 
-- Made Pinia adapter cleanup idempotent on `store.destroy()` and added official
-  binder-adapter contract coverage for local and shared whole-store usage.
+- Made Pinia adapter cleanup idempotent on `store.destroy()` and added official binder-adapter contract coverage for local and shared whole-store usage.
 - Aligned the peer dependency with `coaction@^1.5.0`.
 
 ## 1.4.1

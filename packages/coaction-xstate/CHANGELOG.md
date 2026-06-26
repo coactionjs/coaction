@@ -4,10 +4,8 @@
 
 ### Major Changes
 
-- Updated the XState adapter for Coaction 2.0's formal external store adapter
-  contract.
-- Made XState actor context the authoritative mutation path by blocking direct
-  Coaction mutations and middleware bypasses.
+- Updated the XState adapter for Coaction 2.0's formal external store adapter contract.
+- Made XState actor context the authoritative mutation path by blocking direct Coaction mutations and middleware bypasses.
 
 ### Patch Changes
 
@@ -22,8 +20,7 @@
 
 ### Minor Changes
 
-- Added official binder-adapter contract and type coverage for local whole-store
-  XState integrations.
+- Added official binder-adapter contract and type coverage for local whole-store XState integrations.
 - Aligned the peer dependency with `coaction@^1.5.0`.
 
 ## 1.4.1

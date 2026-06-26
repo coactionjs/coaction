@@ -105,7 +105,7 @@ This is the largest difference from a simple local-store DevTools integration.
 
 ## Computed and Selector Requirements
 
-Coaction 2.0 uses `alien-signals` internally for cached getters and React selector reactivity. DevTools should not start by exposing the full signal graph. That would couple tooling to implementation details too early.
+Coaction uses `alien-signals` internally for cached getters and React selector reactivity. DevTools should not start by exposing the full signal graph. That would couple tooling to implementation details too early.
 
 The first useful computed-state view is simpler:
 

@@ -83,7 +83,7 @@ For the core library without any framework:
 npm install coaction
 ```
 
-Coaction 2.0 includes `alien-signals` in the core package. You do not need a separate `@coaction/alien-signals` install.
+Coaction includes `alien-signals` in the core package. You do not need a separate `@coaction/alien-signals` install.
 
 ## Usage
 
@@ -313,7 +313,7 @@ Regenerate the reference from source with `pnpm docs:api`.
 
 ### Signal Runtime Exports
 
-Coaction 2.0 folds `alien-signals` into the core package. Normal stores do not need direct signal usage, but integration authors can use the native primitives without installing an extra package:
+Coaction folds `alien-signals` into the core package. Normal stores do not need direct signal usage, but integration authors can use the native primitives without installing an extra package:
 
 ```ts
 import {

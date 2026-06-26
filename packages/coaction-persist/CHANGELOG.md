@@ -4,18 +4,15 @@
 
 ### Major Changes
 
-- Updated the persistence middleware for Coaction 2.0's stricter middleware,
-  shared-store, and patch-sanitization contracts.
-- Reworked hydration application so persisted state is merged and applied
-  exactly against the current Coaction state.
+- Updated the persistence middleware for Coaction 2.0's stricter middleware, shared-store, and patch-sanitization contracts.
+- Reworked hydration application so persisted state is merged and applied exactly against the current Coaction state.
 
 ### Patch Changes
 
 - Sanitized hydrated and partialized state before merging or writing.
 - Isolated `onRehydrateStorage` callback errors from the hydration pipeline.
 - Queued `clearStorage()` behind pending async writes to preserve write order.
-- Synced shared-store hydration through Coaction and rejected persistence on
-  client mirror stores.
+- Synced shared-store hydration through Coaction and rejected persistence on client mirror stores.
 - Suppressed initial hydration from history undo/redo tracking.
 - Updated dependencies
   - coaction@2.0.0

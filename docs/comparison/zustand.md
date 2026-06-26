@@ -51,7 +51,7 @@ The main DX difference is that Coaction treats mutable draft updates as a first-
 
 ## Derived State
 
-Coaction 2.0 includes `alien-signals` in the core package. Accessor getters are cached computed values by default.
+Coaction includes `alien-signals` in the core package. Accessor getters are cached computed values by default.
 
 ```ts
 const useCart = create((set) => ({
@@ -159,7 +159,7 @@ Zustand vanilla stores can be used outside React, including in worker code, but 
 
 ## External Store Integration
 
-Coaction 2.0 exposes `defineExternalStoreAdapter()` from the core package:
+Coaction exposes `defineExternalStoreAdapter()` from the core package:
 
 ```ts
 import { defineExternalStoreAdapter } from 'coaction';

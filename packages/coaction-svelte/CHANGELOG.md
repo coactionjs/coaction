@@ -4,17 +4,13 @@
 
 ### Major Changes
 
-- Updated the Svelte binding for Coaction 2.0's creator typing model and
-  signal-backed core behavior.
-- Kept the callable store and `select()` APIs stable while aligning
-  subscriptions with Svelte readable-store semantics.
+- Updated the Svelte binding for Coaction 2.0's creator typing model and signal-backed core behavior.
+- Kept the callable store and `select()` APIs stable while aligning subscriptions with Svelte readable-store semantics.
 
 ### Patch Changes
 
-- Aligned `subscribe()` invalidation and emission order with the Svelte readable
-  contract.
-- Updated creator typings for object single-store creators and symbol-keyed
-  slices inherited from the core.
+- Aligned `subscribe()` invalidation and emission order with the Svelte readable contract.
+- Updated creator typings for object single-store creators and symbol-keyed slices inherited from the core.
 - Updated dependencies
   - coaction@2.0.0
 

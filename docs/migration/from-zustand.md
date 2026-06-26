@@ -16,7 +16,7 @@ Core or non-React usage only needs:
 npm install coaction
 ```
 
-Coaction 2.0 includes `alien-signals` internally. Do not install `@coaction/alien-signals`.
+Coaction includes `alien-signals` internally. Do not install `@coaction/alien-signals`.
 
 ## 2. Change the Import
 

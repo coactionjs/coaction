@@ -4,23 +4,16 @@
 
 ### Major Changes
 
-- Updated the Yjs binding for Coaction 2.0's stricter middleware,
-  shared-store, and patch-sanitization contracts.
-- Reworked local-to-Yjs and remote-to-Coaction synchronization to support exact
-  root replacements, shared root replacement sync, and patch-hook transforms.
+- Updated the Yjs binding for Coaction 2.0's stricter middleware, shared-store, and patch-sanitization contracts.
+- Reworked local-to-Yjs and remote-to-Coaction synchronization to support exact root replacements, shared root replacement sync, and patch-hook transforms.
 
 ### Patch Changes
 
-- Bound middleware after store initialization and suppressed initial Yjs
-  hydration from history undo/redo tracking.
-- Rejected symbol-keyed, symbol-valued, non-plain, and otherwise unstable remote
-  state values before applying them to Coaction.
-- Ignored unsafe remote keys, recovered missing root state maps, and rolled back
-  invalid local sync attempts.
-- Honored remote container path types, normalized string array path segments,
-  and preserved primitive fallback clone values.
-- Added structured-clone fallback handling for environments or values where
-  cloning fails.
+- Bound middleware after store initialization and suppressed initial Yjs hydration from history undo/redo tracking.
+- Rejected symbol-keyed, symbol-valued, non-plain, and otherwise unstable remote state values before applying them to Coaction.
+- Ignored unsafe remote keys, recovered missing root state maps, and rolled back invalid local sync attempts.
+- Honored remote container path types, normalized string array path segments, and preserved primitive fallback clone values.
+- Added structured-clone fallback handling for environments or values where cloning fails.
 - Updated dependencies
   - coaction@2.0.0
 
@@ -28,8 +21,7 @@
 
 ### Minor Changes
 
-- Refactored the Yjs binding internals into focused sync, value-conversion, and
-  remote-operation modules without changing the public API.
+- Refactored the Yjs binding internals into focused sync, value-conversion, and remote-operation modules without changing the public API.
 - Aligned the peer dependency with `coaction@^1.5.0`.
 
 ## 1.4.1

@@ -4,7 +4,7 @@
 
 An efficient and flexible state management library for building high-performance, multithreading web applications.
 
-Coaction 2.0 uses `alien-signals` internally for cached getter/computed state, React selector reactivity, and adapter-facing subscriptions. The core package also re-exports the signal primitives for advanced integrations.
+Coaction uses `alien-signals` internally for cached getter/computed state, React selector reactivity, and adapter-facing subscriptions. The core package also re-exports the signal primitives for advanced integrations.
 
 ## Installation
 

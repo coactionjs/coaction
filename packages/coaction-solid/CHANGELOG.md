@@ -4,18 +4,14 @@
 
 ### Major Changes
 
-- Updated the Solid binding for Coaction 2.0's signal-backed core and creator
-  typing model.
-- Reworked auto-selectors so nested plain objects can be traversed without
-  hiding framework calls in property getters.
+- Updated the Solid binding for Coaction 2.0's signal-backed core and creator typing model.
+- Reworked auto-selectors so nested plain objects can be traversed without hiding framework calls in property getters.
 
 ### Patch Changes
 
 - Treated non-plain objects and arrays as auto-selector leaves.
-- Included symbol keys and ignored non-enumerable keys when generating
-  auto-selectors.
-- Updated creator typings for object single-store creators and symbol-keyed
-  slices inherited from the core.
+- Included symbol keys and ignored non-enumerable keys when generating auto-selectors.
+- Updated creator typings for object single-store creators and symbol-keyed slices inherited from the core.
 - Updated dependencies
   - coaction@2.0.0
 

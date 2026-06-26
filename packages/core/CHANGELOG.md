@@ -4,47 +4,25 @@
 
 ### Major Changes
 
-- Rebuilt computed state on top of `alien-signals`, including cached getters,
-  dependency-aware invalidation, exported signal primitives, and reactive
-  tracking utilities for framework bindings.
-- Added the formal external store adapter API through
-  `defineExternalStoreAdapter()` and the compatibility `createBinder()` alias,
-  with lifecycle-ready hooks and helper utilities for exact external-store
-  replacement.
-- Tightened shared-store semantics for 2.0 by requiring JSON-serializable shared
-  state, rejecting symbol/unsafe execute paths, validating `fullSync` payloads,
-  and preventing client mirrors from mutating through `apply()` or adapter
-  bypasses.
-- Expanded state-shape support for local stores, including symbol-keyed slices,
-  symbol-keyed actions, circular references, sparse arrays, non-enumerable raw
-  descriptors, and object single-store creators.
+- Rebuilt computed state on top of `alien-signals`, including cached getters, dependency-aware invalidation, exported signal primitives, and reactive tracking utilities for framework bindings.
+- Added the formal external store adapter API through `defineExternalStoreAdapter()` and the compatibility `createBinder()` alias, with lifecycle-ready hooks and helper utilities for exact external-store replacement.
+- Tightened shared-store semantics for 2.0 by requiring JSON-serializable shared state, rejecting symbol/unsafe execute paths, validating `fullSync` payloads, and preventing client mirrors from mutating through `apply()` or adapter bypasses.
+- Expanded state-shape support for local stores, including symbol-keyed slices, symbol-keyed actions, circular references, sparse arrays, non-enumerable raw descriptors, and object single-store creators.
 
 ### Patch Changes
 
-- Hardened patch handling by sanitizing custom updater patches, patch-hook
-  output, low-level `apply()` state, client `fullSync` state, and nested
-  enumerable merges.
-- Preserved cycles, sparse arrays, and hidden descriptors while copying,
-  initializing, replacing, and reading state.
-- Improved async client behavior by awaiting async method return types,
-  validating sequence catch-up/full-sync fallbacks, and guarding SharedWorker
-  client detection.
-- Ensured middleware can observe external store updates consistently while
-  keeping adapter markers hidden unless they must remain copyable for keyed
-  adapters.
+- Hardened patch handling by sanitizing custom updater patches, patch-hook output, low-level `apply()` state, client `fullSync` state, and nested enumerable merges.
+- Preserved cycles, sparse arrays, and hidden descriptors while copying, initializing, replacing, and reading state.
+- Improved async client behavior by awaiting async method return types, validating sequence catch-up/full-sync fallbacks, and guarding SharedWorker client detection.
+- Ensured middleware can observe external store updates consistently while keeping adapter markers hidden unless they must remain copyable for keyed adapters.
 
 ## 1.5.0
 
 ### Minor Changes
 
-- Hardened state update semantics by filtering unsafe keys during initialization
-  and fast-path updates, preserving symbol-keyed state descriptors, treating
-  `setState(null)` as a no-op, removing duplicate patch notifications, and
-  preserving slice sibling state in the local object fast path.
-- Tightened shared-client synchronization by rejecting stale `fullSync`
-  fallbacks before they can roll back mirrored state.
-- Tightened `create()` mode validation and documented the maintained runtime,
-  adapter, and middleware support boundaries for the 1.5 line.
+- Hardened state update semantics by filtering unsafe keys during initialization and fast-path updates, preserving symbol-keyed state descriptors, treating `setState(null)` as a no-op, removing duplicate patch notifications, and preserving slice sibling state in the local object fast path.
+- Tightened shared-client synchronization by rejecting stale `fullSync` fallbacks before they can roll back mirrored state.
+- Tightened `create()` mode validation and documented the maintained runtime, adapter, and middleware support boundaries for the 1.5 line.
 
 ## 1.4.1
 
