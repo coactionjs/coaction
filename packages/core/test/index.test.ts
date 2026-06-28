@@ -347,6 +347,63 @@ test('client mirror rejects direct apply while transport sync still works', asyn
   useClientStore.destroy();
 });
 
+test('worker action rejects direct immutable this mutation without emitting patches', async () => {
+  const ports = mockPorts();
+  const serverTransport = createTransport('WebWorkerInternal', ports.main);
+  const clientTransport = createTransport(
+    'WebWorkerClient',
+    ports.create() as WorkerMainTransportOptions
+  );
+  const counter: Slice<{
+    nested: {
+      count: number;
+    };
+    step: number;
+    increment: () => void;
+  }> = () => ({
+    nested: {
+      count: 0
+    },
+    step: 1,
+    increment() {
+      this.nested.count += this.step;
+    }
+  });
+  const useServerStore = create(counter, {
+    transport: serverTransport,
+    name: 'worker-direct-mutation'
+  });
+  const useClientStore = create(counter, {
+    name: 'worker-direct-mutation',
+    clientTransport
+  });
+
+  await new Promise((resolve) => {
+    clientTransport.onConnect(() => {
+      setTimeout(resolve);
+    });
+  });
+
+  const updateSpy = jest.spyOn(serverTransport, 'emit');
+
+  await expect(useClientStore.getState().increment()).rejects.toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores. Wrap mutations in set(() => { ... }).'
+  );
+  expect(updateSpy).not.toHaveBeenCalledWith(
+    {
+      name: 'update',
+      respond: false
+    },
+    expect.anything()
+  );
+  expect(useServerStore.getState().nested.count).toBe(0);
+  expect(useClientStore.getState().nested.count).toBe(0);
+
+  updateSpy.mockRestore();
+  useServerStore.destroy();
+  useClientStore.destroy();
+});
+
 test('worker execute returns $$Error for missing method', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);

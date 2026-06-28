@@ -39,6 +39,25 @@ test('updates component with selector and full-state access', () => {
   expect(screen.getByTestId('double').textContent).toBe('2');
 });
 
+test('throws when immutable action mutates this directly outside set', () => {
+  const useStore = create<{
+    count: number;
+    step: number;
+    increment: () => void;
+  }>(() => ({
+    count: 0,
+    step: 1,
+    increment() {
+      this.count += this.step;
+    }
+  }));
+
+  expect(() => useStore.getState().increment()).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores. Wrap mutations in set(() => { ... }).'
+  );
+  expect(useStore.getState().count).toBe(0);
+});
+
 test('supports autoSelector', () => {
   const useStore = create<{
     count: number;

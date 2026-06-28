@@ -219,17 +219,38 @@ const counter = (set, get) => ({
     (state) => [state.counter.count],
     (count) => count * 2
   ),
+  // cross-slice derived data can depend on another slice explicitly
+  nextCount: get(
+    (state) => [state.counter.count, state.settings.step],
+    (count, step) => count + step
+  ),
   increment() {
     set(() => {
       // you can use `this` to access the slice state
       this.count += 1;
+    });
+  },
+  incrementByStep() {
+    set((draft) => {
+      // use the root draft when an action needs another slice
+      draft.counter.count += draft.settings.step;
+    });
+  }
+});
+
+const settings = (set) => ({
+  step: 1,
+  setStep(step) {
+    set(() => {
+      this.step = step;
     });
   }
 });
 
 const useStore = create(
   {
-    counter
+    counter,
+    settings
   },
   {
     sliceMode: 'slices'
@@ -237,7 +258,7 @@ const useStore = create(
 );
 ```
 
-Accessor getters are the default derived-state API. Coaction wraps them in `alien-signals` computed values, so repeated reads are cached until their state dependencies change. Use `get(deps, selector)` when you want explicit manual dependencies, for example cross-slice derived data or adapter integration code.
+Accessor getters are the default derived-state API. Coaction wraps them in `alien-signals` computed values, so repeated reads are cached until their state dependencies change. Use `get(deps, selector)` when you want explicit manual dependencies, for example cross-slice derived data or adapter integration code. In slices mode, `this` points at the current slice; use `get()` for the current root state or the root `draft` inside `set()` when an action needs another slice.
 
 Methods that rely on `this` stay bound when you destructure them from `getState()`:
 

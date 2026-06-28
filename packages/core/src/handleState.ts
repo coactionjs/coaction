@@ -42,6 +42,7 @@ export const handleState = <T extends CreateState>(
           ? () => {
               const returnValue = next(internal.module);
               if (returnValue instanceof Promise) {
+                returnValue.catch(() => undefined);
                 throw new Error(
                   'setState with async function is not supported'
                 );
@@ -125,6 +126,7 @@ export const handleState = <T extends CreateState>(
                 internal.rootState = draft as Draft<T>;
                 const returnValue = next(internal.module);
                 if (returnValue instanceof Promise) {
+                  returnValue.catch(() => undefined);
                   throw new Error(
                     'setState with async function is not supported'
                   );

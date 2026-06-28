@@ -106,13 +106,31 @@ Accessor getters are cached through Coaction's built-in `alien-signals` runtime.
 Keep accessor getters as the default. Use Coaction's manual computed form when the dependency list should be explicit, such as cross-slice derived data.
 
 ```ts
+const pricing = () => ({
+  taxRate: 0.08
+});
+
 const cart = (set, get) => ({
   items: [] as Array<{ price: number; quantity: number }>,
   total: get(
-    (state) => [state.cart.items],
-    (items) => items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    (state) => [state.cart.items, state.pricing.taxRate],
+    (items, taxRate) => {
+      const subtotal = items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+      return subtotal * (1 + taxRate);
+    }
   )
 });
+
+const useStore = create(
+  {
+    cart,
+    pricing
+  },
+  { sliceMode: 'slices' }
+);
 ```
 
 The same `get` helper still reads the current store when called with no arguments:

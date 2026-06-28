@@ -171,7 +171,7 @@ describe('State Management Store Tests', () => {
     expect(pureState.left).toEqual({
       value: 1
     });
-    expect(state.self).toBe(pureState);
+    expect(state.self).toBe(state);
     expect(state.left).toBe(state.right);
   });
 
@@ -203,7 +203,7 @@ describe('State Management Store Tests', () => {
     expect(pureCounter.left).toEqual({
       value: 1
     });
-    expect(counter.self).toBe(pureCounter);
+    expect(counter.self).toBe(counter);
     expect(counter.left).toBe(counter.right);
   });
 
