@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coaction Yjs Collaboration</title>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="heading">
+        <p>Coaction + Yjs</p>
+        <h1>Two local peers sharing one CRDT-backed store</h1>
+      </section>
+
+      <section class="network">
+        <div>
+          <span id="status" class="status">connected</span>
+          <strong id="stats">0 updates relayed</strong>
+        </div>
+        <div class="network-actions">
+          <button id="disconnect" type="button">Disconnect</button>
+          <button id="connect" type="button">Reconnect</button>
+        </div>
+      </section>
+
+      <section class="peers">
+        <article class="peer" aria-labelledby="peer-a-title">
+          <div class="peer-head">
+            <div>
+              <p>Peer A</p>
+              <h2 id="peer-a-title">Author store</h2>
+            </div>
+            <span id="peer-a-count" class="count">0</span>
+          </div>
+          <label>
+            Board title
+            <input id="peer-a-title-input" type="text" />
+          </label>
+          <div class="actions">
+            <button id="peer-a-increment" type="button">Increment</button>
+            <button id="peer-a-rename" type="button">Save title</button>
+          </div>
+          <form id="peer-a-note-form" class="note-form">
+            <input id="peer-a-note" type="text" placeholder="Add note" />
+            <button type="submit">Add</button>
+          </form>
+          <ul id="peer-a-notes"></ul>
+        </article>
+
+        <article class="peer" aria-labelledby="peer-b-title">
+          <div class="peer-head">
+            <div>
+              <p>Peer B</p>
+              <h2 id="peer-b-title">Reviewer store</h2>
+            </div>
+            <span id="peer-b-count" class="count">0</span>
+          </div>
+          <label>
+            Board title
+            <input id="peer-b-title-input" type="text" />
+          </label>
+          <div class="actions">
+            <button id="peer-b-increment" type="button">Increment</button>
+            <button id="peer-b-rename" type="button">Save title</button>
+          </div>
+          <form id="peer-b-note-form" class="note-form">
+            <input id="peer-b-note" type="text" placeholder="Add note" />
+            <button type="submit">Add</button>
+          </form>
+          <ul id="peer-b-notes"></ul>
+        </article>
+      </section>
+
+      <section class="doc-grid">
+        <article>
+          <h2>Peer A Y.Doc state</h2>
+          <pre id="doc-a">{}</pre>
+        </article>
+        <article>
+          <h2>Peer B Y.Doc state</h2>
+          <pre id="doc-b">{}</pre>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
