@@ -10,6 +10,10 @@ import {
   bindYjs,
   Doc
 } from '../../../packages/coaction-yjs/src/index';
+import {
+  createSubpackageHarness,
+  type SubpackageHarness
+} from './subpackageHarness';
 import { createWorkerHarness, type WorkerHarness } from './workerHarness';
 
 type CounterState = {
@@ -77,6 +81,7 @@ type MiddlewareHarness = {
 declare global {
   interface Window {
     __middlewareHarness: MiddlewareHarness;
+    __subpackageHarness: SubpackageHarness;
     __workerHarness: WorkerHarness;
   }
 }
@@ -365,6 +370,7 @@ window.__middlewareHarness = {
   clearPersistState
 };
 
+window.__subpackageHarness = createSubpackageHarness();
 window.__workerHarness = createWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
