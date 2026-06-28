@@ -4,7 +4,7 @@
 
 # Coaction
 
-**An efficient and flexible state management library for building<br/>high-performance, multithreading web applications.**
+**Zustand-style state management with automatic render tracking<br/>and cached computed state on one signal graph —<br/>from single-threaded apps to workers, tabs, and collaboration.**
 
 [![Node CI](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml/badge.svg)](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml) [![Coverage](https://coveralls.io/repos/github/coactionjs/coaction/badge.svg?branch=main)](https://coveralls.io/github/coactionjs/coaction?branch=main) [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction) [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
 
@@ -16,58 +16,101 @@
 
 ## Motivation
 
-Modern web applications are becoming increasingly complex, pushing the boundaries of what's possible in the browser. Single-threaded JavaScript often struggles to keep up with the demands of sophisticated UIs, real-time interactions, and data-intensive computations — leading to laggy interfaces and compromised user experiences.
+Choosing a state library always starts simple — a store and a few selectors. But the simple store rarely stays simple. As the app grows you bolt on `useMemo` and reselect for derived values, `useShallow` and equality functions to stop needless re-renders, a computed-state plugin, an immutable-update layer, auto-selector generators to cut boilerplate. Each is a separate mechanism with its own mental model, and nothing keeps them consistent with one another. (Redux piles on even more ceremony: actions, reducers, dispatch, and hand-written immutable updates.)
 
-While Web Workers (and SharedWorker) offer a path towards parallelism, they introduce challenges around state management, data synchronization, and maintaining coherent application logic across threads.
+**Coaction folds all of that into one cohesive signal graph.** It keeps a familiar Zustand-style `create` API, then makes render tracking and derived state first-class:
+
+- **Automatic render tracking** — `observer()` re-renders a component only for the fields it actually reads. No selectors, no `useShallow`.
+- **Cached computed by default** — `get value()` getters memoize until a dependency changes. No `useMemo`, no reselect.
+- **Mutable writes, immutable results** — just `this.count += 1` inside `set()`. Powered by [Mutative](https://github.com/unadlib/mutative); in the benchmark below, this update path is ~18x faster than Zustand + Immer.
+- **`this` and OOP-style actions** — natural getters and actions; methods destructured from `getState()` stay bound.
+
+Because tracking, computed values, and the fields they read all live on **one `alien-signals` graph**, invalidation is automatic and consistent end to end — instead of four plugins you assemble and maintain yourself.
+
+And the same store scales up. Built on a transport + patch foundation ([data-transport](https://github.com/unadlib/data-transport) + Mutative), the _same_ store source can run in a Worker or SharedWorker, sync across tabs, or join CRDT-style collaboration through `@coaction/yjs` and custom transports — by choosing the right transport/integration option, not by rewriting your state layer.
 
 <img src="./coaction-concept.svg" alt="Coaction Concept" />
 
-**Coaction was created to bridge this gap** — a state management solution that truly embraces the multithreading nature of modern web applications, without sacrificing developer experience.
+> Multithreading is the ceiling, not the entry fee. You can adopt Coaction for the single-threaded developer experience first, then grow into shared mode when the architecture calls for it.
 
-- **Performance first** — Offload computationally intensive tasks and state management to worker threads, while signal-backed derived state keeps UI reads fast.
-- **Scalable architecture** — An intuitive API (inspired by Zustand) with Slices, namespaces, cached getters, and explicit computed dependencies promotes modularity and clean code organization.
-- **Flexible synchronization** — Integration with [data-transport](https://github.com/unadlib/data-transport) enables generic transport protocols, supporting various communication patterns including remote synchronization for CRDTs applications.
+## Quick look
+
+The same counter, written both ways:
+
+```tsx
+import { useMemo } from 'react';
+import { create as createZustand } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
+import { create as createCoaction, observer } from '@coaction/react';
+
+// Zustand: explicit selector + shallow equality + manual memo
+const useZustandCounter = createZustand((set) => ({
+  count: 0,
+  step: 1,
+  increment: () => set((state) => ({ count: state.count + state.step }))
+}));
+
+function ZustandCounter() {
+  const { count, step } = useZustandCounter(
+    useShallow((s) => ({ count: s.count, step: s.step }))
+  );
+  const doubled = useMemo(() => count * 2, [count]);
+
+  return (
+    <button onClick={() => useZustandCounter.getState().increment()}>
+      {count} (step {step}) → {doubled}
+    </button>
+  );
+}
+
+// Coaction: no selector, cached getter, observer auto-tracking
+const useCoactionCounter = createCoaction((set) => ({
+  count: 0,
+  step: 1,
+  get doubled() {
+    return this.count * 2;
+  },
+  increment() {
+    set(() => {
+      this.count += this.step;
+    });
+  }
+}));
+
+const CoactionCounter = observer(() => {
+  const store = useCoactionCounter(); // tracks only the fields it reads
+
+  return (
+    <button onClick={store.increment}>
+      {store.count} (step {store.step}) → {store.doubled}
+    </button>
+  );
+});
+```
 
 ## Features
 
-- **Multithreading Sync** — Share state between webpage and worker threads. With `data-transport`, avoid the complexities of message passing and serialization.
-- **Immutable State with Optional Mutability** — Powered by [Mutative](https://github.com/unadlib/mutative), providing immutable state transitions with opt-in mutable instances for performance.
-- **Patch-Based Updates** — Efficient incremental state changes through patch-based synchronization, ideal for CRDTs applications.
-- **Signal-Backed Computed** — Accessor getters are cached by default through the built-in `alien-signals` runtime, while `get(deps, selector)` remains available for manual dependencies.
 - **Automatic Render Tracking** — Wrap React components in `observer()` for MobX/Vue-style subscriptions to the store or slice fields read during render — no selectors required. Explicit `useStore(selector)` stays available with Zustand-style equality behavior.
-- **Core Signal Exports** — Advanced integrations can import `signal`, `computed`, `effect`, batching helpers, and `defineExternalStoreAdapter` directly from `coaction`.
+- **Signal-Backed Computed** — Accessor getters are cached by default through the built-in `alien-signals` runtime, while `get(deps, selector)` remains available for manual dependencies.
+- **Immutable State with Optional Mutability** — Powered by [Mutative](https://github.com/unadlib/mutative), providing immutable state transitions with opt-in mutable instances for performance. In the benchmark below, this update path is ~18x faster than Zustand + Immer for that workload.
+- **Familiar, Minimal API** — A Zustand-inspired `create` API with first-class `this` in getters and actions; destructured methods stay bound.
 - **Slices Pattern** — Combine multiple slices into a store with namespace support.
+- **Framework Agnostic** — Works with React, Angular, Vue, Svelte, and Solid, plus adapters for state libraries like Redux, Zustand, MobX, Pinia, Jotai, Valtio, and XState.
 - **Extensible Middleware** — Enhance store behavior with logging, time-travel debugging, persistence, and more.
-- **Framework Agnostic** — Works with React, Angular, Vue, Svelte, Solid, and state libraries like Redux, Zustand, and MobX.
+- **Multithreading Sync** — Share state between webpage and worker threads. With `data-transport`, avoid the complexities of message passing and serialization.
+- **Patch-Based Updates** — Efficient incremental state changes through patch-based synchronization, useful for worker mirroring and CRDT integrations such as `@coaction/yjs`.
+- **Core Signal Exports** — Advanced integrations can import `signal`, `computed`, `effect`, batching helpers, and `defineExternalStoreAdapter` directly from `coaction`.
 
 ## Why Coaction Even Without Multithreading
 
-Multithreading is the headline, but Coaction is built to be a more ergonomic Zustand-style store in everyday single-threaded apps too. Four pillars carry the single-thread experience:
+The Motivation above makes the short pitch; [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) is the detailed case. Even with no worker in sight, Coaction is a more ergonomic Zustand-style store in everyday single-threaded apps because:
 
 1. **Automatic store/slice-field tracking** — `observer()` subscribes a component to the store or slice fields it reads, on the signal graph. No selectors, no `useShallow`.
 2. **Cached getters** — `get value()` getters are signal computed values, memoized until a dependency changes. No `useMemo` or reselect.
 3. **Escape hatches when you want them** — `useStore(selector)`, `useStore.auto()`, and `get(deps, selector)` keep explicit control available.
 4. **`this` + getters** — natural OOP-style actions and derived values, and methods destructured from `getState()` stay bound.
 
-```tsx
-// Zustand: explicit selector + shallow equality + manual memo
-const { count, step } = useStore(
-  useShallow((s) => ({ count: s.count, step: s.step }))
-);
-const doubled = useMemo(() => count * 2, [count]);
-
-// Coaction: no selector, cached getter, observer auto-tracking
-const Counter = observer(() => {
-  const store = useStore(); // tracks only the fields it reads
-  return (
-    <span>
-      {store.count} → {store.doubled}
-    </span>
-  );
-});
-```
-
-The value is not that any single feature is unique — Zustand's ecosystem can assemble equivalents — but that automatic tracking and computed values share **one cohesive signal graph**, while explicit selectors and `this` actions stay available as escape hatches. This comes with honest trade-offs: the published `coaction` + `@coaction/react` entry files are ~14 KiB gzip before external dependencies are bundled, versus Zustand's much smaller core. See [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) for the full case, before/after examples, and cost disclosure.
+The value is not that any single feature is unique — Zustand's ecosystem can assemble equivalents — but that automatic tracking and computed values share **one cohesive signal graph**, while explicit selectors and `this` actions stay available as escape hatches. This comes with honest trade-offs: the published `coaction` + `@coaction/react` entry files are ~14 KiB gzip before external dependencies are bundled, versus Zustand's much smaller core.
 
 ## Installation
 
