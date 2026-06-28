@@ -32,7 +32,8 @@ const readPackageExamples = (): PackageExample[] =>
     .sort((left, right) => left.exampleDir.localeCompare(right.exampleDir));
 
 const packageExamples = readPackageExamples();
-const suiteFiles = [
+const exampleImportFiles = [
+  'examples/e2e/browser/subpackageHarness.ts',
   'examples/e2e/test/subpackages.e2e.test.ts',
   'examples/e2e/test/subpackages.integration.test.ts'
 ];
@@ -72,10 +73,13 @@ describe('subpackage example registry', () => {
     }
   );
 
-  test.each(suiteFiles)('%s imports every subpackage example', (suiteFile) => {
-    const source = readFileSync(join(rootDir, suiteFile), 'utf8');
-    for (const { exampleDir } of packageExamples) {
-      expect(source).toContain(`../../subpackages/${exampleDir}`);
+  test.each(exampleImportFiles)(
+    '%s imports every subpackage example',
+    (file) => {
+      const source = readFileSync(join(rootDir, file), 'utf8');
+      for (const { exampleDir } of packageExamples) {
+        expect(source).toContain(`../../subpackages/${exampleDir}`);
+      }
     }
-  });
+  );
 });
