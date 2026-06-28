@@ -1,0 +1,23 @@
+{
+  "name": "adapters-base",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.app.json --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@reduxjs/toolkit": "^2.10.1",
+    "jotai": "^2.18.1",
+    "mutability": "^1.2.1",
+    "valtio": "^2.3.1",
+    "xstate": "^5.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  }
+}

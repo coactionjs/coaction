@@ -1,0 +1,121 @@
+:root {
+  color: #151719;
+  background: #f5f6f8;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button {
+  font: inherit;
+}
+
+.shell {
+  width: min(1120px, calc(100vw - 32px));
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.heading {
+  margin-bottom: 28px;
+}
+
+.heading p {
+  margin: 0 0 8px;
+  color: #0f766e;
+  font-weight: 700;
+}
+
+.heading h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: 2.4rem;
+  line-height: 1.08;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: grid;
+  gap: 24px;
+  min-height: 310px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 22px;
+  box-shadow: 0 18px 45px rgb(15 23 42 / 10%);
+}
+
+.card p {
+  margin: 0 0 8px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.count {
+  align-self: center;
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 0.9;
+}
+
+.actions {
+  display: grid;
+  gap: 10px;
+}
+
+.actions button {
+  border: 0;
+  border-radius: 6px;
+  background: #0f766e;
+  color: white;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.actions button + button {
+  background: #e2e8f0;
+  color: #151719;
+}
+
+@media (max-width: 920px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .heading h1 {
+    font-size: 1.85rem;
+  }
+}
