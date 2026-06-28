@@ -6,10 +6,10 @@ A Coaction integration tool for Svelte.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/svelte
+pnpm add coaction @coaction/svelte
 ```
 
 ## Usage

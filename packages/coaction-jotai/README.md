@@ -6,10 +6,10 @@ A Coaction integration tool for Jotai.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/jotai jotai
+pnpm add coaction @coaction/jotai jotai
 ```
 
 ## Usage

@@ -6,10 +6,10 @@ A Coaction integration tool for Angular.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/ng
+pnpm add coaction @coaction/ng
 ```
 
 ## Usage

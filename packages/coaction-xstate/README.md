@@ -6,10 +6,10 @@ A Coaction integration tool for XState.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/xstate xstate
+pnpm add coaction @coaction/xstate xstate
 ```
 
 ## Usage

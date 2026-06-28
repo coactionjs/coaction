@@ -6,10 +6,10 @@ A Coaction integration tool for MobX
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/mobx
+pnpm add coaction @coaction/mobx
 ```
 
 ## Usage
@@ -83,7 +83,7 @@ Measure(ops/sec) to update 10K arrays, bigger is better([view source](https://gi
 | coaction       | init                            | 8,523   |
 | mobx-keystone  | init                            | 41.19   |
 
-This table benchmarks various state management libraries on large initialization tasks. Coaction stands out dramatically, performing at least hundreds of times faster in certain scenarios. For example, in the “bigInitWithoutRefsWithoutAssign” test, Coaction achieves 18,809 ops/sec compared to MobX’s 37.67 ops/sec—over 500 times faster. Similarly, in the “init” test, Coaction reaches 8,523 ops/sec versus MobX’s 43.88 ops/sec—an increase of roughly 200 times. Additionally, Coaction consistently outperforms other libraries across various initialization scenarios, showcasing its exceptional efficiency in handling large-scale data initialization. These results highlight Coaction’s superior performance and make it a highly effective solution for managing complex state in modern front-end applications.
+This table benchmarks various state management libraries on large initialization tasks. Coaction stands out dramatically, performing at least hundreds of times faster in certain scenarios. For example, in the “bigInitWithoutRefsWithoutAssign” test, Coaction achieves 18,809 ops/sec compared to MobX’s 37.67 ops/sec, over 500 times faster. Similarly, in the “init” test, Coaction reaches 8,523 ops/sec versus MobX’s 43.88 ops/sec, an increase of roughly 200 times. Additionally, Coaction consistently outperforms other libraries across various initialization scenarios, showcasing its exceptional efficiency in handling large-scale data initialization. These results highlight Coaction’s superior performance and make it a highly effective solution for managing complex state in modern front-end applications.
 
 > We will also provide more complete benchmarking.
 

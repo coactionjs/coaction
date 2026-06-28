@@ -6,10 +6,10 @@ A Coaction integration tool for Solid.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/solid
+pnpm add coaction @coaction/solid
 ```
 
 ## Usage

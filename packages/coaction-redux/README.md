@@ -6,10 +6,10 @@ A Coaction integration tool for Redux Toolkit.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/redux @reduxjs/toolkit
+pnpm add coaction @coaction/redux @reduxjs/toolkit
 ```
 
 ## Usage

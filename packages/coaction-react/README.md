@@ -6,10 +6,10 @@ A Coaction integration tool for React
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/react
+pnpm add coaction @coaction/react
 ```
 
 ## Compatibility

@@ -6,10 +6,10 @@ A Coaction integration tool for Vue
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/vue
+pnpm add coaction @coaction/vue
 ```
 
 ## Usage

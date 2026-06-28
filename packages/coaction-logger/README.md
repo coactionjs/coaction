@@ -6,10 +6,10 @@ A logger middleware for Coaction.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install @coaction/logger
+pnpm add @coaction/logger
 ```
 
 ## Usage

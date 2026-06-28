@@ -7,7 +7,7 @@ A Coaction integration tool for Yjs.
 ## Installation
 
 ```sh
-npm install coaction @coaction/yjs
+pnpm add coaction @coaction/yjs
 ```
 
 ## Quick Start

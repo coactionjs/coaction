@@ -8,10 +8,10 @@ Coaction uses `alien-signals` internally for cached getter/computed state, React
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction
+pnpm add coaction
 ```
 
 ## Usage

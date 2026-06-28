@@ -6,10 +6,10 @@ A Coaction integration tool for Valtio.
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/valtio valtio
+pnpm add coaction @coaction/valtio valtio
 ```
 
 ## Usage

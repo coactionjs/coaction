@@ -6,10 +6,10 @@ A Coaction integration tool for Pinia
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/pinia
+pnpm add coaction @coaction/pinia
 ```
 
 ## Usage

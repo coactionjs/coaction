@@ -6,10 +6,10 @@ A Coaction integration tool for Zustand
 
 ## Installation
 
-You can install it via npm, yarn or pnpm.
+Install it with pnpm:
 
 ```sh
-npm install coaction @coaction/zustand
+pnpm add coaction @coaction/zustand
 ```
 
 ## Usage
