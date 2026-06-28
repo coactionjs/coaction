@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coaction Angular Signals Base</title>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <div class="heading">
+          <p>@coaction/ng</p>
+          <h1>Angular signals backed by a Coaction store</h1>
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <span id="count">0</span>
+          <small id="double">double 0</small>
+        </div>
+
+        <div class="controls">
+          <button id="decrement" type="button">-1</button>
+          <button id="increment" type="button">+1</button>
+          <button id="reset" class="secondary" type="button">Reset</button>
+        </div>
+
+        <label class="step-control">
+          <span>Step</span>
+          <input id="step" min="1" max="10" value="1" type="range" />
+        </label>
+      </section>
+
+      <section class="panel side">
+        <h2>Recent updates</h2>
+        <ol id="history"></ol>
+      </section>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
