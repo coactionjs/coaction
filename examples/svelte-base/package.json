@@ -1,0 +1,21 @@
+{
+  "name": "svelte-base",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "svelte-check --tsconfig ./tsconfig.app.json && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "svelte": "^5.53.11"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.2.2",
+    "@types/node": "^26.0.0",
+    "svelte-check": "^4.3.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7"
+  }
+}
