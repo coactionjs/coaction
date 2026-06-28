@@ -16,16 +16,16 @@
 
 ## Motivation
 
-Choosing a state library always starts simple: a store and a few selectors. But the simple store rarely stays simple. As the app grows you bolt on `useMemo` and reselect for derived values, `useShallow` and equality functions to stop needless re-renders, a computed-state plugin, an immutable-update layer, auto-selector generators to cut boilerplate. Each is a separate mechanism with its own mental model, and nothing keeps them consistent with one another. (Redux piles on even more ceremony: actions, reducers, dispatch, and hand-written immutable updates.)
+Choosing a state library often starts simple: a store and a few selectors. In selector-heavy or derived-state-heavy apps, that store can accumulate `useMemo`, reselect-style helpers, `useShallow`, equality functions, computed-state plugins, immutable-update middleware, and auto-selector generators. Those are valid ecosystem paths, but each adds another cache, subscription, or update model for the application to keep straight. (Redux piles on even more ceremony: actions, reducers, dispatch, and hand-written immutable updates.)
 
-**Coaction folds all of that into one cohesive signal graph.** It keeps a familiar Zustand-style `create` API, then makes render tracking and derived state first-class:
+**Coaction folds the common pieces into one cohesive signal graph.** It keeps a familiar Zustand-style `create` API, then makes render tracking and derived state first-class:
 
 - **Automatic render tracking**: `observer()` re-renders a component only for the fields it actually reads. No selectors, no `useShallow`.
 - **Cached computed by default**: `get value()` getters memoize until a dependency changes. No `useMemo`, no reselect.
 - **Mutable writes, immutable results**: just `this.count += 1` inside `set()`. Powered by [Mutative](https://github.com/unadlib/mutative); in the benchmark below, this update path is ~18x faster than Zustand + Immer.
 - **`this` and OOP-style actions**: natural getters and actions; methods destructured from `getState()` stay bound.
 
-Because tracking, computed values, and the fields they read all live on **one `alien-signals` graph**, invalidation is automatic and consistent end to end, instead of four plugins you assemble and maintain yourself.
+Because tracking, computed values, and the fields they read all live on **one `alien-signals` graph**, invalidation is automatic and consistent end to end. The point is not that Zustand cannot assemble similar capabilities through selectors, middleware, guides, or ecosystem packages; the point is that Coaction makes this path one built-in runtime.
 
 And the same store scales up. Built on a transport + patch foundation ([data-transport](https://github.com/unadlib/data-transport) + Mutative), the _same_ store source can run in a Worker or SharedWorker, sync across tabs, or join CRDT-style collaboration through `@coaction/yjs` and custom transports by choosing the right transport/integration option, not by rewriting your state layer.
 
@@ -103,7 +103,7 @@ const CoactionCounter = observer(() => {
 
 ## Why Coaction Even Without Multithreading
 
-The Motivation above makes the short pitch; [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) is the detailed case. Even with no worker in sight, Coaction is a more ergonomic Zustand-style store in everyday single-threaded apps because:
+The Motivation above makes the short pitch; [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) is the detailed case. Even with no worker in sight, Coaction can be a more ergonomic Zustand-style store for selector-heavy or derived-state-heavy apps because:
 
 1. **Automatic store/slice-field tracking**: `observer()` subscribes a component to the store or slice fields it reads, on the signal graph. No selectors, no `useShallow`.
 2. **Cached getters**: `get value()` getters are signal computed values, memoized until a dependency changes. No `useMemo` or reselect.
@@ -316,26 +316,26 @@ Coaction performs on par with Zustand in standard usage. The key difference emer
 
 ## Coaction vs Zustand
 
-Coaction inherits Zustand's intuitive API design while adding built-in support for features Zustand doesn't offer out of the box:
+Zustand is intentionally small and middleware/ecosystem-first. Coaction keeps a familiar Zustand-style creation API, but chooses a larger default runtime. This table compares what is first-class in Coaction with Zustand's core or official path; "not built in" does not mean Zustand cannot support the pattern.
 
-| Feature                            | Coaction | Zustand |
-| :--------------------------------- | :------: | :-----: |
-| Built-in multithreading            |    ✅    |   ❌    |
-| Signal-backed cached getters       |    ✅    |   ❌    |
-| Explicit computed deps via `get()` |    ✅    |   ❌    |
-| Observer automatic React tracking  |    ✅    |   ❌    |
-| Built-in namespace Slices          |    ✅    |   ❌    |
-| Built-in auto selector for state   |    ✅    |   ❌    |
-| Built-in multiple stores selector  |    ✅    |   ❌    |
-| External store adapter API         |    ✅    |   ❌    |
-| Easy middleware implementation     |    ✅    |   ❌    |
-| `this` support in getter/action    |    ✅    |   ❌    |
+| Capability                         | Coaction                             | Zustand core / official path                                |
+| :--------------------------------- | :----------------------------------- | :---------------------------------------------------------- |
+| Worker-backed shared state         | Built in via main/client store modes | Vanilla stores can run outside React; sync is userland      |
+| Signal-backed cached getters       | Built in                             | Selectors, memoized helpers, or ecosystem packages          |
+| Explicit computed deps via `get()` | Built in                             | Userland selector or computed-state middleware              |
+| Observer automatic React tracking  | Built in via `observer()`            | Selector subscriptions; usage tracking requires userland    |
+| Namespaced slices                  | Built-in `sliceMode: 'slices'`       | Official slice composition pattern, not a runtime namespace |
+| Auto selector generation           | Built in via `useStore.auto()`       | Official guide and ecosystem utilities                      |
+| Multiple-store selector            | Built in via `createSelector()`      | Compose selectors/hooks in application code                 |
+| External store adapter API         | Formal whole-store adapter contract  | Middleware and ecosystem-first extension model              |
+| Middleware model                   | Store-object middleware hooks        | Mature middleware stack (`persist`, `devtools`, etc.)       |
+| `this` in getter/action            | Bound to store or slice state        | Intentional closure/selector style                          |
 
 Coaction uses `alien-signals` internally for cached computed getters and `observer()` render tracking; no separate `@coaction/alien-signals` package is required. Explicit `useStore(selector)` uses Zustand-style equality checks.
 
 For the single-threaded value proposition, see [Why Coaction Without Multithreading](./docs/comparison/single-thread.md). For a deeper side-by-side comparison, see [Coaction vs Zustand](./docs/comparison/zustand.md). For existing Zustand codebases, see [Migrating from Zustand](./docs/migration/from-zustand.md).
 
-> Some features may have community solutions in Zustand; Coaction provides a more unified and streamlined API suited for modern web application development.
+Zustand remains the smaller, more mature choice when selectors and middleware cover the problem cleanly. Coaction is designed for teams that want computed state, render tracking, namespaced slices, external adapters, and worker-ready synchronization to live behind one runtime contract.
 
 ## API Reference
 
