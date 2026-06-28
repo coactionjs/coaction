@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Coaction Middleware Base</title>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel">
+        <div class="heading">
+          <p>Coaction middlewares</p>
+          <h1>Logger, persist, and history on one store</h1>
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <span id="count">0</span>
+          <small id="persisted">persisted 0</small>
+        </div>
+
+        <div class="controls">
+          <button id="increment" type="button">Increment</button>
+          <button id="undo" type="button">Undo</button>
+          <button id="redo" type="button">Redo</button>
+          <button id="clear" class="secondary" type="button">
+            Clear storage
+          </button>
+        </div>
+      </section>
+
+      <section class="panel side">
+        <h2>Logger events</h2>
+        <p id="event-count">0 events</p>
+        <ol id="events"></ol>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

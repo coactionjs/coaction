@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@coaction/history": ["../../packages/coaction-history/src/index.ts"],
+      "@coaction/logger": ["../../packages/coaction-logger/src/index.ts"],
+      "@coaction/persist": ["../../packages/coaction-persist/src/index.ts"],
+      "coaction": ["../../packages/core/src/index.ts"]
+    },
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/**/*.ts", "../../global.d.ts"]
+}
