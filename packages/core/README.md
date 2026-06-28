@@ -32,6 +32,8 @@ const store = create((set) => ({
 }));
 ```
 
+Core stores are immutable by default. Getters and methods can read through `this`, but writes to Coaction-owned state must happen inside `set()` or `set((draft) => ...)`. Direct writes such as `this.count += 1` in a store method throw because they bypass the commit path that notifies subscribers, produces patches when enabled, and synchronizes worker/client mirrors in shared mode.
+
 Accessor getters are cached automatically through the built-in signal runtime. Use `get(deps, selector)` when you want to declare dependencies manually:
 
 ```ts

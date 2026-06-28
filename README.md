@@ -161,6 +161,22 @@ const CounterComponent = observer(() => {
 
 In React, wrap components with `observer()` for MobX/Vue-style automatic render tracking without selectors. Plain `useStore()` outside `observer()` remains a whole-store subscription; use `useStore(selector)` or `useStore.auto()` when you prefer explicit React selector subscriptions.
 
+Coaction stores are immutable by default. Getters and methods can read through `this`, but writes to Coaction-owned state must happen inside `set()` or a `set((draft) => ...)` updater:
+
+```ts
+incrementWrong() {
+  this.count += this.step; // throws
+}
+
+increment() {
+  set(() => {
+    this.count += this.step;
+  });
+}
+```
+
+The `set()` boundary is where Coaction creates the immutable next state and notifies subscribers. When patches are enabled, that same boundary produces patch pairs; in shared mode, those patches synchronize worker/client mirrors. A direct mutation outside that boundary would bypass the commit path.
+
 ### Shared Mode Store
 
 **`counter.js`**
@@ -258,7 +274,7 @@ const useStore = create(
 );
 ```
 
-Accessor getters are the default derived-state API. Coaction wraps them in `alien-signals` computed values, so repeated reads are cached until their state dependencies change. Use `get(deps, selector)` when you want explicit manual dependencies, for example cross-slice derived data or adapter integration code. In slices mode, `this` points at the current slice; use `get()` for the current root state or the root `draft` inside `set()` when an action needs another slice.
+Accessor getters are the default derived-state API. Coaction wraps them in `alien-signals` computed values, so repeated reads are cached until their state dependencies change. Use `get(deps, selector)` when you want explicit manual dependencies, for example cross-slice derived data or adapter integration code. In slices mode, `this` points at the current slice; use `get()` for the current root state or the root `draft` inside `set()` when an action needs another slice. Cross-slice writes must still happen inside `set()` so the root update can produce one coherent immutable commit and patch sequence.
 
 Methods that rely on `this` stay bound when you destructure them from `getState()`:
 

@@ -17,6 +17,7 @@ This reference is generated from the docs-only entry point in `packages/core/api
 ## Semantics Worth Reading First
 
 - Prefer explicit `sliceMode` when passing an object whose enumerable values are all functions.
+- Native immutable store writes must happen inside `set()`; direct `this.count += 1` writes outside that update boundary are rejected.
 - Client stores mirror shared state and their methods return promises because execution happens on the main store.
 - Methods destructured from `getState()` keep the correct `this` binding.
 - Getter accessors and `get(deps, selector)` computed values are cached through the built-in alien-signals runtime.

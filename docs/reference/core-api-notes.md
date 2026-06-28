@@ -18,6 +18,39 @@ Client stores have two important differences:
 - store methods return promises because execution happens on the main store
 - direct `setState()` calls are rejected on the client; mutate through a store method instead
 
+## Immutable Mutation Boundary
+
+Native Coaction stores are immutable stores. Methods and getters can read through `this`, but any write to Coaction-owned state must happen inside `set()`:
+
+```ts
+const store = create((set) => ({
+  count: 0,
+  step: 1,
+  incrementWrong() {
+    this.count += this.step; // throws
+  },
+  increment() {
+    set(() => {
+      this.count += this.step;
+    });
+  }
+}));
+```
+
+`set()` is the commit boundary. Coaction uses that boundary to run Mutative, produce the immutable next state, notify subscribers, invalidate computed values, create patches and inverse patches when patches are enabled, and emit patch sequences to worker/client mirrors in shared mode. A direct mutation outside `set()` would mutate a raw object without a Coaction commit, so local listeners, middleware, computed caches, patches, and remote mirrors could diverge.
+
+The same rule applies in slices mode. `this` points at the current slice, so use the root draft when an action needs to write across slices:
+
+```ts
+incrementByStep() {
+  set((draft) => {
+    draft.counter.count += draft.settings.step;
+  });
+}
+```
+
+This rule applies to native immutable Coaction stores and framework wrappers built on core, such as `@coaction/react` and `@coaction/vue`. External observable adapters such as MobX, Pinia, and Valtio follow their own mutation model, but adapter updates still have to notify Coaction through the adapter contract.
+
 ## `getState()` Method Binding
 
 Store methods and slice methods are rebound to the latest state object when they are invoked. This makes patterns like the following safe even when the method body relies on `this`:
