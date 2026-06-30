@@ -54,7 +54,7 @@
   "devDependencies": {
     "@testing-library/vue": "^8.1.0",
     "coaction": "workspace:*",
-    "vue": "^3.5.30"
+    "vue": "^3.5.39"
   },
   "peerDependencies": {
     "coaction": "^2.0.0",
