@@ -4,81 +4,40 @@
 
 # Coaction
 
-**Zustand-style state management with automatic render tracking<br/>and cached computed state on one signal graph,<br/>from single-threaded apps to workers, tabs, and collaboration.**
+**A Zustand-style store where render tracking and cached computed state are built in.**<br/>
+No selectors. No `useShallow`. No `useMemo`. Just read state and it stays fast.
 
-[![Node CI](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml/badge.svg)](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml) [![Coverage](https://coveralls.io/repos/github/coactionjs/coaction/badge.svg?branch=main)](https://coveralls.io/github/coactionjs/coaction?branch=main) [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction) [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
+[![Node CI](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml/badge.svg)](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml) [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction) [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
 
-[Getting Started](#installation) · [Usage](#usage) · [API Reference](#api-reference) · [Examples](#examples) · [FAQ](#faqs)
+[Quick look](#quick-look) · [Why Coaction](#why-coaction) · [Install](#install) · [Examples](#examples) · [Docs](#docs)
 
 </div>
 
 <br/>
 
-## Motivation
-
-Choosing a state library often starts simple: a store and a few selectors. In selector-heavy or derived-state-heavy apps, that store can accumulate `useMemo`, reselect-style helpers, `useShallow`, equality functions, computed-state plugins, immutable-update middleware, and auto-selector generators. Those are valid ecosystem paths, but each adds another cache, subscription, or update model for the application to keep straight. (Redux piles on even more ceremony: actions, reducers, dispatch, and hand-written immutable updates.)
-
-**Coaction folds the common pieces into one cohesive signal graph.** It keeps a familiar Zustand-style `create` API, then makes render tracking and derived state first-class:
-
-- **Automatic render tracking**: `observer()` re-renders a component only for the fields it actually reads. No selectors, no `useShallow`.
-- **Cached computed by default**: `get value()` getters memoize until a dependency changes. No `useMemo`, no reselect.
-- **Mutable writes, immutable results**: just `this.count += 1` inside `set()`. Powered by [Mutative](https://github.com/unadlib/mutative); in the benchmark below, this update path is ~18x faster than Zustand + Immer.
-- **`this` and OOP-style actions**: natural getters and actions; methods destructured from `getState()` stay bound.
-
-Because tracking, computed values, and the fields they read all live on **one `alien-signals` graph**, invalidation is automatic and consistent end to end. The point is not that Zustand cannot assemble similar capabilities through selectors, middleware, guides, or ecosystem packages; the point is that Coaction makes this path one built-in runtime.
-
-And the same store scales up. Built on a transport + patch foundation ([data-transport](https://github.com/unadlib/data-transport) + Mutative), the _same_ store source can run in a Worker or SharedWorker, sync across tabs, or join CRDT-style collaboration through `@coaction/yjs` and custom transports by choosing the right transport/integration option, not by rewriting your state layer.
-
-<img src="./coaction-concept.svg" alt="Coaction Concept" />
-
-> Multithreading is the ceiling, not the entry fee. You can adopt Coaction for the single-threaded developer experience first, then grow into shared mode when the architecture calls for it.
-
 ## Quick look
 
-The same counter, written both ways:
+The same counter — but no selector, no `useShallow`, and derived state that caches itself:
 
 ```tsx
-import { useMemo } from 'react';
-import { create as createZustand } from 'zustand';
-import { useShallow } from 'zustand/react/shallow';
-import { create as createCoaction, observer } from '@coaction/react';
+import { create, observer } from '@coaction/react';
 
-// Zustand: explicit selector + shallow equality + manual memo
-const useZustandCounter = createZustand((set) => ({
+const useCounter = create((set) => ({
   count: 0,
   step: 1,
-  increment: () => set((state) => ({ count: state.count + state.step }))
-}));
-
-function ZustandCounter() {
-  const { count, step } = useZustandCounter(
-    useShallow((s) => ({ count: s.count, step: s.step }))
-  );
-  const doubled = useMemo(() => count * 2, [count]);
-
-  return (
-    <button onClick={() => useZustandCounter.getState().increment()}>
-      {count} (step {step}) → {doubled}
-    </button>
-  );
-}
-
-// Coaction: no selector, cached getter, observer auto-tracking
-const useCoactionCounter = createCoaction((set) => ({
-  count: 0,
-  step: 1,
+  // cached automatically — recomputed only when `count` changes
   get doubled() {
     return this.count * 2;
   },
   increment() {
     set(() => {
-      this.count += this.step;
+      this.count += this.step; // mutable write, immutable result
     });
   }
 }));
 
-const CoactionCounter = observer(() => {
-  const store = useCoactionCounter(); // tracks only the fields it reads
+const Counter = observer(() => {
+  const store = useCounter(); // tracks only the fields it actually reads
 
   return (
     <button onClick={store.increment}>
@@ -88,37 +47,61 @@ const CoactionCounter = observer(() => {
 });
 ```
 
-## Features
+<details>
+<summary>The same thing in Zustand — selector + shallow equality + manual memo</summary>
 
-- **Automatic Render Tracking**: Wrap React components in `observer()` for MobX/Vue-style subscriptions to the store or slice fields read during render, with no selectors required. Explicit `useStore(selector)` stays available with Zustand-style equality behavior.
-- **Signal-Backed Computed**: Accessor getters are cached by default through the built-in `alien-signals` runtime, while `get(deps, selector)` remains available for manual dependencies.
-- **Immutable State with Optional Mutability**: Powered by [Mutative](https://github.com/unadlib/mutative), providing immutable state transitions with opt-in mutable instances for performance. In the benchmark below, this update path is ~18x faster than Zustand + Immer for that workload.
-- **Familiar, Minimal API**: A Zustand-inspired `create` API with first-class `this` in getters and actions; destructured methods stay bound.
-- **Slices Pattern**: Combine multiple slices into a store with namespace support.
-- **Framework Agnostic**: Works with React, Angular, Vue, Svelte, and Solid, plus adapters for state libraries like Redux, Zustand, MobX, Pinia, Jotai, Valtio, and XState.
-- **Extensible Middleware**: Enhance store behavior with logging, time-travel debugging, persistence, and more.
-- **Multithreading Sync**: Share state between webpage and worker threads. With `data-transport`, avoid the complexities of message passing and serialization.
-- **Patch-Based Updates**: Efficient incremental state changes through patch-based synchronization, useful for worker mirroring and CRDT integrations such as `@coaction/yjs`.
-- **Core Signal Exports**: Advanced integrations can import `signal`, `computed`, `effect`, batching helpers, and `defineExternalStoreAdapter` directly from `coaction`.
+```tsx
+import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
+import { useMemo } from 'react';
 
-## Why Coaction Even Without Multithreading
+const useCounter = create((set) => ({
+  count: 0,
+  step: 1,
+  increment: () => set((s) => ({ count: s.count + s.step }))
+}));
 
-The Motivation above makes the short pitch; [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) is the detailed case. Even with no worker in sight, Coaction can be a more ergonomic Zustand-style store for selector-heavy or derived-state-heavy apps because:
+function Counter() {
+  const { count, step } = useCounter(
+    useShallow((s) => ({ count: s.count, step: s.step }))
+  );
+  const doubled = useMemo(() => count * 2, [count]);
 
-1. **Automatic store/slice-field tracking**: `observer()` subscribes a component to the store or slice fields it reads, on the signal graph. No selectors, no `useShallow`.
-2. **Cached getters**: `get value()` getters are signal computed values, memoized until a dependency changes. No `useMemo` or reselect.
-3. **Escape hatches when you want them**: `useStore(selector)`, `useStore.auto()`, and `get(deps, selector)` keep explicit control available.
-4. **`this` + getters**: natural OOP-style actions and derived values, and methods destructured from `getState()` stay bound.
-
-The value is not that any single feature is unique; Zustand's ecosystem can assemble equivalents. The value is that automatic tracking and computed values share **one cohesive signal graph**, while explicit selectors and `this` actions stay available as escape hatches. This comes with honest trade-offs: the published `coaction` + `@coaction/react` entry files are ~14 KiB gzip before external dependencies are bundled, versus Zustand's much smaller core.
-
-## Installation
-
-For React applications:
-
-```bash
-npm install coaction @coaction/react
+  return (
+    <button onClick={() => useCounter.getState().increment()}>
+      {count} (step {step}) → {doubled}
+    </button>
+  );
+}
 ```
+
+</details>
+
+## Why Coaction
+
+You don't need a worker, tabs, or CRDTs to benefit. Coaction folds the pieces you'd normally
+assemble by hand into **one cohesive signal graph**, so tracking, computed values, and the
+fields they read invalidate together:
+
+- **Automatic render tracking** — `observer()` re-renders a component only for the fields it
+  reads. No selectors, no `useShallow`.
+- **Cached computed by default** — `get value()` getters memoize until a dependency changes.
+  No `useMemo`, no reselect.
+- **Mutable writes, immutable results** — just `this.count += 1` inside `set()`. Powered by
+  [Mutative](https://github.com/unadlib/mutative) (~18x faster than Zustand + Immer in our benchmark).
+- **`this` + OOP-style actions** — natural getters and actions; methods destructured from
+  `getState()` stay bound.
+- **Escape hatches when you want them** — `useStore(selector)`, `useStore.auto()`, and
+  `get(deps, selector)` keep explicit control available.
+
+> **And when you need it, the same store scales up.** Built on a transport + patch foundation,
+> the _same_ store source can run in a Worker, SharedWorker, across tabs, or in real-time
+> collaboration — multithreading is the ceiling, not the entry fee. Adopt the single-threaded
+> DX first, grow into shared mode when the architecture calls for it.
+
+<img src="./coaction-concept.svg" alt="Coaction Concept" />
+
+## Install
 
 For the core library without any framework:
 
@@ -126,19 +109,49 @@ For the core library without any framework:
 npm install coaction
 ```
 
-Coaction includes `alien-signals` in the core package. You do not need a separate `@coaction/alien-signals` install.
+For React applications:
+
+```bash
+npm install coaction @coaction/react
+```
+
+Works with React, Vue, Angular, Svelte, and Solid, plus adapters for Redux, Zustand, MobX,
+Pinia, Jotai, Valtio, and XState. See [Integration](#integration) for package names and docs.
+
+## Coaction or Zustand?
+
+Coaction keeps a familiar Zustand-style `create` API but chooses a larger, batteries-included
+runtime. Zustand is the smaller, more battle-tested choice when selectors and middleware
+already cover the problem cleanly.
+
+**Reach for Coaction when:**
+
+- components are selector-heavy or lean on repeated derived state
+- you want derived values cached by default, without `useMemo`/reselect
+- you'd otherwise stack `react-tracked` + a computed plugin + auto-selectors and maintain it yourself
+- Worker / multi-tab / collaboration is on your roadmap
+
+**Stick with Zustand when:**
+
+- you need a small hook store with a few selectors
+- a near-zero-dependency core and bundle minimalism are top priorities
+- your team prefers explicit, magic-free subscriptions
+
+See the honest, detailed case in
+[Why Coaction Without Multithreading](./docs/comparison/single-thread.md) and the full
+[Coaction vs Zustand](./docs/comparison/zustand.md) comparison.
 
 ## Usage
 
-### Standard Mode Store
+### Your first store
 
-```jsx
+```tsx
 import { create, observer } from '@coaction/react';
 
 const useStore = create((set) => ({
   count: 0,
   get doubleCount() {
-    return this.count * 2;
+    return this.count * 2; // cached until `count` changes
   },
   increment() {
     set(() => {
@@ -147,7 +160,7 @@ const useStore = create((set) => ({
   }
 }));
 
-const CounterComponent = observer(() => {
+const Counter = observer(() => {
   const store = useStore();
   return (
     <div>
@@ -159,32 +172,152 @@ const CounterComponent = observer(() => {
 });
 ```
 
-In React, wrap components with `observer()` for MobX/Vue-style automatic render tracking without selectors. Plain `useStore()` outside `observer()` remains a whole-store subscription; use `useStore(selector)` or `useStore.auto()` when you prefer explicit React selector subscriptions.
+Wrap a component in `observer()` and it subscribes to exactly the fields it reads. Plain
+`useStore()` outside `observer()` stays a whole-store subscription — use `useStore(selector)`
+when you want the classic explicit style.
 
-Coaction stores are immutable by default. Getters and methods can read through `this`, but writes to Coaction-owned state must happen inside `set()` or a `set((draft) => ...)` updater:
+### Writes happen inside `set()`
+
+Coaction state is immutable by default. Getters and methods read through `this`, but writes
+must go through `set()`:
 
 ```ts
 incrementWrong() {
-  this.count += this.step; // throws
+  this.count += 1; // ❌ throws — outside set()
 }
 
 increment() {
   set(() => {
-    this.count += this.step;
+    this.count += 1; // ✅ mutable draft, immutable result
   });
 }
 ```
 
-The `set()` boundary is where Coaction creates the immutable next state and notifies subscribers. When patches are enabled, that same boundary produces patch pairs; in shared mode, those patches synchronize worker/client mirrors. A direct mutation outside that boundary would bypass the commit path.
+`set()` is the boundary where Coaction produces the next immutable state and notifies
+subscribers. When patches are enabled, it's also where patch pairs are generated — the same
+mechanism that powers shared mode later.
 
-### Shared Mode Store
+### Derived state
+
+Accessor getters are the default derived-state API and cache automatically:
+
+```ts
+import { create } from '@coaction/react';
+
+type CartItem = { price: number; quantity: number };
+
+const useCart = create((set) => ({
+  items: [] as CartItem[],
+  get total() {
+    return this.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  },
+  add(item: CartItem) {
+    set(() => {
+      this.items.push(item);
+    });
+  }
+}));
+```
+
+When you want explicit dependencies, use the `get(deps, selector)` form:
+
+```ts
+import { create } from '@coaction/react';
+
+type CartItem = { price: number; quantity: number };
+
+const useCart = create((set, get) => ({
+  items: [] as CartItem[],
+  total: get(
+    (state) => [state.items],
+    (items) => items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+  )
+}));
+```
+
+### Escape hatches
+
+Automatic tracking is the default, not a cage. The full explicit toolbox stays available:
+
+```tsx
+import { createSelector } from '@coaction/react';
+
+// selector across multiple stores; returns a hook
+const useCartCredit = createSelector(useCart, useUser);
+const selectors = useCart.auto();
+
+function CartSummary() {
+  // classic selector (familiar Zustand DX)
+  const total = useCart((state) => state.total);
+
+  // cached auto-selector map
+  const total2 = useCart(selectors.total);
+
+  // selector across multiple stores
+  const remaining = useCartCredit((cart, user) => cart.total + user.credit);
+
+  return <span>{total + total2 + remaining}</span>;
+}
+```
+
+> The explicit `useStore(selector)` path is _version + recompute + `Object.is`_ — the same
+> model Zustand uses. Coaction's fine-grained tracking lives in `observer()` and cached
+> getters, so mix the styles freely.
+
+### Slices
+
+Slices are a first-class store shape with namespace support:
+
+```ts
+const counter = (set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1; // `this` targets the slice
+    });
+  },
+  incrementByStep() {
+    set((draft) => {
+      draft.counter.count += draft.settings.step; // root draft for cross-slice
+    });
+  }
+});
+
+const settings = (set) => ({
+  step: 1,
+  setStep(step) {
+    set(() => {
+      this.step = step;
+    });
+  }
+});
+
+const useStore = create({ counter, settings }, { sliceMode: 'slices' });
+```
+
+Methods destructured from `getState()` stay bound:
+
+```ts
+const { increment } = useStore.getState().counter;
+increment(); // still works — `this` stays bound to the slice
+```
+
+## Scaling up: shared mode
+
+Everything above runs single-threaded. When your architecture calls for it, **the same store
+source** can move to a Worker, SharedWorker, or multiple tabs — no rewrite, no manual message
+passing.
 
 **`counter.js`**
 
 ```js
 export const counter = (set) => ({
   count: 0,
-  increment: () => set((state) => state.count++)
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
 });
 ```
 
@@ -207,138 +340,50 @@ const worker = new Worker(new URL('./worker.js', import.meta.url), {
   type: 'module'
 });
 const useStore = create(counter, { worker });
-
-const CounterComponent = () => {
-  const store = useStore();
-  return (
-    <div>
-      <p>Count in Worker: {store.count}</p>
-      <button onClick={() => store.increment()}>Increment</button>
-    </div>
-  );
-};
 ```
 
-### Slices Pattern & Derived Data
+In shared mode the worker owns the state (the _main_ store); webpage threads are _client_
+mirrors that read local state and proxy method calls to the main store. Coaction handles
+sequencing, patch sync, and reconnect recovery for you.
 
-```jsx
-import { create } from '@coaction/react';
+> **TypeScript note:** in a client context the store type is `AsyncStore` (methods become
+> async, proxied to the worker); in the worker context it's a synchronous `Store`.
 
-const counter = (set, get) => ({
-  count: 0,
-  // accessor getters are cached automatically
-  get tripleCount() {
-    return this.count * 3;
-  },
-  // explicit dependency form for manual dependency control
-  doubleCount: get(
-    (state) => [state.counter.count],
-    (count) => count * 2
-  ),
-  // cross-slice derived data can depend on another slice explicitly
-  nextCount: get(
-    (state) => [state.counter.count, state.settings.step],
-    (count, step) => count + step
-  ),
-  increment() {
-    set(() => {
-      // you can use `this` to access the slice state
-      this.count += 1;
-    });
-  },
-  incrementByStep() {
-    set((draft) => {
-      // use the root draft when an action needs another slice
-      draft.counter.count += draft.settings.step;
-    });
-  }
-});
+See the [threading model](./docs/architecture/threading-model.md) for the full authority rules.
 
-const settings = (set) => ({
-  step: 1,
-  setStep(step) {
-    set(() => {
-      this.step = step;
-    });
-  }
-});
+### Reusable SharedWorker store
 
-const useStore = create(
-  {
-    counter,
-    settings
-  },
-  {
-    sliceMode: 'slices'
-  }
+For multi-tab state, the same store module can create a `SharedWorker` on the webpage and run
+as the authority store inside the worker:
+
+```js
+import { create } from 'coaction';
+
+const worker = globalThis.SharedWorker
+  ? new SharedWorker(new URL('./store.js', import.meta.url), { type: 'module' })
+  : undefined;
+
+export const store = create(
+  (set) => ({
+    count: 0,
+    increment() {
+      set(() => {
+        this.count += 1;
+      });
+    }
+  }),
+  worker ? { worker } : undefined
 );
 ```
 
-Accessor getters are the default derived-state API. Coaction wraps them in `alien-signals` computed values, so repeated reads are cached until their state dependencies change. Use `get(deps, selector)` when you want explicit manual dependencies, for example cross-slice derived data or adapter integration code. In slices mode, `this` points at the current slice; use `get()` for the current root state or the root `draft` inside `set()` when an action needs another slice. Cross-slice writes must still happen inside `set()` so the root update can produce one coherent immutable commit and patch sequence.
-
-Methods that rely on `this` stay bound when you destructure them from `getState()`:
-
-```ts
-const { increment } = useStore.getState().counter;
-increment();
-```
-
-## Operating Modes
-
-Coaction operates in two primary modes:
-
-### Standard Mode
-
-The store is managed entirely within the webpage thread. Patch updates are disabled by default for optimal performance.
-
-### Shared Mode
-
-The worker thread serves as the primary source of shared state, utilizing transport for synchronization. Webpage threads act as clients, accessing and manipulating the state asynchronously.
-
-> In shared mode, the library automatically determines the execution context based on transport parameters, handling synchronization seamlessly. You can easily support multiple tabs, multithreading, or multiprocessing.
-
-### Examples
-
-For a [3D scene](./examples/3d-scene/src/windowsManager.ts) shared across several tabs, you can effortlessly handle state management using Coaction:
-
-https://github.com/user-attachments/assets/9eb9f4f8-8d47-433a-8eb2-85f044d6d8fa
-
-<details>
-<summary><b>Shared Mode Sequence Diagram</b></summary>
-
-```mermaid
-sequenceDiagram
-    participant Client as Webpage Thread (Client)
-    participant Main as Worker Thread (Main)
-
-    activate Client
-    Note over Client: Start Worker Thread
-    activate Main
-
-    Client ->> Main: Trigger fullSync event after startup
-    activate Main
-    Main -->> Client: Synchronize data (full state)
-    deactivate Main
-
-    Note over Client: User triggers a UI event
-    Client ->> Main: Send Store method and parameters
-    activate Main
-    Main ->> Main: Execute the corresponding method
-    Main -->> Client: Synchronize state (patches)
-    Note over Client: Render new state
-
-    Main -->> Client: Asynchronously respond with method execution result
-    deactivate Main
-    deactivate Client
-```
-
-</details>
+See the [reusable store example](./examples/vanilla-base/src/store.ts) and the
+[3D multi-window scene](./examples/3d-scene/README.md) for SharedWorker patterns.
 
 ## Performance
 
-Benchmark measuring ops/sec to update 50K arrays and 1K objects, higher is better ([source](./scripts/benchmark.ts)).
+Benchmark updating 50K arrays and 1K objects, higher is better ([source](./scripts/benchmark.ts)):
 
-> Benchmark snapshot from the current `scripts/benchmark.ts` comparison
+> Benchmark snapshot from the current `scripts/benchmark.ts` comparison.
 
 <img src="benchmark.jpg" alt="Benchmark" width="100%" />
 
@@ -349,128 +394,15 @@ Benchmark measuring ops/sec to update 50K arrays and 1K objects, higher is bette
 | **Zustand**                |   5,233 |    0.99x |
 | **Zustand** with Immer     |     253 |    0.05x |
 
-Coaction performs on par with Zustand in standard usage. The key difference emerges with immutable helpers: **Coaction with Mutative is ~18.3x faster than Zustand with Immer** (4,626 vs 253 ops/sec), thanks to [Mutative](https://github.com/unadlib/mutative)'s efficient state update mechanism.
+Coaction performs on par with Zustand in standard usage. The gap appears with immutable
+helpers: **Coaction with Mutative is ~18.3x faster than Zustand with Immer**.
 
-## Coaction vs Zustand
-
-Zustand is intentionally small and middleware/ecosystem-first. Coaction keeps a familiar Zustand-style creation API, but chooses a larger default runtime. This table compares what is first-class in Coaction with Zustand's core or official path; "not built in" does not mean Zustand cannot support the pattern.
-
-| Capability                         | Coaction                             | Zustand core / official path                                |
-| :--------------------------------- | :----------------------------------- | :---------------------------------------------------------- |
-| Worker-backed shared state         | Built in via main/client store modes | Vanilla stores can run outside React; sync is userland      |
-| Signal-backed cached getters       | Built in                             | Selectors, memoized helpers, or ecosystem packages          |
-| Explicit computed deps via `get()` | Built in                             | Userland selector or computed-state middleware              |
-| Observer automatic React tracking  | Built in via `observer()`            | Selector subscriptions; usage tracking requires userland    |
-| Namespaced slices                  | Built-in `sliceMode: 'slices'`       | Official slice composition pattern, not a runtime namespace |
-| Auto selector generation           | Built in via `useStore.auto()`       | Official guide and ecosystem utilities                      |
-| Multiple-store selector            | Built in via `createSelector()`      | Compose selectors/hooks in application code                 |
-| External store adapter API         | Formal whole-store adapter contract  | Middleware and ecosystem-first extension model              |
-| Middleware model                   | Store-object middleware hooks        | Mature middleware stack (`persist`, `devtools`, etc.)       |
-| `this` in getter/action            | Bound to store or slice state        | Intentional closure/selector style                          |
-
-Coaction uses `alien-signals` internally for cached computed getters and `observer()` render tracking; no separate `@coaction/alien-signals` package is required. Explicit `useStore(selector)` uses Zustand-style equality checks.
-
-For the single-threaded value proposition, see [Why Coaction Without Multithreading](./docs/comparison/single-thread.md). For a deeper side-by-side comparison, see [Coaction vs Zustand](./docs/comparison/zustand.md). For existing Zustand codebases, see [Migrating from Zustand](./docs/migration/from-zustand.md).
-
-Zustand remains the smaller, more mature choice when selectors and middleware cover the problem cleanly. Coaction is designed for teams that want computed state, render tracking, namespaced slices, external adapters, and worker-ready synchronization to live behind one runtime contract.
-
-## API Reference
-
-- [Core API index](./docs/api/core/index.md)
-- [Core API notes](./docs/api/core/documents/core-api-notes.md)
-- [Why Coaction Without Multithreading](./docs/comparison/single-thread.md)
-- [Coaction vs Zustand](./docs/comparison/zustand.md)
-- [Migrating from Zustand](./docs/migration/from-zustand.md)
-- [Zustand-focused benchmarks](./docs/benchmarking/zustand.md)
-- [DevTools roadmap](./docs/roadmap/devtools.md)
-- [Architecture overview](./docs/architecture/overview.md)
-- [Support matrix](./docs/architecture/support-matrix.md)
-- [API evolution](./docs/architecture/api-evolution.md)
-
-Regenerate the reference from source with `pnpm docs:api`.
-
-### Signal Runtime Exports
-
-Coaction folds `alien-signals` into the core package. Normal stores do not need direct signal usage, but integration authors can use the native primitives without installing an extra package:
-
-```ts
-import {
-  computed,
-  defineExternalStoreAdapter,
-  effect,
-  effectScope,
-  endBatch,
-  signal,
-  startBatch,
-  trigger
-} from 'coaction';
-```
-
-Use these exports for framework bindings, external store adapters, and advanced reactivity integrations. For application state, prefer Coaction getters and `get(deps, selector)`.
-
-### Store Shape Mode (`sliceMode`)
-
-`create()` infers store shape from `createState` by default (`sliceMode: 'auto'`). For backward compatibility, `auto` still treats a non-empty object whose enumerable values are all functions as slices. That shape is ambiguous with a plain store that only contains methods, so development builds warn and you should set `sliceMode` explicitly.
-
-- **`'single'`**: Treat an object as a single store, even if all values are functions.
-- **`'slices'`**: Strict slices mode with validation.
-
-```ts
-const singleStore = create(
-  {
-    ping() {
-      return 'pong';
-    }
-  },
-  { sliceMode: 'single' }
-);
-
-const slicesStore = create(
-  {
-    counter: (set) => ({
-      count: 0,
-      increment() {
-        set((draft) => {
-          draft.counter.count += 1;
-        });
-      }
-    })
-  },
-  { sliceMode: 'slices' }
-);
-```
-
-### Reusable Store
-
-Refactor a general store into a multithreading reusable store: the same source runs on both the webpage and the worker, with isolated references but synchronized state:
-
-**`store.js`**
-
-```diff
-+ const worker = globalThis.SharedWorker
-+   ? new SharedWorker(new URL('./store.js', import.meta.url), { type: 'module' })
-+   : undefined;
-
-export const store = create(
-  (set) => ({
-    count: 0,
-    increment() {
-      set((draft) => {
-        draft.count += 1;
-      });
-    }
-  }),
-+ { worker }
-);
-```
-
-> **TypeScript note:** In the webpage context, the store type is `AsyncStore` (methods become asynchronous and are proxied to the worker). In the worker context, it's `Store`. See the [reusable store example](examples/vanilla-base/src/store.ts).
+For the benchmark methodology and derived-state positioning, see
+[Zustand-focused benchmarks](./docs/benchmarking/zustand.md).
 
 ## Integration
 
-Coaction is designed to work with a wide range of libraries and frameworks.
-
-### Frameworks
+Coaction works across frameworks, with adapters for popular state libraries and middleware.
 
 | Framework | Package                                                    |
 | :-------- | :--------------------------------------------------------- |
@@ -479,11 +411,8 @@ Coaction is designed to work with a wide range of libraries and frameworks.
 | Angular   | [`@coaction/ng`](./packages/coaction-ng/README.md)         |
 | Svelte    | [`@coaction/svelte`](./packages/coaction-svelte/README.md) |
 | Solid     | [`@coaction/solid`](./packages/coaction-solid/README.md)   |
-| Yjs       | [`@coaction/yjs`](./packages/coaction-yjs/README.md)       |
 
-### State Management Libraries
-
-| Library       | Package                                                      |
+| State library | Package                                                      |
 | :------------ | :----------------------------------------------------------- |
 | MobX          | [`@coaction/mobx`](./packages/coaction-mobx/README.md)       |
 | Pinia         | [`@coaction/pinia`](./packages/coaction-pinia/README.md)     |
@@ -493,89 +422,91 @@ Coaction is designed to work with a wide range of libraries and frameworks.
 | XState        | [`@coaction/xstate`](./packages/coaction-xstate/README.md)   |
 | Valtio        | [`@coaction/valtio`](./packages/coaction-valtio/README.md)   |
 
-> **Note:** Slices mode is a core `coaction` feature. Third-party state adapters only support whole-store binding.
-
-Custom state-library integrations should use `defineExternalStoreAdapter()` from `coaction`. The adapter API bridges an external whole-store runtime while keeping Coaction subscriptions and signal-backed selectors refreshed.
-
-### Middlewares
-
 | Middleware | Package                                                      |
 | :--------- | :----------------------------------------------------------- |
 | Logger     | [`@coaction/logger`](./packages/coaction-logger/README.md)   |
 | Persist    | [`@coaction/persist`](./packages/coaction-persist/README.md) |
 | Undo/Redo  | [`@coaction/history`](./packages/coaction-history/README.md) |
 
-### Yjs Collaboration
+For collaboration, see [`@coaction/yjs`](./packages/coaction-yjs/README.md).
 
-For production collaboration setups with `@coaction/yjs`, see:
+> **Support boundaries are documented, not implied.** Slices mode is core-only; third-party
+> state adapters bind the whole store. Not every feature works in every mode — see the
+> [support matrix](./docs/architecture/support-matrix.md) for the exact, tested combinations.
 
-- [Sync Model](./packages/coaction-yjs/README.md#sync-model)
-- [Conflict Semantics](./packages/coaction-yjs/README.md#conflict-semantics)
-- [Provider Integration](./packages/coaction-yjs/README.md#provider-integration)
-- [Compatibility & Limits](./packages/coaction-yjs/README.md#compatibility-and-limits)
-- [Troubleshooting](./packages/coaction-yjs/README.md#troubleshooting)
+Custom integrations should use `defineExternalStoreAdapter()` from `coaction`. See the
+[adapter contract](./docs/architecture/adapter-contract.md) before writing one.
+
+## Examples
+
+- [3D multi-window scene](./examples/3d-scene/README.md) — SharedWorker state across multiple browser windows ([demo video](https://github.com/user-attachments/assets/9eb9f4f8-8d47-433a-8eb2-85f044d6d8fa)).
+- Framework examples — [React](./examples/react-base), [Vue](./examples/vue-base), [Angular](./examples/ng-base), [Svelte](./examples/svelte-base), [Solid](./examples/solid-base).
+- Adapter examples — [MobX](./examples/mobx-base), [Pinia](./examples/pinia-base), [Zustand](./examples/zustand-base), and the [adapter gallery](./examples/adapters-base).
+- [Middleware examples](./examples/middlewares-base), [vanilla reusable store](./examples/vanilla-base), and [Yjs collaboration](./examples/yjs-collaboration).
+
+## Docs
+
+- [Why Coaction Without Multithreading](./docs/comparison/single-thread.md)
+- [Coaction vs Zustand](./docs/comparison/zustand.md)
+- [Migrating from Zustand](./docs/migration/from-zustand.md)
+- [Architecture Overview](./docs/architecture/overview.md)
+- [Threading Model](./docs/architecture/threading-model.md)
+- [Support Matrix](./docs/architecture/support-matrix.md)
+- [Core API Reference](./docs/api/core/index.md)
 
 ## FAQs
 
 <details>
-<summary><b>Do I need `@coaction/alien-signals`?</b></summary>
+<summary><b>Can I use Coaction without multithreading?</b></summary>
 
-No. In Coaction 2.0, `alien-signals` is built into `coaction`. Import native signal primitives from `coaction` for advanced integrations, and use normal getter accessors or `get(deps, selector)` for application derived state.
+Yes — that's the recommended starting point. In single-threaded mode you get the full API, and
+patch updates stay off for optimal performance.
 
 </details>
 
 <details>
-<summary><b>Can I use Coaction without multithreading?</b></summary>
+<summary><b>Do I need <code>@coaction/alien-signals</code>?</b></summary>
 
-Absolutely. Coaction supports single-threaded mode with its full API. In default single-threaded mode, it doesn't use patch updates, ensuring optimal performance.
+No. `alien-signals` is built into `coaction`. Use normal getters or `get(deps, selector)` for
+app state; import signal primitives from `coaction` only for advanced integrations.
 
 </details>
 
 <details>
 <summary><b>Why is Coaction faster than Zustand with Immer?</b></summary>
 
-Coaction uses [Mutative](https://github.com/unadlib/mutative), which provides a faster state update mechanism. Mutative allows mutable instances for performance optimization, whereas Immer's pure immutable approach incurs more overhead.
+Coaction uses [Mutative](https://github.com/unadlib/mutative), which allows mutable instances
+for performance. Immer's copy-on-write path is significantly slower.
 
 </details>
 
 <details>
-<summary><b>Why can Coaction integrate with both observable and immutable state libraries?</b></summary>
+<summary><b>Does Coaction support CRDTs / multiple tabs?</b></summary>
 
-Coaction is built on Mutative, so it works regardless of whether the state library is immutable or observable. It binds to the existing state object, obtains patches through proxy execution, and applies them to the third-party state library.
-
-</details>
-
-<details>
-<summary><b>Does Coaction support CRDTs?</b></summary>
-
-Yes. Coaction achieves remote synchronization through `data-transport`, making it well-suited for CRDTs applications. For Yjs-specific synchronization, see the [`@coaction/yjs` documentation](./packages/coaction-yjs/README.md).
-
-</details>
-
-<details>
-<summary><b>Does Coaction support multiple tabs?</b></summary>
-
-Yes. State synchronization between multiple tabs is supported via `data-transport`. Consider using SharedWorker for sharing state across tabs.
+Yes. Remote sync runs on `data-transport`, so it suits CRDT apps and multi-tab state (use
+SharedWorker to share across tabs). For Yjs specifically, see [`@coaction/yjs`](./packages/coaction-yjs/README.md).
 
 </details>
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports should follow [SECURITY.md](./SECURITY.md), and participation is covered by [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md). Security reports follow [SECURITY.md](./SECURITY.md),
+and participation is covered by [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md).
 
-Pull request CI is intentionally maintainer-gated: a maintainer adds the `run-ci` label when a PR is ready for CI. After that label is present, later pushes to the same PR continue to run the PR workflow.
+Pull request CI is maintainer-gated: a maintainer adds the `run-ci` label when a PR is ready.
+Once the label is present, later pushes to the same PR keep running CI.
 
 <details>
 <summary><b>Maintainer Guide</b></summary>
 
 ### Repository Map
 
-- `packages/core`: runtime creation, authority model, patch flow, transport integration, middleware hooks, adapter hooks
-- `packages/coaction-*` framework bindings: React, Vue, Angular, Svelte, Solid wrappers around core stores
-- `packages/coaction-*` state adapters: whole-store integrations for external runtimes such as Zustand, MobX, Pinia, Redux, Jotai, Valtio, and XState
-- `packages/coaction-*` middlewares: logger, persist, history, yjs
-- `examples/*`: runnable integration and end-to-end examples
-- `docs/architecture/*`: maintainer-oriented runtime, support, and API evolution docs
+- `packages/core` — runtime creation, authority model, patch flow, transport integration, middleware hooks, adapter hooks
+- `packages/coaction-*` **framework bindings** — React, Vue, Angular, Svelte, Solid wrappers around core stores
+- `packages/coaction-*` **state adapters** — whole-store integrations for external runtimes (Zustand, MobX, Pinia, Redux, Jotai, Valtio, XState)
+- `packages/coaction-*` **middlewares** — logger, persist, history, yjs
+- `examples/*` — runnable integration and end-to-end examples
+- `docs/architecture/*` — maintainer-oriented runtime, support, and API-evolution docs
 
 ### Architecture Map
 
@@ -585,6 +516,7 @@ Pull request CI is intentionally maintainer-gated: a maintainer adds the `run-ci
 - [Support Matrix](./docs/architecture/support-matrix.md)
 - [API Evolution](./docs/architecture/api-evolution.md)
 - [Adapter Contract](./docs/architecture/adapter-contract.md)
+- [DevTools Roadmap](./docs/roadmap/devtools.md)
 
 ### Supported Integration Matrix
 
@@ -599,10 +531,12 @@ For the package-by-package status and boundary notes, see the [full support matr
 
 ### Testing Pyramid
 
-- Core runtime and type coverage lives in [`packages/core/test`](./packages/core/test).
-- Shared binder adapter coverage lives in `packages/*/test/contract.test.ts`.
-- Package-specific behavior and branch coverage lives in each package `test/` directory.
-- Integration and end-to-end coverage lives in [`packages/coaction-yjs/test/ws.integration.test.ts`](./packages/coaction-yjs/test/ws.integration.test.ts) and [`examples/e2e/test`](./examples/e2e/test).
+- Core runtime and type coverage — [`packages/core/test`](./packages/core/test)
+- Shared binder adapter coverage — `packages/*/test/contract.test.ts`
+- Package-specific behavior and branch coverage — each package's `test/` directory
+- Integration and end-to-end coverage — [`packages/coaction-yjs/test/ws.integration.test.ts`](./packages/coaction-yjs/test/ws.integration.test.ts) and [`examples/e2e/test`](./examples/e2e/test)
+
+Run the full gate locally with `pnpm check` (lint + typecheck + build + package quality/size + tests + e2e).
 
 ### Contributing a New Adapter
 
@@ -610,6 +544,17 @@ For the package-by-package status and boundary notes, see the [full support matr
 2. Follow the [adapter contribution guide](./docs/contributing/adapter-guide.md).
 3. Add the shared binder contract suite when the package is binder-backed.
 4. Update the [support matrix](./docs/architecture/support-matrix.md) in the same change as any new guarantee.
+
+### Release Flow
+
+Releases run through [Changesets](https://github.com/changesets/changesets):
+
+1. `pnpm changeset` — describe the change and pick version bumps.
+2. `pnpm changeset:check` — validate pending changesets.
+3. `pnpm run version` — apply version bumps across the workspace.
+4. `pnpm run publish -- --provenance` — publish with npm Trusted Publishing.
+
+All official packages are versioned together and released as a single line.
 
 </details>
 
