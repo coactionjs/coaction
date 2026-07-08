@@ -1,5 +1,18 @@
 import { create, Slices } from 'coaction';
+import {
+  createTransport,
+  mockPorts,
+  type WorkerMainTransportOptions
+} from 'data-transport';
 import { adapt, bindValtio, proxy } from '../src';
+import { persist, type PersistStorage } from '../../coaction-persist/src';
+
+const waitForSharedHydration = async () => {
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 test('base', () => {
   const state = proxy(
@@ -102,6 +115,41 @@ test('apply handles object replacement and patches', () => {
     }
   ] as any);
   expect(useStore.getState().count).toBe(9);
+
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'remove',
+      path: ['stale']
+    }
+  ] as any);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'stale')
+  ).toBe(false);
+  expect((useStore.getState() as any).stale).toBeUndefined();
+  expect(Object.prototype.hasOwnProperty.call(state, 'stale')).toBe(false);
+
+  expect(() => {
+    useStore.apply(useStore.getPureState(), [
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 12
+      },
+      {
+        op: 'add',
+        path: ['extra'],
+        value: 1
+      }
+    ] as any);
+  }).toThrow(
+    "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+  );
+  expect(useStore.getState().count).toBe(9);
+  expect(useStore.getPureState().count).toBe(9);
+  expect(state.count).toBe(9);
+  expect((useStore.getState() as any).extra).toBeUndefined();
+  expect((useStore.getPureState() as any).extra).toBeUndefined();
+  expect((state as any).extra).toBeUndefined();
 });
 
 test('apply rejects invalid replacement atomically and after destroy', () => {
@@ -147,6 +195,79 @@ test('apply rejects invalid replacement atomically and after destroy', () => {
   }).toThrow('apply cannot be called after store.destroy().');
   expect(state.count).toBe(0);
   expect(state.stale).toBe(1);
+});
+
+test('shared exact replacement removes root keys from server and client mutable state', async () => {
+  type Counter = {
+    count: number;
+    stale?: number;
+    increment: () => void;
+  };
+  const createState = () =>
+    proxy(
+      bindValtio({
+        count: 0,
+        stale: 1,
+        increment() {
+          this.count += 1;
+        }
+      })
+    ) as Counter;
+  const storage: PersistStorage = {
+    getItem: () =>
+      JSON.stringify({
+        state: {
+          count: 10
+        },
+        version: 0
+      }),
+    setItem: () => undefined,
+    removeItem: () => undefined
+  };
+  const ports = mockPorts();
+  const name = 'test-valtio-shared-exact-replace';
+  const serverExternal = createState();
+  const clientExternal = createState();
+  const serverStore = create(() => adapt(serverExternal), {
+    name,
+    transport: createTransport('WebWorkerInternal', ports.main),
+    middlewares: [
+      persist({
+        name,
+        storage,
+        merge: (persistedState) => persistedState
+      })
+    ]
+  });
+  const clientStore = create(() => adapt(clientExternal), {
+    name,
+    clientTransport: createTransport(
+      'WebWorkerClient',
+      ports.create() as WorkerMainTransportOptions
+    )
+  });
+
+  try {
+    await waitForSharedHydration();
+
+    expect(serverStore.getPureState()).toEqual({
+      count: 10
+    });
+    expect(clientStore.getPureState()).toEqual({
+      count: 10
+    });
+    expect(Object.prototype.hasOwnProperty.call(serverExternal, 'stale')).toBe(
+      false
+    );
+    expect(Object.prototype.hasOwnProperty.call(clientExternal, 'stale')).toBe(
+      false
+    );
+    expect((serverStore.getState() as any).stale).toBeUndefined();
+    expect((clientStore.getState() as any).stale).toBeUndefined();
+  } finally {
+    clientStore.destroy();
+    serverStore.destroy();
+  }
 });
 
 test('apply handles circular and shared replacement values with fixed schema', () => {

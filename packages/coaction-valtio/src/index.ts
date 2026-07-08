@@ -1,5 +1,5 @@
-import { apply } from 'mutability';
 import {
+  applyMutableAdapterPatches,
   createBinder,
   isEqualMutableAdapterSnapshot as isEqualSnapshot,
   onStoreReady,
@@ -158,7 +158,17 @@ const handleStore = (
           );
           return;
         }
-        apply(state, patches);
+        const currentRawState = (internal.rootState ?? rawState) as Record<
+          PropertyKey,
+          unknown
+        >;
+        applyMutableAdapterPatches(
+          state,
+          patches,
+          currentRawState,
+          getMutableState() as Record<PropertyKey, unknown>,
+          store.getState() as Record<PropertyKey, unknown>
+        );
       } finally {
         lastSnapshot = snapshotPureState(store);
         isApplyingCoactionState = false;

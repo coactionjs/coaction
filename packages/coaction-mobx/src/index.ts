@@ -1,5 +1,5 @@
-import { apply } from 'mutability';
 import {
+  applyMutableAdapterPatches,
   type Store,
   createBinder,
   getMutableAdapterOwnEnumerableKeys as getOwnEnumerableKeys,
@@ -222,7 +222,17 @@ const handleStore = (
         return;
       }
       runInAction(() => {
-        apply(state, patches!);
+        const currentRawState = (internal.rootState ?? rawState) as Record<
+          PropertyKey,
+          unknown
+        >;
+        applyMutableAdapterPatches(
+          state,
+          patches!,
+          currentRawState,
+          internal.toMutableRaw!(rawState) as Record<PropertyKey, unknown>,
+          store.getState() as Record<PropertyKey, unknown>
+        );
       });
     } finally {
       lastSnapshot = snapshotPureState(store);

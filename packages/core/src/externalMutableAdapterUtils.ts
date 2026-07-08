@@ -1,5 +1,7 @@
 import type { Store } from './interface';
+import { apply as applyWithMutative, type Patches } from 'mutative';
 import {
+  assertSafePatches,
   isUnsafeKey,
   sanitizeReplacementState,
   StateSchemaError
@@ -88,6 +90,21 @@ export const replaceMutableAdapterState = (
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
+};
+
+export const applyMutableAdapterPatches = (
+  baseState: unknown,
+  patches: Patches,
+  rawState: Record<PropertyKey, unknown>,
+  mutableState: Record<PropertyKey, unknown>,
+  publicState: Record<PropertyKey, unknown>
+) => {
+  assertSafePatches(patches, 'mutable adapter apply()');
+  const nextState = applyWithMutative(
+    toMutableAdapterSnapshot(baseState) as Record<PropertyKey, unknown>,
+    patches
+  ) as Record<PropertyKey, unknown>;
+  replaceMutableAdapterState(rawState, mutableState, publicState, nextState);
 };
 
 export const toMutableAdapterSnapshot = (

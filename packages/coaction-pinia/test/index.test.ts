@@ -13,6 +13,14 @@ import {
 } from 'data-transport';
 import { create, type Slices } from 'coaction';
 import { bindPinia, adapt, type PiniaStore } from '../src';
+import { persist, type PersistStorage } from '../../coaction-persist/src';
+
+const waitForSharedHydration = async () => {
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
 
 test('pinia', () => {
   const useCounterStore: PiniaStore<{
@@ -277,6 +285,155 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(typeof useStore.getState().replaceA).toBe('function');
   useStore.getState().replaceA();
   expect(useStore.getState().a).toBe(4);
+});
+
+test('apply patches sync root removal and reject unknown root keys atomically', () => {
+  type Counter = {
+    count: number;
+    stale?: number;
+    nested: {
+      value: number;
+    };
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-patch-apply-guards',
+          bindPinia({
+            state: () => ({
+              count: 0,
+              stale: 1,
+              nested: {
+                value: 1
+              }
+            })
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-patch-apply-guards'
+    }
+  );
+  const piniaStore = useStore.getPureState() as any;
+
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'remove',
+      path: ['stale']
+    }
+  ] as any);
+
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'stale')
+  ).toBe(false);
+  expect((useStore.getState() as any).stale).toBeUndefined();
+  expect(Object.prototype.hasOwnProperty.call(piniaStore, 'stale')).toBe(false);
+
+  expect(() => {
+    useStore.apply(useStore.getPureState(), [
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 5
+      },
+      {
+        op: 'add',
+        path: ['extra'],
+        value: 1
+      }
+    ] as any);
+  }).toThrow(
+    "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+  );
+  expect(useStore.getState().count).toBe(0);
+  expect(useStore.getPureState().count).toBe(0);
+  expect(piniaStore.count).toBe(0);
+  expect((useStore.getState() as any).extra).toBeUndefined();
+  expect((useStore.getPureState() as any).extra).toBeUndefined();
+  expect(piniaStore.extra).toBeUndefined();
+});
+
+test('shared exact replacement removes root keys from server and client mutable state', async () => {
+  type Counter = {
+    count: number;
+    stale?: number;
+    increment: () => void;
+  };
+  const createDefinition = (id: string) =>
+    adapt<Counter>(
+      defineStore(
+        id,
+        bindPinia({
+          state: () => ({
+            count: 0,
+            stale: 1
+          }),
+          actions: {
+            increment() {
+              this.count += 1;
+            }
+          }
+        })
+      )
+    ) as any;
+  const storage: PersistStorage = {
+    getItem: () =>
+      JSON.stringify({
+        state: {
+          count: 10
+        },
+        version: 0
+      }),
+    setItem: () => undefined,
+    removeItem: () => undefined
+  };
+  const ports = mockPorts();
+  const name = 'test-pinia-shared-exact-replace';
+  const serverDefinition = createDefinition(`${name}-server`);
+  const clientDefinition = createDefinition(`${name}-client`);
+  const serverExternal = serverDefinition();
+  const clientExternal = clientDefinition();
+  const serverStore = create<Counter>(() => serverDefinition, {
+    name,
+    transport: createTransport('WebWorkerInternal', ports.main),
+    middlewares: [
+      persist({
+        name,
+        storage,
+        merge: (persistedState) => persistedState
+      })
+    ]
+  });
+  const clientStore = create<Counter>(() => clientDefinition, {
+    name,
+    clientTransport: createTransport(
+      'WebWorkerClient',
+      ports.create() as WorkerMainTransportOptions
+    )
+  });
+
+  try {
+    await waitForSharedHydration();
+
+    expect(serverStore.getPureState()).toEqual({
+      count: 10
+    });
+    expect(clientStore.getPureState()).toEqual({
+      count: 10
+    });
+    expect(Object.prototype.hasOwnProperty.call(serverExternal, 'stale')).toBe(
+      false
+    );
+    expect(Object.prototype.hasOwnProperty.call(clientExternal, 'stale')).toBe(
+      false
+    );
+    expect((serverStore.getState() as any).stale).toBeUndefined();
+    expect((clientStore.getState() as any).stale).toBeUndefined();
+  } finally {
+    clientStore.destroy();
+    serverStore.destroy();
+  }
 });
 
 test('apply rejects invalid replacement atomically and after destroy', () => {
