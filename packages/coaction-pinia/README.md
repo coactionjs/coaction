@@ -16,23 +16,25 @@ pnpm add coaction @coaction/pinia
 
 ```js
 import { create } from 'coaction';
-import { bindPinia } from '@coaction/pinia';
+import { adapt, bindPinia } from '@coaction/pinia';
 import { defineStore } from 'pinia';
 
 const useStore = create(() =>
-  defineStore(
-    'test',
-    bindPinia({
-      state: () => ({ count: 0 }),
-      getters: {
-        double: (state) => state.count * 2
-      },
-      actions: {
-        increment(state) {
-          state.count += 1;
+  adapt(
+    defineStore(
+      'test',
+      bindPinia({
+        state: () => ({ count: 0 }),
+        getters: {
+          double: (state) => state.count * 2
+        },
+        actions: {
+          increment(state) {
+            state.count += 1;
+          }
         }
-      }
-    })
+      })
+    )
   )
 );
 ```
@@ -41,6 +43,9 @@ const useStore = create(() =>
 
 - `@coaction/pinia` only supports binding a whole Pinia store.
 - Coaction `Slices` mode is not supported in this adapter.
+- `bindPinia()` does not set Pinia's global active instance. Use `adapt()` for
+  Coaction-owned Pinia definitions, or provide your own active Pinia when using
+  raw Pinia store definitions directly.
 
 ## Documentation
 

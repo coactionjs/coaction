@@ -2,6 +2,7 @@
 import {
   defineStore,
   createPinia,
+  getActivePinia,
   setActivePinia,
   StoreDefinition
 } from 'pinia';
@@ -195,6 +196,27 @@ test('base', () => {
   "increment1": [Function],
 }
 `);
+});
+
+test('bindPinia does not replace the active pinia instance', () => {
+  const activePinia = createPinia();
+  setActivePinia(activePinia);
+
+  defineStore(
+    'active-pinia-preserved',
+    bindPinia({
+      state: () => ({
+        count: 0
+      }),
+      actions: {
+        increment() {
+          this.count += 1;
+        }
+      }
+    })
+  );
+
+  expect(getActivePinia()).toBe(activePinia);
 });
 
 test('apply exact replacement removes stale data keys without deleting actions', () => {

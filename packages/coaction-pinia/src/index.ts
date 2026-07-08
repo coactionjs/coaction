@@ -8,7 +8,7 @@ import {
   sanitizeReplacementState,
   type Store
 } from 'coaction';
-import { createPinia, setActivePinia } from 'pinia';
+import { createPinia } from 'pinia';
 import type {
   _GettersTree,
   DefineStoreOptions,
@@ -444,8 +444,6 @@ export const bindPinia = createBinder({
       },
       descriptors
     );
-    const pinia = createPinia();
-    setActivePinia(pinia);
     return {
       copyState: options as any,
       key: 'actions',
@@ -469,7 +467,16 @@ export const bindPinia = createBinder({
  */
 export const adapt = <T extends object>(
   store: StoreDefinition<IStore<T>[0], IStore<T>[1], IStore<T>[2], IStore<T>[3]>
-) => store as any as T;
+) => {
+  if (typeof store !== 'function') {
+    return store as any as T;
+  }
+  const pinia = createPinia();
+  const boundStore = ((piniaOverride?: Parameters<typeof store>[0]) =>
+    store(piniaOverride ?? pinia)) as typeof store;
+  Object.assign(boundStore, store);
+  return boundStore as any as T;
+};
 
 export type PiniaStore<T extends object> = StoreDefinition<
   IStore<T>[0],

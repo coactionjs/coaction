@@ -1,11 +1,5 @@
 import { create } from 'coaction';
-import {
-  adapt,
-  bindPinia,
-  createPinia,
-  defineStore,
-  setActivePinia
-} from '@coaction/pinia';
+import { adapt, bindPinia, defineStore } from '@coaction/pinia';
 
 type PiniaState = {
   count: number;
@@ -13,10 +7,9 @@ type PiniaState = {
 };
 
 export const runExample = () => {
-  setActivePinia(createPinia());
   const id = 'pinia-example-' + Math.random().toString(16).slice(2);
 
-  const useCounterStore = defineStore(
+  const rawUseCounterStore = defineStore(
     id,
     bindPinia({
       state: () => ({
@@ -29,10 +22,13 @@ export const runExample = () => {
       }
     })
   );
+  const useCounterStore = adapt<PiniaState>(
+    rawUseCounterStore
+  ) as unknown as typeof rawUseCounterStore;
 
   const piniaStore = useCounterStore();
 
-  const store = create<PiniaState>(() => adapt<PiniaState>(useCounterStore), {
+  const store = create<PiniaState>(() => useCounterStore as any, {
     name: id
   });
 

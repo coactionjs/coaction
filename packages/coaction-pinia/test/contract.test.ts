@@ -26,10 +26,10 @@ const createCounterStore = () => {
     })
   );
   const definition = adapt<Counter>(storeDefinition);
-  const external = storeDefinition();
+  const external = (definition as any)();
   return {
     definition,
-    storeDefinition,
+    storeDefinition: definition as any,
     external
   };
 };
