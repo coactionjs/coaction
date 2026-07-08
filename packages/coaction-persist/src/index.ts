@@ -1,6 +1,6 @@
 import {
+  createRootReplacementPatches,
   onStoreReady,
-  replaceOwnEnumerable,
   sanitizeReplacementState,
   type Middleware,
   type Store
@@ -140,11 +140,28 @@ export const persist =
     const applyHydratedState = (nextState: T) => {
       runWithoutHistoryRecording(store, () => {
         if (store.share === 'main') {
-          store.setState((draft: any) => {
-            replaceOwnEnumerable(
-              draft,
+          store.setState(nextState as any, () => {
+            const { patches, inversePatches } = createRootReplacementPatches(
+              store.getPureState() as Record<PropertyKey, unknown>,
               nextState as Record<PropertyKey, unknown>
             );
+            const finalPatches = store.patch
+              ? store.patch({
+                  patches: patches as any,
+                  inversePatches: inversePatches as any
+                })
+              : {
+                  patches: patches as any,
+                  inversePatches: inversePatches as any
+                };
+            if (finalPatches.patches.length) {
+              store.apply(store.getPureState(), finalPatches.patches);
+            }
+            return [
+              store.getPureState(),
+              finalPatches.patches,
+              finalPatches.inversePatches
+            ];
           });
           return;
         }

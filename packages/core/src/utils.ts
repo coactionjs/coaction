@@ -50,6 +50,72 @@ export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
         : patch
     );
 
+export type RootReplacementPatch = {
+  op: 'add' | 'remove' | 'replace';
+  path: PropertyKey[];
+  value?: unknown;
+};
+
+export const createRootReplacementPatches = (
+  currentState: Record<PropertyKey, unknown>,
+  nextState: Record<PropertyKey, unknown>
+) => {
+  const patches: RootReplacementPatch[] = [];
+  const inversePatches: RootReplacementPatch[] = [];
+  const nextKeys = new Set(getOwnEnumerableKeys(nextState));
+  for (const key of getOwnEnumerableKeys(currentState)) {
+    if (typeof key === 'string' && isUnsafeKey(key)) {
+      continue;
+    }
+    if (nextKeys.has(key)) {
+      continue;
+    }
+    patches.push({
+      op: 'remove',
+      path: [key]
+    });
+    inversePatches.push({
+      op: 'add',
+      path: [key],
+      value: currentState[key]
+    });
+  }
+  for (const key of nextKeys) {
+    if (typeof key === 'string' && isUnsafeKey(key)) {
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(currentState, key)) {
+      patches.push({
+        op: 'add',
+        path: [key],
+        value: nextState[key]
+      });
+      inversePatches.push({
+        op: 'remove',
+        path: [key]
+      });
+      continue;
+    }
+    if (Object.is(currentState[key], nextState[key])) {
+      continue;
+    }
+    patches.push({
+      op: 'replace',
+      path: [key],
+      value: nextState[key]
+    });
+    inversePatches.push({
+      op: 'replace',
+      path: [key],
+      value: currentState[key]
+    });
+  }
+  return {
+    patches,
+    inversePatches
+  };
+};
+
 export const setOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   key: PropertyKey,

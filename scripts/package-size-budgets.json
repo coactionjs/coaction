@@ -62,12 +62,12 @@
   "@coaction/persist": {
     "files": {
       "dist/index.mjs": {
-        "baselineGzipBytes": 1666,
-        "maxGzipBytes": 1920
+        "baselineGzipBytes": 1953,
+        "maxGzipBytes": 2250
       },
       "dist/index.js": {
-        "baselineGzipBytes": 1711,
-        "maxGzipBytes": 1970
+        "baselineGzipBytes": 1994,
+        "maxGzipBytes": 2300
       }
     }
   },

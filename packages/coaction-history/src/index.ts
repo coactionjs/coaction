@@ -1,4 +1,9 @@
-import { onStoreReady, type Middleware, type Store } from 'coaction';
+import {
+  createRootReplacementPatches,
+  onStoreReady,
+  type Middleware,
+  type Store
+} from 'coaction';
 
 type Snapshot = Record<PropertyKey, unknown>;
 
@@ -299,22 +304,43 @@ export const history =
       lastSnapshot = current;
     };
     const applyTimeTravelSnapshot = (snapshot: object, current: object) => {
+      const nextState = toSnapshot(store.getPureState());
+      applyHistorySnapshot(
+        nextState as Record<PropertyKey, unknown>,
+        snapshot,
+        current
+      );
       if (applyStore && hasCircularReference(snapshot)) {
-        const nextState = toSnapshot(store.getPureState());
-        applyHistorySnapshot(
-          nextState as Record<PropertyKey, unknown>,
-          snapshot,
-          current
-        );
         applyStore(nextState as T);
         return;
       }
-      baseSetState((draft) => {
-        applyHistorySnapshot(
-          draft as unknown as Record<PropertyKey, unknown>,
-          snapshot,
-          current
+      if (!store.share && applyStore) {
+        applyStore(nextState as T);
+        baseSetState(null);
+        return;
+      }
+      baseSetState(nextState as T, () => {
+        const { patches, inversePatches } = createRootReplacementPatches(
+          store.getPureState() as Record<PropertyKey, unknown>,
+          nextState as Record<PropertyKey, unknown>
         );
+        const finalPatches = store.patch
+          ? store.patch({
+              patches: patches as any,
+              inversePatches: inversePatches as any
+            })
+          : {
+              patches: patches as any,
+              inversePatches: inversePatches as any
+            };
+        if (finalPatches.patches.length) {
+          store.apply(store.getPureState(), finalPatches.patches);
+        }
+        return [
+          store.getPureState(),
+          finalPatches.patches,
+          finalPatches.inversePatches
+        ];
       });
     };
     const cancelReadySubscription = onStoreReady(store, () => {

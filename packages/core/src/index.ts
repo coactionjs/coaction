@@ -4,6 +4,7 @@ export { onStoreReady } from './lifecycle';
 export { createReactiveTracker } from './reactiveTracker';
 export { replaceExternalStoreState } from './replaceExternalStoreState';
 export {
+  createRootReplacementPatches,
   isStateSchemaError,
   replaceOwnEnumerable,
   sanitizeInitialStateValue,
