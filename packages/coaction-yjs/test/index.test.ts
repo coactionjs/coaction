@@ -314,6 +314,31 @@ test('syncs state from yjs to coaction', async () => {
   binding.destroy();
 });
 
+test('removes own root key when remote yjs state deletes it', async () => {
+  const doc = new Y.Doc();
+  const store = create(() => ({
+    count: 1
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  const map = doc.getMap<any>('counter');
+  const state = map.get('state') as Y.Map<any>;
+
+  doc.transact(() => {
+    state.delete('count');
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBeUndefined();
+    expect(
+      Object.prototype.hasOwnProperty.call(store.getPureState(), 'count')
+    ).toBe(false);
+  });
+  binding.destroy();
+});
+
 test('hydrates store from existing yjs state', () => {
   const doc = new Y.Doc();
   const map = doc.getMap<any>('counter');

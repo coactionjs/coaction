@@ -122,6 +122,40 @@ test('undo and redo restore deleted object keys', () => {
   });
 });
 
+test('undo and redo restore root key removal from replacement apply', () => {
+  const useStore = create(
+    () => ({
+      a: 1,
+      b: 2
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.apply({
+    a: 1
+  } as any);
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'b')
+  ).toBe(false);
+
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getPureState()).toEqual({
+    a: 1,
+    b: 2
+  });
+
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getPureState()).toEqual({
+    a: 1
+  });
+  expect(
+    Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'b')
+  ).toBe(false);
+});
+
 test('undo and redo restore array truncation', () => {
   const useStore = create(
     (set) => ({

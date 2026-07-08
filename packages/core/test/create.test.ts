@@ -317,6 +317,39 @@ describe('State Management Store Tests', () => {
     expect((useStore.getState() as any).extra).toBeUndefined();
   });
 
+  test('allows replacing a single store with absent known root keys', () => {
+    const useStore = create(() => ({
+      a: 1,
+      b: 2
+    }));
+
+    useStore.apply({
+      a: 3
+    } as any);
+
+    expect(useStore.getPureState()).toEqual({
+      a: 3
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'b')
+    ).toBe(false);
+    expect(useStore.getState().a).toBe(3);
+    expect((useStore.getState() as any).b).toBeUndefined();
+
+    useStore.apply(useStore.getPureState(), [
+      {
+        op: 'remove',
+        path: ['a']
+      }
+    ] as any);
+
+    expect(useStore.getPureState()).toEqual({});
+    expect(
+      Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'a')
+    ).toBe(false);
+    expect((useStore.getState() as any).a).toBeUndefined();
+  });
+
   test('rejects unknown slice keys and unknown slice fields after initialization', () => {
     const useStore = create({
       counter: () => ({

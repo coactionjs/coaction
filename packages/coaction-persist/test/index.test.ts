@@ -412,6 +412,60 @@ test('shared main broadcasts hydration that completes after client full sync', a
   expect(clientStore.getState().count).toBe(5);
 });
 
+test('shared main hydrates exact replacement that removes root keys', async () => {
+  const onRehydrateStorage = vi.fn();
+  const storage: PersistStorage = {
+    getItem: () =>
+      JSON.stringify({
+        state: {
+          a: 10
+        },
+        version: 0
+      }),
+    setItem: () => undefined,
+    removeItem: () => undefined
+  };
+  const transport = createTransportPair();
+  const createState = () => ({
+    a: 1,
+    b: 2
+  });
+  const serverStore = create(createState, {
+    name: 'persist-shared-exact-replacement',
+    transport: transport.main as any,
+    middlewares: [
+      persist({
+        name: 'persist-shared-exact-replacement',
+        storage,
+        merge: (persistedState) => persistedState,
+        onRehydrateStorage
+      })
+    ]
+  });
+  const clientStore = create(createState, {
+    name: 'persist-shared-exact-replacement',
+    clientTransport: transport.client as any
+  });
+
+  await delay();
+  await delay();
+  await delay();
+
+  expect(serverStore.getPureState()).toEqual({
+    a: 10
+  });
+  expect(clientStore.getPureState()).toEqual({
+    a: 10
+  });
+  expect(
+    Object.prototype.hasOwnProperty.call(serverStore.getPureState(), 'b')
+  ).toBe(false);
+  expect(
+    Object.prototype.hasOwnProperty.call(clientStore.getPureState(), 'b')
+  ).toBe(false);
+  expect(onRehydrateStorage).toHaveBeenCalledWith(serverStore.getState());
+});
+
 test('supports version migration', async () => {
   const storage = createMemoryStorage();
   storage.setItem(
