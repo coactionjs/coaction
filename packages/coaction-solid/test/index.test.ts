@@ -227,7 +227,7 @@ test('destroy unsubscribes solid listener lifecycle', () => {
   });
 });
 
-test('slices autoSelector skips non-object state entries', () => {
+test('slices autoSelector does not expose rejected dynamic root keys', () => {
   const useStore = create(
     {
       counter: () => ({
@@ -238,7 +238,9 @@ test('slices autoSelector skips non-object state entries', () => {
       sliceMode: 'slices'
     }
   );
-  (useStore.getState() as any).meta = 1;
+  expect(() => {
+    (useStore.getState() as any).meta = 1;
+  }).toThrow(TypeError);
   createRoot((dispose) => {
     const selectors = useStore({ autoSelector: true }) as any;
     expect(selectors.counter.count()).toBe(0);
