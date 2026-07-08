@@ -699,7 +699,9 @@ test('middleware destroy stops further syncing', () => {
     count: 1
   });
   store.destroy();
-  store.getState().increment();
+  expect(() => {
+    store.getState().increment();
+  }).toThrow('action increment cannot be called after store.destroy().');
   expect(readState(doc, 'counter')).toEqual({
     count: 1
   });

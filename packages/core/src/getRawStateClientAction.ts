@@ -54,6 +54,7 @@ export const createClientAction = <T extends CreateState>({
   sliceKey
 }: CreateClientActionOptions<T>) => {
   return (...args: unknown[]) => {
+    internal.assertAlive?.(`action ${key}`);
     let actionId: string | undefined;
     let done: ((result: any) => void) | undefined;
     if (store.trace) {

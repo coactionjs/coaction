@@ -159,10 +159,18 @@ export const create: Creator = <T extends CreateState>(
     try {
       const { setState, getState } = handleState(store, internal, options);
       const subscribe: Store<T>['subscribe'] = (listener) => {
+        internal.assertAlive?.('subscribe');
         internal.listeners.add(listener);
         return () => internal.listeners.delete(listener);
       };
       let isDestroyed = false;
+      internal.assertAlive = (operation) => {
+        if (isDestroyed) {
+          throw new Error(
+            `${operation} cannot be called after store.destroy().`
+          );
+        }
+      };
       const destroy: Store<T>['destroy'] = () => {
         if (isDestroyed) {
           return;
@@ -176,6 +184,7 @@ export const create: Creator = <T extends CreateState>(
         state = internal.rootState as T,
         patches
       ) => {
+        internal.assertAlive?.('apply');
         internal.assertMutationAllowed?.('apply');
         const safePatches = sanitizePatches(patches);
         const nextState = sanitizeReplacementState(

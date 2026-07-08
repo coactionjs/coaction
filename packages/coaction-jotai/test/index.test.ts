@@ -125,7 +125,7 @@ test('notifies coaction subscribers after coaction setState syncs atoms', () => 
   unsubscribe();
 });
 
-test('ignores non-atom keys when syncing from coaction to jotai', () => {
+test('rejects unknown keys when syncing from coaction to jotai', () => {
   const countAtom = atom(0);
   const jotaiStore = createStore();
   const useStore = create(
@@ -142,9 +142,13 @@ test('ignores non-atom keys when syncing from coaction to jotai', () => {
       name: 'test-ignore-non-atom'
     }
   );
-  useStore.apply({
-    other: 123
-  } as any);
+  expect(() => {
+    useStore.apply({
+      other: 123
+    } as any);
+  }).toThrow(
+    "Unknown state key 'other' cannot be added after store initialization. Coaction state schema is fixed."
+  );
   expect(jotaiStore.get(countAtom)).toBe(0);
 });
 

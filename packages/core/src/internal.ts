@@ -3,6 +3,11 @@ import type { CreateState, Listener } from './interface';
 
 export type MutationOperation = 'setState' | 'apply';
 
+export type StoreOperation =
+  | MutationOperation
+  | 'subscribe'
+  | `action ${string}`;
+
 export type SignalSlot = {
   refresh: () => void;
 };
@@ -74,6 +79,10 @@ export interface Internal<T extends CreateState = CreateState> {
    * Adapter-level authority check for low-level mutations.
    */
   assertMutationAllowed?: (operation: MutationOperation) => void;
+  /**
+   * Store lifecycle guard.
+   */
+  assertAlive?: (operation: StoreOperation) => void;
   /**
    * Authorized client-mirror state application used by transports.
    */

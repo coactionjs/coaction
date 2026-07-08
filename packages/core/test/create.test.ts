@@ -560,9 +560,24 @@ describe('State Management Store Tests', () => {
     store.subscribe(listener);
 
     store.destroy();
-    store.setState({ counter: 100 });
+    expect(() => {
+      store.setState({ counter: 100 });
+    }).toThrow('setState cannot be called after store.destroy().');
+    expect(() => {
+      store.apply({ counter: 100 } as any);
+    }).toThrow('apply cannot be called after store.destroy().');
+    expect(() => {
+      store.subscribe(() => undefined);
+    }).toThrow('subscribe cannot be called after store.destroy().');
+    expect(() => {
+      store.getState().increment();
+    }).toThrow('action increment cannot be called after store.destroy().');
+    expect(() => {
+      store.destroy();
+    }).not.toThrow();
 
     expect(listener).not.toHaveBeenCalled();
+    expect(store.getState().counter).toBe(0);
   });
 
   test('should handle setState within updater error', () => {

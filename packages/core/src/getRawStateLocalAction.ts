@@ -41,6 +41,7 @@ export const createLocalAction = <T extends CreateState>({
   sliceKey
 }: CreateLocalActionOptions<T>) => {
   return (...args: unknown[]) => {
+    internal.assertAlive?.(`action ${String(key)}`);
     let actionId: string | undefined;
     let done: ((result: any) => void) | undefined;
     if (store.trace) {

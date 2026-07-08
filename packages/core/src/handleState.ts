@@ -105,6 +105,7 @@ export const handleState = <T extends CreateState>(
       return [internal.rootState as any, safePatches, safeInversePatches];
     }
   ) => {
+    internal.assertAlive?.('setState');
     internal.assertMutationAllowed?.('setState');
     if (store.share === 'client') {
       throw new Error(

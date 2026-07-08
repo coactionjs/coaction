@@ -924,7 +924,7 @@ describe('Slices', () => {
 `);
     {
       const useClientStore = create(
-        { counter },
+        { counter, counter1 },
         {
           name: 'test',
           clientTransport,
@@ -944,6 +944,10 @@ describe('Slices', () => {
 {
   "counter": {
     "count": 2,
+    "increment": [Function],
+  },
+  "counter1": {
+    "count": 0,
     "increment": [Function],
   },
 }
