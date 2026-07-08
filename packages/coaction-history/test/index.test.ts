@@ -278,7 +278,10 @@ test('undo and redo preserve circular and shared root references', () => {
   after.self = after;
   const useStore = create(
     () => ({
-      count: -1
+      count: -1,
+      left: null as any,
+      right: null as any,
+      self: null as any
     }),
     {
       middlewares: [history()]
