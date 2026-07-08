@@ -11,6 +11,7 @@ import { wrapStore } from './wrapStore';
 import { validateSharedStateSerializable } from './sharedState';
 import {
   assertSafePatches,
+  sanitizeCheckedPatches,
   sanitizePatches,
   sanitizeReplacementState
 } from './utils';
@@ -215,11 +216,10 @@ export const handleDraft = <T extends CreateState>(
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
-  const safePatches =
-    sanitizePatches(finalPatches.patches, {
-      source: 'store.patch()',
-      warnOnDropped: true
-    }) ?? [];
+  const safePatches = sanitizeCheckedPatches(
+    finalPatches.patches,
+    'store.patch()'
+  );
   if (safePatches.length) {
     store.apply(internal.rootState as T, safePatches);
     // 3rd party model will send update notifications on its own after `store.apply` in mutableInstance mode

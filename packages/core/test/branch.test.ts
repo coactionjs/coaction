@@ -739,7 +739,7 @@ test('handleDraft uses patch hook before applying patches', () => {
   expect(apply).toHaveBeenCalledTimes(1);
 });
 
-test('handleDraft filters unsafe patch-hook output before apply and emit', () => {
+test('handleDraft rejects unsafe patch-hook output before apply and emit', () => {
   const safePatch = {
     op: 'replace',
     path: ['count'],
@@ -754,53 +754,42 @@ test('handleDraft filters unsafe patch-hook output before apply and emit', () =>
   const transport = {
     emit: vi.fn()
   };
-  handleDraft(
-    {
-      patch: () => ({
-        patches: [unsafePatch, safePatch],
-        inversePatches: []
-      }),
-      apply,
-      transport
-    } as any,
-    {
-      rootState: {
-        count: 0
-      },
-      backupState: {
-        count: 0
-      },
-      sequence: 0,
-      finalizeDraft: () => [
-        undefined,
-        [
-          {
-            op: 'replace',
-            path: ['count'],
-            value: 1
-          }
-        ],
-        []
-      ]
-    } as any
+  expect(() => {
+    handleDraft(
+      {
+        patch: () => ({
+          patches: [unsafePatch, safePatch],
+          inversePatches: []
+        }),
+        apply,
+        transport
+      } as any,
+      {
+        rootState: {
+          count: 0
+        },
+        backupState: {
+          count: 0
+        },
+        sequence: 0,
+        finalizeDraft: () => [
+          undefined,
+          [
+            {
+              op: 'replace',
+              path: ['count'],
+              value: 1
+            }
+          ],
+          []
+        ]
+      } as any
+    );
+  }).toThrow(
+    "Unsafe patch path 'constructor.polluted' cannot be applied from store.patch()."
   );
-
-  expect(apply).toHaveBeenCalledWith(
-    {
-      count: 0
-    },
-    [safePatch]
-  );
-  expect(transport.emit).toHaveBeenCalledWith(
-    {
-      name: 'update',
-      respond: false
-    },
-    {
-      patches: [safePatch],
-      sequence: 1
-    }
-  );
+  expect(apply).not.toHaveBeenCalled();
+  expect(transport.emit).not.toHaveBeenCalled();
 });
 
 test('WorkerType chooses shared worker global first', async () => {

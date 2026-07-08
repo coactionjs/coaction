@@ -108,7 +108,7 @@ test('setState emits patch-hook output instead of raw patches', () => {
   expect(internal.sequence).toBe(1);
 });
 
-test('setState filters unsafe patch-hook output before apply and emit', () => {
+test('setState rejects unsafe patch-hook output before apply and emit', () => {
   const safePatch = {
     op: 'replace',
     path: ['count'],
@@ -123,6 +123,34 @@ test('setState filters unsafe patch-hook output before apply and emit', () => {
     enablePatches: true,
     patch: () => ({
       patches: [unsafePatch, safePatch],
+      inversePatches: []
+    })
+  });
+  store.transport = {
+    emit: vi.fn()
+  };
+
+  expect(() => {
+    setState({
+      count: 1
+    });
+  }).toThrow(
+    "Unsafe patch path '__proto__.polluted' cannot be applied from store.patch()."
+  );
+  expect(store.apply).not.toHaveBeenCalled();
+  expect(store.transport.emit).not.toHaveBeenCalled();
+});
+
+test('setState sanitizes safe patch-hook values before apply and emit', () => {
+  const safePatch = {
+    op: 'replace',
+    path: ['count'],
+    value: JSON.parse('{"value":2,"__proto__":{"polluted":true}}')
+  };
+  const { setState, store } = createContext({
+    enablePatches: true,
+    patch: () => ({
+      patches: [safePatch],
       inversePatches: []
     })
   });
@@ -156,7 +184,7 @@ test('setState filters unsafe patch-hook output before apply and emit', () => {
   );
 });
 
-test('setState filters custom updater returned patches before emit', () => {
+test('setState rejects unsafe custom updater returned patches before emit', () => {
   const safePatch = {
     op: 'replace' as const,
     path: ['count'],
@@ -174,31 +202,18 @@ test('setState filters custom updater returned patches before emit', () => {
     emit: vi.fn()
   };
 
-  const result = setState({ count: 1 }, () => [
-    {
-      count: 0
-    },
-    [unsafePatch, safePatch],
-    []
-  ]);
-
-  expect(result).toEqual([
-    {
-      count: 0
-    },
-    [safePatch],
-    []
-  ]);
-  expect(store.transport.emit).toHaveBeenCalledWith(
-    {
-      name: 'update',
-      respond: false
-    },
-    {
-      patches: [safePatch],
-      sequence: 1
-    }
+  expect(() => {
+    setState({ count: 1 }, () => [
+      {
+        count: 0
+      },
+      [unsafePatch, safePatch],
+      []
+    ]);
+  }).toThrow(
+    "Unsafe patch path 'prototype.polluted' cannot be applied from setState updater result."
   );
+  expect(store.transport.emit).not.toHaveBeenCalled();
 });
 
 test('setState does not emit when patch hook removes all patches', () => {

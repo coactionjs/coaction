@@ -108,6 +108,14 @@ export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
     );
 };
 
+export const sanitizeCheckedPatches = (
+  patches: Patches | undefined,
+  source: string
+): Patches => {
+  assertSafePatches(patches, source);
+  return (sanitizePatches(patches) ?? []) as Patches;
+};
+
 export type RootReplacementPatch = {
   op: 'add' | 'remove' | 'replace';
   path: PropertyKey[];
@@ -194,14 +202,14 @@ export const applyRootReplacementWithPatches = <T extends object>(
         patches: patches as any,
         inversePatches: inversePatches as any
       };
-  const safePatches = (sanitizePatches(finalPatches.patches, {
-    source: 'store.patch()',
-    warnOnDropped: true
-  }) ?? []) as Patches;
-  const safeInversePatches = (sanitizePatches(finalPatches.inversePatches, {
-    source: 'store.patch() inverse patches',
-    warnOnDropped: true
-  }) ?? []) as Patches;
+  const safePatches = sanitizeCheckedPatches(
+    finalPatches.patches,
+    'store.patch()'
+  );
+  const safeInversePatches = sanitizeCheckedPatches(
+    finalPatches.inversePatches,
+    'store.patch() inverse patches'
+  );
   if (safePatches.length) {
     const applyExactReplacement = options.applyExactReplacement;
     const canApplyExactReplacement =

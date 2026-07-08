@@ -17,7 +17,7 @@ import {
   cloneOwnEnumerable,
   getOwnEnumerableKeys,
   mergeObject,
-  sanitizePatches,
+  sanitizeCheckedPatches,
   setOwnEnumerable
 } from './utils';
 import { emit, handleDraft } from './asyncClientStore';
@@ -103,16 +103,14 @@ export const handleState = <T extends CreateState>(
     const finalPatches = store.patch
       ? store.patch({ patches, inversePatches })
       : { patches, inversePatches };
-    const safePatches =
-      sanitizePatches(finalPatches.patches, {
-        source: 'store.patch()',
-        warnOnDropped: true
-      }) ?? [];
-    const safeInversePatches =
-      sanitizePatches(finalPatches.inversePatches, {
-        source: 'store.patch() inverse patches',
-        warnOnDropped: true
-      }) ?? [];
+    const safePatches = sanitizeCheckedPatches(
+      finalPatches.patches,
+      'store.patch()'
+    );
+    const safeInversePatches = sanitizeCheckedPatches(
+      finalPatches.inversePatches,
+      'store.patch() inverse patches'
+    );
     if (safePatches.length) {
       store.apply(internal.rootState as T, safePatches);
     }
@@ -277,14 +275,8 @@ export const handleState = <T extends CreateState>(
     if (result?.length) {
       result = [
         result[0],
-        sanitizePatches(result[1], {
-          source: 'setState updater result',
-          warnOnDropped: true
-        }) ?? [],
-        sanitizePatches(result[2], {
-          source: 'setState updater inverse result',
-          warnOnDropped: true
-        }) ?? []
+        sanitizeCheckedPatches(result[1], 'setState updater result'),
+        sanitizeCheckedPatches(result[2], 'setState updater inverse result')
       ];
     }
     emit(store, internal, result?.[1]);
