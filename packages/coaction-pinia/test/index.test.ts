@@ -239,6 +239,67 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(useStore.getState().a).toBe(4);
 });
 
+test('apply rejects invalid replacement atomically and after destroy', () => {
+  type Counter = {
+    count: number;
+    stale: number;
+    increment: () => void;
+  };
+  const useStore = create<Counter>(
+    () =>
+      adapt<Counter>(
+        defineStore(
+          'test-pinia-apply-guards',
+          bindPinia({
+            state: () => ({
+              count: 0,
+              stale: 1
+            }),
+            actions: {
+              increment() {
+                this.count += 1;
+              }
+            }
+          })
+        )
+      ),
+    {
+      name: 'test-pinia-apply-guards'
+    }
+  );
+  const piniaStore = useStore.getPureState() as any;
+
+  expect(() => {
+    useStore.apply({
+      count: 1,
+      extra: 2
+    } as any);
+  }).toThrow(
+    "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+  );
+  expect(useStore.getState().count).toBe(0);
+  expect(useStore.getPureState().count).toBe(0);
+  expect(piniaStore.count).toBe(0);
+  expect(useStore.getState().stale).toBe(1);
+  expect(useStore.getPureState().stale).toBe(1);
+  expect(piniaStore.stale).toBe(1);
+  expect((useStore.getState() as any).extra).toBeUndefined();
+  expect((useStore.getPureState() as any).extra).toBeUndefined();
+  expect(piniaStore.extra).toBeUndefined();
+
+  useStore.destroy();
+  expect(() => {
+    useStore.subscribe(() => undefined);
+  }).toThrow('subscribe cannot be called after store.destroy().');
+  expect(() => {
+    useStore.apply({
+      count: 1
+    } as any);
+  }).toThrow('apply cannot be called after store.destroy().');
+  expect(piniaStore.count).toBe(0);
+  expect(piniaStore.stale).toBe(1);
+});
+
 test('apply handles circular and shared replacement values with fixed schema', () => {
   type Counter = {
     count: number;

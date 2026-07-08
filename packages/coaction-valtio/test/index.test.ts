@@ -104,6 +104,51 @@ test('apply handles object replacement and patches', () => {
   expect(useStore.getState().count).toBe(9);
 });
 
+test('apply rejects invalid replacement atomically and after destroy', () => {
+  const state = proxy(
+    bindValtio({
+      count: 0,
+      stale: 1,
+      increment() {
+        this.count += 1;
+      }
+    })
+  );
+  const useStore = create(() => adapt(state as any), {
+    name: 'test-valtio-apply-guards'
+  });
+
+  expect(() => {
+    useStore.apply({
+      count: 1,
+      extra: 2
+    } as any);
+  }).toThrow(
+    "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+  );
+  expect(useStore.getState().count).toBe(0);
+  expect(useStore.getPureState().count).toBe(0);
+  expect(state.count).toBe(0);
+  expect(useStore.getState().stale).toBe(1);
+  expect(useStore.getPureState().stale).toBe(1);
+  expect(state.stale).toBe(1);
+  expect((useStore.getState() as any).extra).toBeUndefined();
+  expect((useStore.getPureState() as any).extra).toBeUndefined();
+  expect((state as any).extra).toBeUndefined();
+
+  useStore.destroy();
+  expect(() => {
+    useStore.subscribe(() => undefined);
+  }).toThrow('subscribe cannot be called after store.destroy().');
+  expect(() => {
+    useStore.apply({
+      count: 1
+    } as any);
+  }).toThrow('apply cannot be called after store.destroy().');
+  expect(state.count).toBe(0);
+  expect(state.stale).toBe(1);
+});
+
 test('apply handles circular and shared replacement values with fixed schema', () => {
   const state = proxy(
     bindValtio({

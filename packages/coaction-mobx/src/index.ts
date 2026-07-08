@@ -20,6 +20,7 @@ type MobxInternal = {
   toMutableRaw?: (key: object) => object | undefined;
   actMutable?: typeof runInAction;
   notifyStateChange?: () => void;
+  assertAlive?: (operation: 'apply' | 'subscribe') => void;
 };
 
 const getOwnEnumerableKeys = (value: object) =>
@@ -78,6 +79,9 @@ const replaceMutableState = (
     }
     nextKeys.add(key);
   }
+  nextKeys.forEach((key) => {
+    assertCanSetPublicStateKey(publicState, key);
+  });
   for (const key of getOwnEnumerableKeys(rawState)) {
     if (isUnsafeKey(key)) {
       delete rawState[key];
@@ -101,7 +105,6 @@ const replaceMutableState = (
   nextKeys.forEach((key) => {
     rawState[key] = sanitizeReplacementState(source[key], rawSeen);
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
-    assertCanSetPublicStateKey(publicState, key);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
 };
@@ -366,6 +369,7 @@ const handleStore = (
   });
   Object.assign(store, {
     subscribe: (listener: () => void) => {
+      internal.assertAlive?.('subscribe');
       store._subscriptions!.add(listener);
       return () => {
         store._subscriptions?.delete(listener);
@@ -388,6 +392,7 @@ const handleStore = (
   };
   internal.actMutable = runInAction;
   store.apply = (state = store.getState(), patches) => {
+    internal.assertAlive?.('apply');
     isApplyingCoactionState = true;
     try {
       if (!patches) {

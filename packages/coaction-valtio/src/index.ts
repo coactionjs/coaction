@@ -18,6 +18,7 @@ type ValtioInternal = {
   rootState?: object;
   toMutableRaw?: (key: object) => object | undefined;
   notifyStateChange?: () => void;
+  assertAlive?: (operation: 'apply' | 'subscribe') => void;
 };
 
 type StoreWithDestroyers = Store<object> & {
@@ -81,6 +82,9 @@ const replaceMutableState = (
     }
     nextKeys.add(key);
   }
+  nextKeys.forEach((key) => {
+    assertCanSetPublicStateKey(publicState, key);
+  });
   for (const key of getOwnEnumerableKeys(rawState)) {
     if (isUnsafeKey(key)) {
       delete rawState[key];
@@ -104,7 +108,6 @@ const replaceMutableState = (
   nextKeys.forEach((key) => {
     rawState[key] = sanitizeReplacementState(source[key], rawSeen);
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
-    assertCanSetPublicStateKey(publicState, key);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
 };
@@ -305,6 +308,7 @@ const handleStore = (
     });
     Object.assign(store, {
       subscribe: (listener: () => void) => {
+        internal.assertAlive?.('subscribe');
         store._listeners!.add(listener);
         return () => {
           store._listeners?.delete(listener);
@@ -329,6 +333,7 @@ const handleStore = (
       baseDestroy();
     };
     store.apply = (state = store.getState(), patches) => {
+      internal.assertAlive?.('apply');
       isApplyingCoactionState = true;
       try {
         if (!patches) {

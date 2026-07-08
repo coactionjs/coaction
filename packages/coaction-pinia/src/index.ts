@@ -31,6 +31,7 @@ type PiniaInternal = {
   rootState?: object;
   toMutableRaw?: (key: object) => PiniaStoreInstance | undefined;
   notifyStateChange?: () => void;
+  assertAlive?: (operation: 'apply' | 'subscribe') => void;
 };
 
 type StoreWithSubscriptions = Store<object> & {
@@ -94,6 +95,9 @@ const replaceMutableState = (
     }
     nextKeys.add(key);
   }
+  nextKeys.forEach((key) => {
+    assertCanSetPublicStateKey(publicState, key);
+  });
   for (const key of getOwnEnumerableKeys(rawState)) {
     if (isUnsafeKey(key)) {
       delete rawState[key];
@@ -117,7 +121,6 @@ const replaceMutableState = (
   nextKeys.forEach((key) => {
     rawState[key] = sanitizeReplacementState(source[key], rawSeen);
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
-    assertCanSetPublicStateKey(publicState, key);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
 };
@@ -326,6 +329,7 @@ const handleStore = (
       instancesMap.get(key) as PiniaStoreInstance | undefined;
     Object.assign(store, {
       subscribe: (callback: SubscriptionCallback) => {
+        internal.assertAlive?.('subscribe');
         store._subscriptions!.add(callback);
         return () => {
           store._subscriptions?.delete(callback);
@@ -349,6 +353,7 @@ const handleStore = (
       baseDestroy();
     };
     store.apply = (nextState = store.getState(), patches) => {
+      internal.assertAlive?.('apply');
       isApplyingCoactionState = true;
       try {
         if (!patches) {
