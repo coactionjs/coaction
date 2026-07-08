@@ -11,6 +11,18 @@ export const isUnsafeKey = (key: string) =>
 export const isUnsafePathSegment = (segment: unknown) =>
   typeof segment === 'string' && isUnsafeKey(segment);
 
+export class StateSchemaError extends Error {
+  name = 'StateSchemaError';
+}
+
+export const isStateSchemaError = (error: unknown): error is StateSchemaError =>
+  error instanceof StateSchemaError;
+
+export type StateSchema = {
+  rootKeys: Set<PropertyKey>;
+  sliceKeys?: Map<PropertyKey, Set<PropertyKey>>;
+};
+
 export const hasUnsafePatchPath = (path: unknown) => {
   const segments = Array.isArray(path)
     ? path
@@ -55,6 +67,99 @@ export const getOwnEnumerableKeys = (source: unknown) => {
   return Reflect.ownKeys(source).filter((key) =>
     Object.prototype.propertyIsEnumerable.call(source, key)
   );
+};
+
+const getOwnSchemaKeys = (source: unknown) => {
+  if (typeof source !== 'object' || source === null) {
+    return [];
+  }
+  return Reflect.ownKeys(source).filter(
+    (key) => !(typeof key === 'string' && isUnsafeKey(key))
+  );
+};
+
+const formatSchemaPath = (path: PropertyKey[]) =>
+  path.length ? path.map((key) => String(key)).join('.') : '<root>';
+
+const assertKnownSchemaKey = (
+  knownKeys: Set<PropertyKey>,
+  key: PropertyKey,
+  path: PropertyKey[]
+) => {
+  if (typeof key === 'string' && isUnsafeKey(key)) {
+    return;
+  }
+  if (knownKeys.has(key)) {
+    return;
+  }
+  throw new StateSchemaError(
+    `Unknown state key '${formatSchemaPath([...path, key])}' cannot be added after store initialization. Coaction state schema is fixed.`
+  );
+};
+
+export const createStateSchema = (
+  rootState: unknown,
+  isSliceStore: boolean
+): StateSchema => {
+  const rootKeys = new Set(getOwnSchemaKeys(rootState));
+  if (!isSliceStore) {
+    return {
+      rootKeys
+    };
+  }
+  const sliceKeys = new Map<PropertyKey, Set<PropertyKey>>();
+  if (typeof rootState === 'object' && rootState !== null) {
+    const rootRecord = rootState as Record<PropertyKey, unknown>;
+    rootKeys.forEach((key) => {
+      const slice = rootRecord[key];
+      if (typeof slice === 'object' && slice !== null) {
+        sliceKeys.set(key, new Set(getOwnSchemaKeys(slice)));
+      }
+    });
+  }
+  return {
+    rootKeys,
+    sliceKeys
+  };
+};
+
+export const assertKnownStateShape = (
+  source: unknown,
+  rootState: unknown,
+  schema: StateSchema | undefined,
+  isSliceStore: boolean
+) => {
+  if (typeof source !== 'object' || source === null) {
+    return;
+  }
+  const rootKeys = schema?.rootKeys ?? new Set(getOwnSchemaKeys(rootState));
+  const sourceRecord = source as Record<PropertyKey, unknown>;
+  for (const key of getOwnEnumerableKeys(source)) {
+    assertKnownSchemaKey(rootKeys, key, []);
+    if (!isSliceStore) {
+      continue;
+    }
+    const slice = sourceRecord[key];
+    if (typeof slice !== 'object' || slice === null) {
+      continue;
+    }
+    const knownSliceKeys =
+      schema?.sliceKeys?.get(key) ??
+      (typeof rootState === 'object' &&
+      rootState !== null &&
+      typeof (rootState as Record<PropertyKey, unknown>)[key] === 'object' &&
+      (rootState as Record<PropertyKey, unknown>)[key] !== null
+        ? new Set(
+            getOwnSchemaKeys((rootState as Record<PropertyKey, unknown>)[key])
+          )
+        : undefined);
+    if (!knownSliceKeys) {
+      continue;
+    }
+    for (const sliceKey of getOwnEnumerableKeys(slice)) {
+      assertKnownSchemaKey(knownSliceKeys, sliceKey, [key]);
+    }
+  }
 };
 
 const isArrayIndexKey = (key: PropertyKey) => {

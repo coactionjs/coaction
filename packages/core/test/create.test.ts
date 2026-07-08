@@ -261,6 +261,106 @@ describe('State Management Store Tests', () => {
     }
   });
 
+  test('rejects unknown top-level keys after initialization', () => {
+    const useStore = create(() => ({
+      count: 0,
+      nested: {
+        value: 0
+      }
+    }));
+
+    expect(() => {
+      useStore.setState({
+        extra: 1
+      } as any);
+    }).toThrow(
+      "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+    expect(() => {
+      useStore.setState(() => ({
+        extra: 1
+      }));
+    }).toThrow(
+      "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+    expect(() => {
+      useStore.apply({
+        count: 1,
+        extra: 1
+      } as any);
+    }).toThrow(
+      "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'add',
+          path: ['extra'],
+          value: 1
+        }
+      ] as any);
+    }).toThrow(
+      "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+
+    useStore.setState((draft) => {
+      draft.nested.value = 1;
+      (draft.nested as any).dynamic = 2;
+    });
+    expect(useStore.getPureState()).toEqual({
+      count: 0,
+      nested: {
+        value: 1,
+        dynamic: 2
+      }
+    });
+    expect((useStore.getState() as any).extra).toBeUndefined();
+  });
+
+  test('rejects unknown slice keys and unknown slice fields after initialization', () => {
+    const useStore = create({
+      counter: () => ({
+        count: 0
+      })
+    });
+
+    expect(() => {
+      useStore.setState({
+        other: {
+          count: 1
+        }
+      } as any);
+    }).toThrow(
+      "Unknown state key 'other' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+    expect(() => {
+      useStore.setState({
+        counter: {
+          extra: 1
+        }
+      } as any);
+    }).toThrow(
+      "Unknown state key 'counter.extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+    expect(() => {
+      useStore.setState(() => ({
+        counter: {
+          extra: 1
+        }
+      }));
+    }).toThrow(
+      "Unknown state key 'counter.extra' cannot be added after store initialization. Coaction state schema is fixed."
+    );
+
+    expect(useStore.getPureState()).toEqual({
+      counter: {
+        count: 0
+      }
+    });
+    expect((useStore.getState() as any).other).toBeUndefined();
+    expect((useStore.getState().counter as any).extra).toBeUndefined();
+  });
+
   test('should support symbol keyed slices', () => {
     const counter = Symbol('counter-slice');
     const useStore = create({

@@ -13,6 +13,7 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import {
+  assertKnownStateShape,
   cloneOwnEnumerable,
   getOwnEnumerableKeys,
   mergeObject,
@@ -78,6 +79,12 @@ export const handleState = <T extends CreateState>(
             enablePatches: true
           }
         );
+        assertKnownStateShape(
+          result[0],
+          internal.backupState,
+          internal.stateSchema,
+          store.isSliceStore
+        );
         if (store.share === 'main') {
           validateSharedStateSerializable(result[0]);
         }
@@ -110,6 +117,14 @@ export const handleState = <T extends CreateState>(
     if (next === null) {
       return [];
     }
+    if (typeof next === 'object') {
+      assertKnownStateShape(
+        next,
+        internal.rootState,
+        internal.stateSchema,
+        store.isSliceStore
+      );
+    }
     internal.isBatching = true;
     if (
       !store.share &&
@@ -120,7 +135,7 @@ export const handleState = <T extends CreateState>(
         if (typeof next === 'function') {
           try {
             internal.backupState = internal.rootState;
-            internal.rootState = createWithMutative(
+            const nextState = createWithMutative(
               internal.rootState,
               (draft) => {
                 internal.rootState = draft as Draft<T>;
@@ -140,6 +155,13 @@ export const handleState = <T extends CreateState>(
                 }
               }
             );
+            assertKnownStateShape(
+              nextState,
+              internal.backupState,
+              internal.stateSchema,
+              store.isSliceStore
+            );
+            internal.rootState = nextState;
           } catch (error) {
             internal.rootState = internal.backupState;
             throw error;
@@ -170,6 +192,12 @@ export const handleState = <T extends CreateState>(
           } else {
             mergeObject(copy, next);
           }
+          assertKnownStateShape(
+            copy,
+            internal.rootState,
+            internal.stateSchema,
+            store.isSliceStore
+          );
           internal.rootState = copy;
         }
         refreshSignalSlots(internal);
@@ -190,6 +218,14 @@ export const handleState = <T extends CreateState>(
         handleDraft(store, internal);
       }
       result = updater(next);
+      if (internal.mutableInstance) {
+        assertKnownStateShape(
+          internal.rootState,
+          internal.backupState ?? internal.rootState,
+          internal.stateSchema,
+          store.isSliceStore
+        );
+      }
       if (store.share === 'main') {
         validateSharedStateSerializable(internal.rootState);
       }

@@ -352,6 +352,28 @@ test('hydrates existing yjs state as an exact replacement', () => {
   binding.destroy();
 });
 
+test('rejects existing yjs state with unknown schema keys and restores local state', () => {
+  const doc = new Y.Doc();
+  const map = doc.getMap<any>('counter');
+  const state = new Y.Map<any>();
+  state.set('count', 12);
+  state.set('extra', 1);
+  map.set('state', state);
+  const store = create(() => ({
+    count: 0
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+
+  expect(store.getState().count).toBe(0);
+  expect(readState(doc, 'counter')).toEqual({
+    count: 0
+  });
+  binding.destroy();
+});
+
 test('rejects existing yjs non-plain snapshot and restores local state', () => {
   const doc = new Y.Doc();
   const map = doc.getMap<any>('counter');

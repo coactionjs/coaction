@@ -21,6 +21,8 @@ import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
 import {
   getOwnEnumerableKeys,
+  createStateSchema,
+  assertKnownStateShape,
   sanitizePatches,
   sanitizeReplacementState
 } from './utils';
@@ -179,6 +181,12 @@ export const create: Creator = <T extends CreateState>(
         const nextState = sanitizeReplacementState(
           safePatches ? (applyWithMutative(state, safePatches) as T) : state
         );
+        assertKnownStateShape(
+          nextState,
+          internal.rootState,
+          internal.stateSchema,
+          store.isSliceStore
+        );
         if (store.share === 'main') {
           validateSharedStateSerializable(nextState);
         }
@@ -253,6 +261,10 @@ export const create: Creator = <T extends CreateState>(
         initialState,
         options
       ) as T;
+      internal.stateSchema = createStateSchema(
+        internal.rootState,
+        store.isSliceStore
+      );
       if (share) {
         validateSharedStateSerializable(internal.rootState);
       }

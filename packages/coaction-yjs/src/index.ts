@@ -1,4 +1,9 @@
-import { onStoreReady, type Middleware, type Store } from 'coaction';
+import {
+  isStateSchemaError,
+  onStoreReady,
+  type Middleware,
+  type Store
+} from 'coaction';
 import * as Y from 'yjs';
 import {
   collectRemoteOperations,
@@ -429,7 +434,7 @@ export const bindYjs = <T extends object>(
           setTimeout(scheduleFlushFromYjs, 0);
           return;
         }
-        if (isYjsSerializableStateError(error)) {
+        if (isYjsSerializableStateError(error) || isStateSchemaError(error)) {
           restoreRootState();
           return;
         }
@@ -449,7 +454,7 @@ export const bindYjs = <T extends object>(
         setTimeout(scheduleFlushFromYjs, 0);
         return;
       }
-      if (isYjsSerializableStateError(error)) {
+      if (isYjsSerializableStateError(error) || isStateSchemaError(error)) {
         restoreRootState();
         return;
       }
@@ -544,7 +549,7 @@ export const bindYjs = <T extends object>(
       try {
         applyRemoteState(state);
       } catch (error) {
-        if (isYjsSerializableStateError(error)) {
+        if (isYjsSerializableStateError(error) || isStateSchemaError(error)) {
           restoreRootState();
           return;
         }

@@ -243,6 +243,12 @@ test('setState fast path ignores unsafe keys', () => {
 
   try {
     const { setState, internal } = createContext();
+    internal.rootState = {
+      count: 0,
+      nested: {
+        value: 0
+      }
+    };
 
     setState(
       JSON.parse(

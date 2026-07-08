@@ -7,6 +7,11 @@ export type SignalSlot = {
   refresh: () => void;
 };
 
+export type StateSchema = {
+  rootKeys: Set<PropertyKey>;
+  sliceKeys?: Map<PropertyKey, Set<PropertyKey>>;
+};
+
 export interface Internal<T extends CreateState = CreateState> {
   /**
    * The store module.
@@ -49,6 +54,10 @@ export interface Internal<T extends CreateState = CreateState> {
    * Reactive state slots used by computed getters/selectors.
    */
   signalSlots?: Set<SignalSlot>;
+  /**
+   * State keys that are allowed after initialization.
+   */
+  stateSchema?: StateSchema;
   /**
    * The act is used to run the function in the action for mutable state.
    */

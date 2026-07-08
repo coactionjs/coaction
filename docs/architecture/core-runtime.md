@@ -71,6 +71,8 @@ For slice stores, this work happens per slice key.
 
 This separation is what allows Coaction to serialize state while keeping method binding and getter behavior stable.
 
+The public state schema is fixed after this materialization step. For a single store, later mutations may not introduce new top-level state keys. For a slices store, later mutations may not introduce new slice keys or new top-level fields inside an existing slice. Dynamic data should live under a known object or array field so the public module and raw state cannot diverge.
+
 ## Patch and Finalize Flow
 
 There are two mutation paths.
