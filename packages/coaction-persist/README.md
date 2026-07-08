@@ -39,4 +39,9 @@ const store = create(
 
 ## Documentation
 
+When a persisted payload has an explicit `version` that does not match the
+configured `version`, provide `migrate` to hydrate it. Without `migrate`,
+hydration is skipped and `onRehydrateStorage` receives the current state plus
+an error.
+
 You can find the documentation [here](https://github.com/coactionjs/coaction).

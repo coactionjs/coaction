@@ -529,7 +529,7 @@ test('custom rehydrate merge can replace state exactly', async () => {
   expect(useStore.getState().b).toBeUndefined();
 });
 
-test('rehydrate writes back current version without migrate', async () => {
+test('rehydrate skips version mismatch without migrate', async () => {
   const storage = createMemoryStorage();
   storage.setItem(
     'version-rewrite',
@@ -540,6 +540,7 @@ test('rehydrate writes back current version without migrate', async () => {
       version: 0
     })
   );
+  const onRehydrateStorage = vi.fn();
 
   const useStore = create(
     () => ({
@@ -550,7 +551,8 @@ test('rehydrate writes back current version without migrate', async () => {
         persist({
           name: 'version-rewrite',
           storage,
-          version: 2
+          version: 2,
+          onRehydrateStorage
         })
       ]
     }
@@ -558,8 +560,19 @@ test('rehydrate writes back current version without migrate', async () => {
 
   await nextTick();
 
-  expect(useStore.getState().count).toBe(4);
-  expect(storage.getItem('version-rewrite')).toContain('"version":2');
+  expect(useStore.getState().count).toBe(0);
+  expect(storage.getItem('version-rewrite')).toContain('"version":0');
+  expect(storage.getItem('version-rewrite')).toContain('"count":4');
+  expect((useStore as any).persist.hasHydrated()).toBeTruthy();
+  expect(onRehydrateStorage).toHaveBeenCalledWith(
+    expect.objectContaining({
+      count: 0
+    }),
+    expect.objectContaining({
+      message:
+        'Persisted state version 0 does not match current version 2 and no migrate function was provided. Hydration was skipped.'
+    })
+  );
 });
 
 test('supports skipHydration and manual rehydrate', async () => {

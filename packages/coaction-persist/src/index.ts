@@ -73,6 +73,14 @@ const createNoopStorage = (): PersistStorage => ({
   removeItem: () => undefined
 });
 
+const createVersionMismatchError = (
+  persistedVersion: number,
+  currentVersion: number
+) =>
+  new Error(
+    `Persisted state version ${persistedVersion} does not match current version ${currentVersion} and no migrate function was provided. Hydration was skipped.`
+  );
+
 export const createJSONStorage = (
   getStorage: () => Storage | undefined
 ): PersistStorage => ({
@@ -165,7 +173,6 @@ export const persist =
       let callbackState: T | undefined;
       let callbackError: unknown;
       let shouldNotify = false;
-      let hasHydrationError = false;
       try {
         const rawState = await persistedStorage.getItem(name);
         if (destroyed) {
@@ -177,35 +184,44 @@ export const persist =
           shouldNotify = true;
         } else {
           const parsed = deserialize(rawState);
+          const hasPersistedVersion = parsed.version !== undefined;
+          const versionMismatch =
+            hasPersistedVersion && parsed.version !== version;
           const shouldWriteBack = parsed.version !== version;
           let persistedState = sanitizeReplacementState(parsed.state);
-          if (
-            parsed.version !== undefined &&
-            parsed.version !== version &&
-            migrate
-          ) {
-            persistedState = sanitizeReplacementState(
-              await migrate(persistedState, parsed.version)
-            );
-            if (destroyed) {
-              return;
-            }
-          }
-          applyHydratedState(
-            sanitizeReplacementState(
-              merge(persistedState, store.getPureState())
-            ) as T
-          );
-          if (shouldWriteBack && !destroyed) {
-            const payload = serialize({
-              state: getPersistedState(),
+          if (versionMismatch && !migrate) {
+            hasHydrated = true;
+            callbackState = store.getState();
+            callbackError = createVersionMismatchError(
+              parsed.version!,
               version
-            });
-            await enqueuePersistWrite(payload);
+            );
+            shouldNotify = true;
+          } else {
+            if (versionMismatch && migrate) {
+              persistedState = sanitizeReplacementState(
+                await migrate(persistedState, parsed.version!)
+              );
+              if (destroyed) {
+                return;
+              }
+            }
+            applyHydratedState(
+              sanitizeReplacementState(
+                merge(persistedState, store.getPureState())
+              ) as T
+            );
+            if (shouldWriteBack && !destroyed) {
+              const payload = serialize({
+                state: getPersistedState(),
+                version
+              });
+              await enqueuePersistWrite(payload);
+            }
+            hasHydrated = true;
+            callbackState = store.getState();
+            shouldNotify = true;
           }
-          hasHydrated = true;
-          callbackState = store.getState();
-          shouldNotify = true;
         }
       } catch (error) {
         if (destroyed) {
@@ -214,7 +230,6 @@ export const persist =
         hasHydrated = true;
         callbackError = error;
         shouldNotify = true;
-        hasHydrationError = true;
       } finally {
         isHydrating = false;
         if (hasPendingPersist && !destroyed) {
@@ -227,8 +242,8 @@ export const persist =
         }
       }
       if (shouldNotify && !destroyed) {
-        if (hasHydrationError) {
-          onRehydrateStorage?.(undefined, callbackError);
+        if (callbackError) {
+          onRehydrateStorage?.(callbackState, callbackError);
         } else {
           onRehydrateStorage?.(callbackState);
         }
