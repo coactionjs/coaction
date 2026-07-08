@@ -316,6 +316,9 @@ export const history =
       );
       if (applyStore && hasCircularReference(snapshot)) {
         applyStore(nextState as T);
+        if (!store.share) {
+          baseSetState(null);
+        }
         return;
       }
       if (!store.share && applyStore) {

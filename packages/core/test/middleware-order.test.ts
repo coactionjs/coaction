@@ -181,3 +181,43 @@ test('history undo is only logged when logger is inside history', () => {
   expect(wrappedLogger.group).toHaveBeenCalledTimes(1);
   expect(wrappedLogger.groupEnd).toHaveBeenCalledTimes(1);
 });
+
+test('circular history undo is logged when logger is inside history', () => {
+  const createCircularState = (count: number) => {
+    const node = {
+      count,
+      self: null as any
+    };
+    node.self = node;
+    return {
+      node
+    };
+  };
+  const wrappedLogger = {
+    group: vi.fn(),
+    groupCollapsed: vi.fn(),
+    groupEnd: vi.fn(),
+    log: vi.fn(),
+    trace: vi.fn()
+  };
+  const useStore = create(() => createCircularState(0), {
+    middlewares: [
+      logger({
+        logger: wrappedLogger as any,
+        collapsed: false
+      }),
+      history()
+    ]
+  });
+
+  useStore.setState(createCircularState(1));
+  wrappedLogger.group.mockClear();
+  wrappedLogger.groupEnd.mockClear();
+  (useStore as any).history.undo();
+
+  const node = useStore.getPureState().node;
+  expect(node.count).toBe(0);
+  expect(node.self).toBe(node);
+  expect(wrappedLogger.group).toHaveBeenCalledTimes(1);
+  expect(wrappedLogger.groupEnd).toHaveBeenCalledTimes(1);
+});
