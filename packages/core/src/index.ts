@@ -4,6 +4,14 @@ export { onStoreReady } from './lifecycle';
 export { createReactiveTracker } from './reactiveTracker';
 export { replaceExternalStoreState } from './replaceExternalStoreState';
 export {
+  getMutableAdapterOwnEnumerableKeys,
+  isEqualMutableAdapterSnapshot,
+  isMutableAdapterUnsafeKey,
+  replaceMutableAdapterState,
+  snapshotMutableAdapterPureState,
+  toMutableAdapterSnapshot
+} from './externalMutableAdapterUtils';
+export {
   assertSafePatches,
   createRootReplacementPatches,
   isStateSchemaError,

@@ -9,16 +9,20 @@ afterEach(() => {
 test('skips handleStore re-initialization when mutable mapper already exists', async () => {
   vi.resetModules();
   let capturedHandleStore: any;
-  vi.doMock('coaction', () => ({
-    createBinder: ({ handleStore }: { handleStore: any }) => {
-      capturedHandleStore = handleStore;
-      return (input: unknown) => input;
-    },
-    onStoreReady: () => () => undefined,
-    replaceExternalStoreState: vi.fn(),
-    sanitizeInitialStateValue: (value: unknown) => value,
-    sanitizeReplacementState: (value: unknown) => value
-  }));
+  vi.doMock('coaction', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+      ...actual,
+      createBinder: ({ handleStore }: { handleStore: any }) => {
+        capturedHandleStore = handleStore;
+        return (input: unknown) => input;
+      },
+      onStoreReady: () => () => undefined,
+      replaceExternalStoreState: vi.fn(),
+      sanitizeInitialStateValue: (value: unknown) => value,
+      sanitizeReplacementState: (value: unknown) => value
+    };
+  });
   await import('../src');
   const internal = {};
   const state = {
@@ -52,19 +56,23 @@ test('destroy unsubscribes autorun only once', async () => {
       throw new Error('unsubscribe called twice');
     }
   });
-  vi.doMock('coaction', () => ({
-    createBinder: ({ handleStore }: { handleStore: any }) => {
-      capturedHandleStore = handleStore;
-      return (input: unknown) => input;
-    },
-    onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
-      callback();
-      return cancelReadySubscription;
-    }),
-    replaceExternalStoreState: vi.fn(),
-    sanitizeInitialStateValue: (value: unknown) => value,
-    sanitizeReplacementState: (value: unknown) => value
-  }));
+  vi.doMock('coaction', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+      ...actual,
+      createBinder: ({ handleStore }: { handleStore: any }) => {
+        capturedHandleStore = handleStore;
+        return (input: unknown) => input;
+      },
+      onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
+        callback();
+        return cancelReadySubscription;
+      }),
+      replaceExternalStoreState: vi.fn(),
+      sanitizeInitialStateValue: (value: unknown) => value,
+      sanitizeReplacementState: (value: unknown) => value
+    };
+  });
   vi.doMock('mobx', () => ({
     autorun: vi.fn((runner: () => void) => {
       runner();
@@ -106,19 +114,23 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   let capturedHandleStore: any;
   let autorunRunner: (() => void) | undefined;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', () => ({
-    createBinder: ({ handleStore }: { handleStore: any }) => {
-      capturedHandleStore = handleStore;
-      return (input: unknown) => input;
-    },
-    onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
-      callback();
-      return vi.fn();
-    }),
-    replaceExternalStoreState,
-    sanitizeInitialStateValue: (value: unknown) => value,
-    sanitizeReplacementState: (value: unknown) => value
-  }));
+  vi.doMock('coaction', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+      ...actual,
+      createBinder: ({ handleStore }: { handleStore: any }) => {
+        capturedHandleStore = handleStore;
+        return (input: unknown) => input;
+      },
+      onStoreReady: vi.fn((_store: unknown, callback: () => void) => {
+        callback();
+        return vi.fn();
+      }),
+      replaceExternalStoreState,
+      sanitizeInitialStateValue: (value: unknown) => value,
+      sanitizeReplacementState: (value: unknown) => value
+    };
+  });
   vi.doMock('mobx', () => ({
     autorun: vi.fn((runner: () => void) => {
       autorunRunner = runner;

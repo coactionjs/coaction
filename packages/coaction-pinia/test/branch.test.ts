@@ -5,26 +5,30 @@ const loadBinding = async () => {
   let capturedHandleStore: any;
   let capturedHandleState: any;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', () => ({
-    createBinder: ({
-      handleStore,
-      handleState
-    }: {
-      handleStore: any;
-      handleState: any;
-    }) => {
-      capturedHandleStore = handleStore;
-      capturedHandleState = handleState;
-      return (input: unknown) => input;
-    },
-    onStoreReady: (_store: unknown, callback: () => void) => {
-      callback();
-      return () => undefined;
-    },
-    replaceExternalStoreState,
-    sanitizeInitialStateValue: (value: unknown) => value,
-    sanitizeReplacementState: (value: unknown) => value
-  }));
+  vi.doMock('coaction', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+      ...actual,
+      createBinder: ({
+        handleStore,
+        handleState
+      }: {
+        handleStore: any;
+        handleState: any;
+      }) => {
+        capturedHandleStore = handleStore;
+        capturedHandleState = handleState;
+        return (input: unknown) => input;
+      },
+      onStoreReady: (_store: unknown, callback: () => void) => {
+        callback();
+        return () => undefined;
+      },
+      replaceExternalStoreState,
+      sanitizeInitialStateValue: (value: unknown) => value,
+      sanitizeReplacementState: (value: unknown) => value
+    };
+  });
   await import('../src');
   return {
     capturedHandleStore,
