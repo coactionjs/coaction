@@ -13,6 +13,7 @@ export {
   toMutableAdapterSnapshot
 } from './externalMutableAdapterUtils';
 export {
+  applyRootReplacementWithPatches,
   assertSafePatches,
   createRootReplacementPatches,
   isStateSchemaError,

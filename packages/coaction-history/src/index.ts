@@ -1,7 +1,6 @@
 import {
-  createRootReplacementPatches,
+  applyRootReplacementWithPatches,
   onStoreReady,
-  sanitizePatches,
   type Middleware,
   type Store
 } from 'coaction';
@@ -322,43 +321,16 @@ export const history =
         return;
       }
       baseSetState(nextState as T, () => {
-        const { patches, inversePatches } = createRootReplacementPatches(
-          store.getPureState() as Record<PropertyKey, unknown>,
-          nextState as Record<PropertyKey, unknown>
-        );
-        const finalPatches = store.patch
-          ? store.patch({
-              patches: patches as any,
-              inversePatches: inversePatches as any
-            })
-          : {
-              patches: patches as any,
-              inversePatches: inversePatches as any
-            };
-        const safePatches = (sanitizePatches(finalPatches.patches, {
-          source: 'store.patch()',
-          warnOnDropped: true
-        }) ?? []) as any;
-        const safeInversePatches = (sanitizePatches(
-          finalPatches.inversePatches,
+        return applyRootReplacementWithPatches(
+          store,
+          nextState as Record<PropertyKey, unknown>,
           {
-            source: 'store.patch() inverse patches',
-            warnOnDropped: true
+            applyExactReplacement:
+              !store.share && applyStore
+                ? () => applyStore(nextState as T)
+                : undefined
           }
-        ) ?? []) as any;
-        if (safePatches.length) {
-          const canApplyExactLocalReplacement =
-            !store.share &&
-            applyStore &&
-            finalPatches.patches === patches &&
-            safePatches.length === patches.length;
-          if (canApplyExactLocalReplacement) {
-            applyStore(nextState as T);
-          } else {
-            store.apply(store.getPureState(), safePatches);
-          }
-        }
-        return [store.getPureState(), safePatches, safeInversePatches];
+        );
       });
     };
     const cancelReadySubscription = onStoreReady(store, () => {

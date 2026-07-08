@@ -1,7 +1,6 @@
 import {
-  createRootReplacementPatches,
+  applyRootReplacementWithPatches,
   onStoreReady,
-  sanitizePatches,
   sanitizeReplacementState,
   type Middleware,
   type Store
@@ -142,34 +141,10 @@ export const persist =
       runWithoutHistoryRecording(store, () => {
         if (store.share === 'main') {
           store.setState(nextState as any, () => {
-            const { patches, inversePatches } = createRootReplacementPatches(
-              store.getPureState() as Record<PropertyKey, unknown>,
+            return applyRootReplacementWithPatches(
+              store,
               nextState as Record<PropertyKey, unknown>
             );
-            const finalPatches = store.patch
-              ? store.patch({
-                  patches: patches as any,
-                  inversePatches: inversePatches as any
-                })
-              : {
-                  patches: patches as any,
-                  inversePatches: inversePatches as any
-                };
-            const safePatches = (sanitizePatches(finalPatches.patches, {
-              source: 'store.patch()',
-              warnOnDropped: true
-            }) ?? []) as any;
-            const safeInversePatches = (sanitizePatches(
-              finalPatches.inversePatches,
-              {
-                source: 'store.patch() inverse patches',
-                warnOnDropped: true
-              }
-            ) ?? []) as any;
-            if (safePatches.length) {
-              store.apply(store.getPureState(), safePatches);
-            }
-            return [store.getPureState(), safePatches, safeInversePatches];
           });
           return;
         }

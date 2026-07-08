@@ -1,8 +1,7 @@
 import {
-  createRootReplacementPatches,
+  applyRootReplacementWithPatches,
   isStateSchemaError,
   onStoreReady,
-  sanitizePatches,
   type Middleware,
   type Store
 } from 'coaction';
@@ -279,34 +278,7 @@ export const bindYjs = <T extends object>(
   const applyReplacementState = (next: Record<PropertyKey, unknown>) => {
     if (store.share === 'main') {
       store.setState(next as T, () => {
-        const { patches, inversePatches } = createRootReplacementPatches(
-          store.getPureState() as Record<PropertyKey, unknown>,
-          next
-        );
-        const finalPatches = store.patch
-          ? store.patch({
-              patches: patches as any,
-              inversePatches: inversePatches as any
-            })
-          : {
-              patches: patches as any,
-              inversePatches: inversePatches as any
-            };
-        const safePatches = (sanitizePatches(finalPatches.patches, {
-          source: 'store.patch()',
-          warnOnDropped: true
-        }) ?? []) as any;
-        const safeInversePatches = (sanitizePatches(
-          finalPatches.inversePatches,
-          {
-            source: 'store.patch() inverse patches',
-            warnOnDropped: true
-          }
-        ) ?? []) as any;
-        if (safePatches.length) {
-          store.apply(store.getPureState(), safePatches);
-        }
-        return [store.getPureState(), safePatches, safeInversePatches];
+        return applyRootReplacementWithPatches(store, next);
       });
       return;
     }

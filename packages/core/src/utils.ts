@@ -1,3 +1,6 @@
+import type { Patches } from 'mutative';
+import type { MiddlewareStore } from './interface';
+
 const isEqual = (x: unknown, y: unknown) => {
   if (x === y) {
     return x !== 0 || y !== 0 || 1 / x === 1 / y;
@@ -169,6 +172,49 @@ export const createRootReplacementPatches = (
     patches,
     inversePatches
   };
+};
+
+export const applyRootReplacementWithPatches = <T extends object>(
+  store: MiddlewareStore<T>,
+  nextState: Record<PropertyKey, unknown>,
+  options: {
+    applyExactReplacement?: () => void;
+  } = {}
+): [T, Patches, Patches] => {
+  const { patches, inversePatches } = createRootReplacementPatches(
+    store.getPureState() as Record<PropertyKey, unknown>,
+    nextState
+  );
+  const finalPatches = store.patch
+    ? store.patch({
+        patches: patches as any,
+        inversePatches: inversePatches as any
+      })
+    : {
+        patches: patches as any,
+        inversePatches: inversePatches as any
+      };
+  const safePatches = (sanitizePatches(finalPatches.patches, {
+    source: 'store.patch()',
+    warnOnDropped: true
+  }) ?? []) as Patches;
+  const safeInversePatches = (sanitizePatches(finalPatches.inversePatches, {
+    source: 'store.patch() inverse patches',
+    warnOnDropped: true
+  }) ?? []) as Patches;
+  if (safePatches.length) {
+    const applyExactReplacement = options.applyExactReplacement;
+    const canApplyExactReplacement =
+      applyExactReplacement &&
+      finalPatches.patches === patches &&
+      safePatches.length === patches.length;
+    if (canApplyExactReplacement) {
+      applyExactReplacement();
+    } else {
+      store.apply(store.getPureState(), safePatches);
+    }
+  }
+  return [store.getPureState(), safePatches, safeInversePatches];
 };
 
 export const setOwnEnumerable = (
