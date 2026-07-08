@@ -32,95 +32,93 @@ export const handleState = <T extends CreateState>(
   setState: Store['setState'];
   getState: Store['getState'];
 } => {
-  const setState: Store['setState'] = (
-    next,
-    updater = (next) => {
-      const merge = (_next = next) => {
-        assertKnownStateShape(
-          _next,
-          internal.rootState,
-          internal.stateSchema,
-          store.isSliceStore
-        );
-        mergeObject(internal.rootState, _next, store.isSliceStore);
-      };
-      const fn =
-        typeof next === 'function'
-          ? () => {
-              const returnValue = next(internal.module);
-              if (returnValue instanceof Promise) {
-                returnValue.catch(() => undefined);
-                throw new Error(
-                  'setState with async function is not supported'
-                );
-              }
-              if (typeof returnValue === 'object' && returnValue !== null) {
-                merge(returnValue);
-              }
+  const defaultUpdater: NonNullable<Parameters<Store['setState']>[1]> = (
+    next
+  ) => {
+    const merge = (_next = next) => {
+      assertKnownStateShape(
+        _next,
+        internal.rootState,
+        internal.stateSchema,
+        store.isSliceStore
+      );
+      mergeObject(internal.rootState, _next, store.isSliceStore);
+    };
+    const fn =
+      typeof next === 'function'
+        ? () => {
+            const returnValue = next(internal.module);
+            if (returnValue instanceof Promise) {
+              returnValue.catch(() => undefined);
+              throw new Error('setState with async function is not supported');
             }
-          : merge;
-      const enablePatches =
-        store.transport ?? (options as StoreOptions<T>).enablePatches;
-      if (!enablePatches && internal.mutableInstance) {
-        if (internal.actMutable) {
-          internal.actMutable(() => {
-            fn.apply(null);
-          });
-          return [];
-        }
-        fn.apply(null);
+            if (typeof returnValue === 'object' && returnValue !== null) {
+              merge(returnValue);
+            }
+          }
+        : merge;
+    const enablePatches =
+      store.transport ?? (options as StoreOptions<T>).enablePatches;
+    if (!enablePatches && internal.mutableInstance) {
+      if (internal.actMutable) {
+        internal.actMutable(() => {
+          fn.apply(null);
+        });
         return [];
       }
-      internal.backupState = internal.rootState;
-      let patches: Patches;
-      let inversePatches: Patches;
-      try {
-        const result = createWithMutative(
-          internal.rootState,
-          (draft) => {
-            internal.rootState = draft as Draft<T>;
-            return fn.apply(null);
-          },
-          {
-            enablePatches: true
-          }
-        );
-        assertKnownStateShape(
-          result[0],
-          internal.backupState,
-          internal.stateSchema,
-          store.isSliceStore,
-          {
-            requireSliceRoots: true
-          }
-        );
-        if (store.share === 'main') {
-          validateSharedStateSerializable(result[0]);
-        }
-        patches = result[1];
-        inversePatches = result[2];
-      } finally {
-        internal.rootState = internal.backupState;
-      }
-      const finalPatches = store.patch
-        ? store.patch({ patches, inversePatches })
-        : { patches, inversePatches };
-      const safePatches =
-        sanitizePatches(finalPatches.patches, {
-          source: 'store.patch()',
-          warnOnDropped: true
-        }) ?? [];
-      const safeInversePatches =
-        sanitizePatches(finalPatches.inversePatches, {
-          source: 'store.patch() inverse patches',
-          warnOnDropped: true
-        }) ?? [];
-      if (safePatches.length) {
-        store.apply(internal.rootState as T, safePatches);
-      }
-      return [internal.rootState as any, safePatches, safeInversePatches];
+      fn.apply(null);
+      return [];
     }
-  ) => {
+    internal.backupState = internal.rootState;
+    let patches: Patches;
+    let inversePatches: Patches;
+    try {
+      const result = createWithMutative(
+        internal.rootState,
+        (draft) => {
+          internal.rootState = draft as Draft<T>;
+          return fn.apply(null);
+        },
+        {
+          enablePatches: true
+        }
+      );
+      assertKnownStateShape(
+        result[0],
+        internal.backupState,
+        internal.stateSchema,
+        store.isSliceStore,
+        {
+          requireSliceRoots: true
+        }
+      );
+      if (store.share === 'main') {
+        validateSharedStateSerializable(result[0]);
+      }
+      patches = result[1];
+      inversePatches = result[2];
+    } finally {
+      internal.rootState = internal.backupState;
+    }
+    const finalPatches = store.patch
+      ? store.patch({ patches, inversePatches })
+      : { patches, inversePatches };
+    const safePatches =
+      sanitizePatches(finalPatches.patches, {
+        source: 'store.patch()',
+        warnOnDropped: true
+      }) ?? [];
+    const safeInversePatches =
+      sanitizePatches(finalPatches.inversePatches, {
+        source: 'store.patch() inverse patches',
+        warnOnDropped: true
+      }) ?? [];
+    if (safePatches.length) {
+      store.apply(internal.rootState as T, safePatches);
+    }
+    return [internal.rootState as any, safePatches, safeInversePatches];
+  };
+  const setState: Store['setState'] = (next, updater = defaultUpdater) => {
     internal.assertAlive?.('setState');
     internal.assertMutationAllowed?.('setState');
     if (store.share === 'client') {
@@ -146,7 +144,8 @@ export const handleState = <T extends CreateState>(
     if (
       !store.share &&
       !(options as StoreOptions<T>).enablePatches &&
-      !internal.mutableInstance
+      !internal.mutableInstance &&
+      updater === defaultUpdater
     ) {
       try {
         if (typeof next === 'function') {

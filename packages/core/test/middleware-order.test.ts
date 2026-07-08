@@ -175,11 +175,24 @@ test('history undo is only logged when logger is inside history', () => {
   historyInsideLogger.getState().increment();
   wrappedLogger.group.mockClear();
   wrappedLogger.groupEnd.mockClear();
+  wrappedLogger.log.mockClear();
   (historyInsideLogger as any).history.undo();
 
   expect(historyInsideLogger.getState().count).toBe(0);
   expect(wrappedLogger.group).toHaveBeenCalledTimes(1);
   expect(wrappedLogger.groupEnd).toHaveBeenCalledTimes(1);
+  const stateCall = wrappedLogger.log.mock.calls.find(
+    ([label]) => label === '[State]'
+  );
+  const nextStateCall = wrappedLogger.log.mock.calls.find(
+    ([label]) => label === '[Next State]'
+  );
+  expect(stateCall?.[1]).toEqual({
+    count: 1
+  });
+  expect(nextStateCall?.[1]).toEqual({
+    count: 0
+  });
 });
 
 test('circular history undo is logged when logger is inside history', () => {
@@ -213,6 +226,7 @@ test('circular history undo is logged when logger is inside history', () => {
   useStore.setState(createCircularState(1));
   wrappedLogger.group.mockClear();
   wrappedLogger.groupEnd.mockClear();
+  wrappedLogger.log.mockClear();
   (useStore as any).history.undo();
 
   const node = useStore.getPureState().node;
@@ -220,4 +234,12 @@ test('circular history undo is logged when logger is inside history', () => {
   expect(node.self).toBe(node);
   expect(wrappedLogger.group).toHaveBeenCalledTimes(1);
   expect(wrappedLogger.groupEnd).toHaveBeenCalledTimes(1);
+  const stateCall = wrappedLogger.log.mock.calls.find(
+    ([label]) => label === '[State]'
+  );
+  const nextStateCall = wrappedLogger.log.mock.calls.find(
+    ([label]) => label === '[Next State]'
+  );
+  expect(stateCall?.[1].node.count).toBe(1);
+  expect(nextStateCall?.[1].node.count).toBe(0);
 });

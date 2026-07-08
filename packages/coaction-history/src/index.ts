@@ -315,15 +315,10 @@ export const history =
         current
       );
       if (applyStore && hasCircularReference(snapshot)) {
-        applyStore(nextState as T);
-        if (!store.share) {
-          baseSetState(null);
-        }
-        return;
-      }
-      if (!store.share && applyStore) {
-        applyStore(nextState as T);
-        baseSetState(null);
+        baseSetState(nextState as T, () => {
+          applyStore(nextState as T);
+          return [];
+        });
         return;
       }
       baseSetState(nextState as T, () => {
@@ -352,7 +347,16 @@ export const history =
           }
         ) ?? []) as any;
         if (safePatches.length) {
-          store.apply(store.getPureState(), safePatches);
+          const canApplyExactLocalReplacement =
+            !store.share &&
+            applyStore &&
+            finalPatches.patches === patches &&
+            safePatches.length === patches.length;
+          if (canApplyExactLocalReplacement) {
+            applyStore(nextState as T);
+          } else {
+            store.apply(store.getPureState(), safePatches);
+          }
         }
         return [store.getPureState(), safePatches, safeInversePatches];
       });

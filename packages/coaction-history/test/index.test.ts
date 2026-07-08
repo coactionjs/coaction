@@ -1,5 +1,6 @@
 import { create } from 'coaction';
 import { makeAutoObservable } from 'mobx';
+import { vi } from 'vitest';
 import { bindMobx } from '../../coaction-mobx/src';
 import { history } from '../src';
 
@@ -154,6 +155,58 @@ test('undo and redo restore root key removal from replacement apply', () => {
   expect(
     Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'b')
   ).toBe(false);
+});
+
+test('local undo and redo run root replacement through patch pipeline', () => {
+  const patch = vi.fn((options: any) => options);
+  const patchMiddleware = (store: any) => {
+    store.patch = patch;
+    return store;
+  };
+  const useStore = create(
+    () => ({
+      a: 1,
+      b: 2
+    }),
+    {
+      middlewares: [patchMiddleware, history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.apply({
+    a: 1
+  } as any);
+
+  patch.mockClear();
+  expect(api.undo()).toBeTruthy();
+
+  expect(useStore.getPureState()).toEqual({
+    a: 1,
+    b: 2
+  });
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(patch.mock.calls[0][0].patches).toEqual([
+    {
+      op: 'add',
+      path: ['b'],
+      value: 2
+    }
+  ]);
+
+  patch.mockClear();
+  expect(api.redo()).toBeTruthy();
+
+  expect(useStore.getPureState()).toEqual({
+    a: 1
+  });
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(patch.mock.calls[0][0].patches).toEqual([
+    {
+      op: 'remove',
+      path: ['b']
+    }
+  ]);
 });
 
 test('undo and redo restore array truncation', () => {
