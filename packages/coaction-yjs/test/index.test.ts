@@ -443,6 +443,42 @@ test('rejects remote yjs non-plain map value and keeps binding usable', async ()
   binding.destroy();
 });
 
+test('rejects remote yjs updates with unknown schema keys and restores yjs state', async () => {
+  const doc = new Y.Doc();
+  const store = create(() => ({
+    count: 0
+  }));
+  const binding = bindYjs(store, {
+    doc,
+    key: 'counter'
+  });
+  let state = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+
+  doc.transact(() => {
+    state.set('extra', 1);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBe(0);
+    expect(readState(doc, 'counter')).toEqual({
+      count: 0
+    });
+  });
+
+  state = doc.getMap<any>('counter').get('state') as Y.Map<any>;
+  doc.transact(() => {
+    state.set('count', 2);
+  }, 'external');
+
+  await waitFor(() => {
+    expect(store.getState().count).toBe(2);
+  });
+  expect(readState(doc, 'counter')).toEqual({
+    count: 2
+  });
+  binding.destroy();
+});
+
 test('rejects remote yjs non-plain array value and restores yjs state', async () => {
   const doc = new Y.Doc();
   const store = create(() => ({
@@ -1630,7 +1666,8 @@ test('ignores stale delete paths after parent array replacement', async () => {
 test('ignores unsupported deep events that yield no operations', async () => {
   const doc = new Y.Doc();
   const store = create((set) => ({
-    count: 0
+    count: 0,
+    rich: ''
   }));
   const binding = bindYjs(store, {
     doc,

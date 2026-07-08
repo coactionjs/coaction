@@ -239,9 +239,12 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(useStore.getState().a).toBe(4);
 });
 
-test('apply preserves circular and shared replacement references', () => {
+test('apply handles circular and shared replacement values with fixed schema', () => {
   type Counter = {
     count: number;
+    left: unknown;
+    right: unknown;
+    self: unknown;
     increment: () => void;
   };
   const useStore = create<Counter>(
@@ -251,7 +254,10 @@ test('apply preserves circular and shared replacement references', () => {
           'test-pinia-circular-replace',
           bindPinia({
             state: () => ({
-              count: 0
+              count: 0,
+              left: null,
+              right: null,
+              self: null
             }),
             actions: {
               increment() {
@@ -279,8 +285,8 @@ test('apply preserves circular and shared replacement references', () => {
 
   const current = useStore.getState() as any;
   const pure = useStore.getPureState() as any;
-  expect(current.self).toBe(current);
-  expect(pure.self).toBe(pure);
+  expect(current.self.self).toBe(current.self);
+  expect(pure.self.self).toBe(pure.self);
   expect(current.left).toBe(current.right);
   expect(pure.left).toBe(pure.right);
   expect(current.left).toEqual({

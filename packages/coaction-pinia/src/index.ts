@@ -1,5 +1,6 @@
 import { apply } from 'mutability';
 import {
+  StateSchemaError,
   createBinder,
   onStoreReady,
   replaceExternalStoreState,
@@ -62,6 +63,21 @@ const isArrayIndexKey = (key: PropertyKey) => {
 const isObjectRecord = (value: object) =>
   Object.prototype.toString.call(value) === '[object Object]';
 
+const assertCanSetPublicStateKey = (
+  publicState: Record<PropertyKey, unknown>,
+  key: PropertyKey
+) => {
+  if (Object.prototype.hasOwnProperty.call(publicState, key)) {
+    return;
+  }
+  if (Object.isExtensible(publicState)) {
+    return;
+  }
+  throw new StateSchemaError(
+    `Unknown state key '${String(key)}' cannot be added after store initialization. Coaction state schema is fixed.`
+  );
+};
+
 const replaceMutableState = (
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
@@ -82,7 +98,6 @@ const replaceMutableState = (
     if (isUnsafeKey(key)) {
       delete rawState[key];
       delete mutableState[key];
-      delete publicState[key];
       continue;
     }
     if (typeof rawState[key] === 'function') {
@@ -91,7 +106,6 @@ const replaceMutableState = (
     if (!nextKeys.has(key)) {
       delete rawState[key];
       delete mutableState[key];
-      delete publicState[key];
     }
   }
   const rawSeen = new WeakMap<object, unknown>();
@@ -103,6 +117,7 @@ const replaceMutableState = (
   nextKeys.forEach((key) => {
     rawState[key] = sanitizeReplacementState(source[key], rawSeen);
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
+    assertCanSetPublicStateKey(publicState, key);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
   });
 };

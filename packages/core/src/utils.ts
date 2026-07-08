@@ -16,7 +16,8 @@ export class StateSchemaError extends Error {
 }
 
 export const isStateSchemaError = (error: unknown): error is StateSchemaError =>
-  error instanceof StateSchemaError;
+  error instanceof StateSchemaError ||
+  (error instanceof Error && error.name === 'StateSchemaError');
 
 export type StateSchema = {
   rootKeys: Set<PropertyKey>;

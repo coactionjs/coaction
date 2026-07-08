@@ -361,6 +361,91 @@ describe('State Management Store Tests', () => {
     expect((useStore.getState().counter as any).extra).toBeUndefined();
   });
 
+  test('locks public state objects against extension and descriptor deletion', () => {
+    const useStore = create(() => ({
+      count: 0,
+      increment() {
+        return this.count + 1;
+      }
+    }));
+    const state = useStore.getState();
+    const prototype = Object.getPrototypeOf(state);
+
+    expect(Object.isFrozen(state)).toBe(true);
+    expect(() => {
+      (state as any).unknown = 1;
+    }).toThrow(TypeError);
+    expect(() => {
+      Object.defineProperty(state, 'unknown', {
+        value: 1
+      });
+    }).toThrow(TypeError);
+    expect(() => {
+      Object.setPrototypeOf(state, {
+        polluted: true
+      });
+    }).toThrow(TypeError);
+    expect(() => {
+      delete (state as any).count;
+    }).toThrow(TypeError);
+    expect(() => {
+      (state as any).increment = () => 10;
+    }).toThrow(TypeError);
+    expect(() => {
+      (state as any).count = 1;
+    }).toThrow(
+      'Direct state mutation is not allowed in immutable Coaction stores.'
+    );
+    expect(() => {
+      useStore.setState((draft: any) => {
+        draft.unknown = 1;
+      });
+    }).toThrow(TypeError);
+
+    expect(Object.getPrototypeOf(state)).toBe(prototype);
+    expect(state.count).toBe(0);
+    expect(state.increment()).toBe(1);
+    expect((useStore.getPureState() as any).unknown).toBeUndefined();
+    expect((useStore.getState() as any).unknown).toBeUndefined();
+  });
+
+  test('locks slice public objects against extension and descriptor deletion', () => {
+    const useStore = create({
+      counter: () => ({
+        count: 0
+      })
+    });
+    const state = useStore.getState();
+
+    expect(Object.isFrozen(state)).toBe(true);
+    expect(Object.isFrozen(state.counter)).toBe(true);
+    expect(() => {
+      (state as any).other = {};
+    }).toThrow(TypeError);
+    expect(() => {
+      (state.counter as any).extra = 1;
+    }).toThrow(TypeError);
+    expect(() => {
+      delete (state as any).counter;
+    }).toThrow(TypeError);
+    expect(() => {
+      delete (state.counter as any).count;
+    }).toThrow(TypeError);
+    expect(() => {
+      useStore.setState((draft: any) => {
+        draft.counter.extra = 1;
+      });
+    }).toThrow(TypeError);
+
+    expect(useStore.getPureState()).toEqual({
+      counter: {
+        count: 0
+      }
+    });
+    expect((useStore.getState() as any).other).toBeUndefined();
+    expect((useStore.getState().counter as any).extra).toBeUndefined();
+  });
+
   test('should support symbol keyed slices', () => {
     const counter = Symbol('counter-slice');
     const useStore = create({

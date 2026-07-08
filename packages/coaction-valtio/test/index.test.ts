@@ -86,6 +86,7 @@ test('apply handles object replacement and patches', () => {
   "nested": {
     "value": 10,
   },
+  "stale": undefined,
 }
 `);
   expect((useStore.getState() as any).stale).toBeUndefined();
@@ -103,10 +104,13 @@ test('apply handles object replacement and patches', () => {
   expect(useStore.getState().count).toBe(9);
 });
 
-test('apply preserves circular and shared replacement references', () => {
+test('apply handles circular and shared replacement values with fixed schema', () => {
   const state = proxy(
     bindValtio({
       count: 0,
+      left: null as any,
+      right: null as any,
+      self: null as any,
       increment() {
         this.count += 1;
       }
@@ -129,8 +133,8 @@ test('apply preserves circular and shared replacement references', () => {
 
   const current = useStore.getState() as any;
   const pure = useStore.getPureState() as any;
-  expect(current.self).toBe(current);
-  expect(pure.self).toBe(pure);
+  expect(current.self.self).toBe(current.self);
+  expect(pure.self.self).toBe(pure.self);
   expect(current.left).toBe(current.right);
   expect(pure.left).toBe(pure.right);
   expect(current.left).toEqual({

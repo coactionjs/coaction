@@ -1,3 +1,4 @@
+import { StateSchemaError } from 'coaction';
 import * as Y from 'yjs';
 import { isUnsafePathSegment, sanitizePlainValue } from './shared';
 import { toPlainValue } from './yjsValue';
@@ -45,6 +46,43 @@ function toArrayIndex(segment: PathSegment): number | undefined {
     return undefined;
   }
   return index;
+}
+
+function assertCanSetPathSegment(
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey,
+  path: PathSegment[]
+) {
+  if (Object.prototype.hasOwnProperty.call(target, key)) {
+    return;
+  }
+  if (Object.isExtensible(target)) {
+    return;
+  }
+  throw new StateSchemaError(
+    `Unknown state key '${path.map((segment) => String(segment)).join('.')}' cannot be added after store initialization. Coaction state schema is fixed.`
+  );
+}
+
+function clearObjectKey(
+  target: Record<PropertyKey, unknown>,
+  key: PropertyKey
+) {
+  if (!Object.prototype.hasOwnProperty.call(target, key)) {
+    return;
+  }
+  const descriptor = Object.getOwnPropertyDescriptor(target, key);
+  if (descriptor?.configurable) {
+    delete target[key];
+    return;
+  }
+  if (descriptor && 'set' in descriptor && descriptor.set) {
+    target[key] = undefined;
+    return;
+  }
+  if (descriptor && 'writable' in descriptor && descriptor.writable) {
+    target[key] = undefined;
+  }
 }
 
 export function compactOperations(
@@ -112,14 +150,16 @@ export function setAtPath(target: any, path: PathSegment[], value: unknown) {
       nextValue === null ||
       (needsArray ? !Array.isArray(nextValue) : Array.isArray(nextValue))
     ) {
+      assertCanSetPathSegment(current, targetKey, path.slice(0, index + 1));
       current[targetKey] = typeof nextSegment === 'number' ? [] : {};
     }
     current = current[targetKey];
   }
   const leaf = path[path.length - 1];
   const leafIndex = Array.isArray(current) ? toArrayIndex(leaf) : undefined;
-  current[typeof leafIndex === 'undefined' ? leaf : leafIndex] =
-    cloneForStore(value);
+  const leafKey = typeof leafIndex === 'undefined' ? leaf : leafIndex;
+  assertCanSetPathSegment(current, leafKey, path);
+  current[leafKey] = cloneForStore(value);
 }
 
 export function deleteAtPath(target: any, path: PathSegment[]) {
@@ -153,7 +193,7 @@ export function deleteAtPath(target: any, path: PathSegment[]) {
     }
     return;
   }
-  delete current[leaf];
+  clearObjectKey(current, leaf);
 }
 
 export function collectRemoteOperations(

@@ -7,7 +7,8 @@ export {
   isStateSchemaError,
   replaceOwnEnumerable,
   sanitizeInitialStateValue,
-  sanitizeReplacementState
+  sanitizeReplacementState,
+  StateSchemaError
 } from './utils';
 export { wrapStore } from './wrapStore';
 export {

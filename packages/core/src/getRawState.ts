@@ -15,6 +15,11 @@ import { getOwnEnumerableKeys, isUnsafeKey, setOwnEnumerable } from './utils';
 
 const defaultClientExecuteSyncTimeoutMs = 1500;
 
+const lockPublicStateObject = <T extends object>(state: T) => {
+  Object.freeze(state);
+  return state;
+};
+
 const getClientExecuteSyncTimeoutMs = (
   options: StoreOptions<any> | ClientStoreOptions<any>
 ) => {
@@ -105,7 +110,7 @@ export const getRawState = <T extends CreateState>(
     });
     // it should be a immutable state
     const slice = Object.defineProperties({}, safeDescriptors);
-    return slice;
+    return lockPublicStateObject(slice);
   };
   if (store.isSliceStore) {
     internal.module = {} as T;
@@ -125,6 +130,7 @@ export const getRawState = <T extends CreateState>(
         )
       );
     });
+    lockPublicStateObject(internal.module);
   } else {
     internal.module = handle(rawState, initialState) as T;
   }

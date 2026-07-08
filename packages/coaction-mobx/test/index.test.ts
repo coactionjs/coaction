@@ -160,10 +160,13 @@ test('apply exact replacement removes stale data keys without deleting actions',
   expect(useStore.getState().a).toBe(4);
 });
 
-test('apply preserves circular and shared replacement references', () => {
+test('apply handles circular replacement values with fixed schema', () => {
   const state = makeAutoObservable(
     bindMobx({
       count: 0,
+      left: null as any,
+      right: null as any,
+      self: null as any,
       increment() {
         this.count += 1;
       }
@@ -186,11 +189,12 @@ test('apply preserves circular and shared replacement references', () => {
 
   const current = useStore.getState() as any;
   const pure = useStore.getPureState() as any;
-  expect(current.self).toBe(current);
-  expect(pure.self).toBe(pure);
-  expect(current.left).toBe(current.right);
-  expect(pure.left).toBe(pure.right);
+  expect(current.self.self).toBe(current.self);
+  expect(pure.self.self).toBe(pure.self);
   expect(current.left).toEqual({
+    value: 2
+  });
+  expect(current.right).toEqual({
     value: 2
   });
   expect(typeof current.increment).toBe('function');
