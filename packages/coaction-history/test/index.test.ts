@@ -243,6 +243,51 @@ test('local undo honors in-place root replacement patch transforms', () => {
   });
 });
 
+test('local undo with identity patch hook preserves array properties', () => {
+  const tag = Symbol('history-patch-array-tag');
+  type SparseArray = any[] & Record<PropertyKey, any>;
+  const makeList = (label: string, includeUndefined: boolean) => {
+    const list = [] as SparseArray;
+    list.length = 1;
+    if (includeUndefined) {
+      list[0] = undefined;
+    }
+    list.label = label;
+    list[tag] = label;
+    return list;
+  };
+  const patch = vi.fn((options: any) => options);
+  const patchMiddleware = (store: any) => {
+    store.patch = patch;
+    return store;
+  };
+  const useStore = create(
+    (set) => ({
+      list: makeList('before', false),
+      replaceList() {
+        set({
+          list: makeList('after', true)
+        } as any);
+      }
+    }),
+    {
+      middlewares: [patchMiddleware, history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().replaceList();
+  patch.mockClear();
+
+  expect(api.undo()).toBeTruthy();
+  const undone = useStore.getState().list as SparseArray;
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(undone.length).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(undone, 0)).toBe(false);
+  expect(undone.label).toBe('before');
+  expect(undone[tag]).toBe('before');
+});
+
 test('undo and redo restore array truncation', () => {
   const useStore = create(
     (set) => ({

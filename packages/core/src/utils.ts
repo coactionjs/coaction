@@ -182,11 +182,41 @@ export const createRootReplacementPatches = (
   };
 };
 
+const createRootStateFromPatches = <T extends object>(
+  currentState: T,
+  patches: Patches
+): T | undefined => {
+  const nextState = sanitizeReplacementState(currentState) as Record<
+    PropertyKey,
+    unknown
+  >;
+  const seen = new WeakMap<object, unknown>();
+  for (const patch of patches) {
+    if (
+      !Array.isArray(patch.path) ||
+      patch.path.length !== 1 ||
+      !['add', 'remove', 'replace'].includes(patch.op)
+    ) {
+      return undefined;
+    }
+    const key = patch.path[0] as PropertyKey;
+    if (patch.op === 'remove') {
+      delete nextState[key];
+      continue;
+    }
+    nextState[key] = sanitizeReplacementState(
+      (patch as { value: unknown }).value,
+      seen
+    );
+  }
+  return nextState as T;
+};
+
 export const applyRootReplacementWithPatches = <T extends object>(
   store: MiddlewareStore<T>,
   nextState: Record<PropertyKey, unknown>,
   options: {
-    applyExactReplacement?: () => void;
+    applyExactReplacement?: (state: T) => void;
   } = {}
 ): [T, Patches, Patches] => {
   const { patches, inversePatches } = createRootReplacementPatches(
@@ -212,13 +242,11 @@ export const applyRootReplacementWithPatches = <T extends object>(
   );
   if (safePatches.length) {
     const applyExactReplacement = options.applyExactReplacement;
-    const canApplyExactReplacement =
-      applyExactReplacement &&
-      !store.patch &&
-      finalPatches.patches === patches &&
-      safePatches.length === patches.length;
-    if (canApplyExactReplacement) {
-      applyExactReplacement();
+    const exactReplacementState = applyExactReplacement
+      ? createRootStateFromPatches(store.getPureState(), safePatches)
+      : undefined;
+    if (applyExactReplacement && exactReplacementState) {
+      applyExactReplacement(exactReplacementState);
     } else {
       store.apply(store.getPureState(), safePatches);
     }

@@ -327,7 +327,7 @@ export const history =
           {
             applyExactReplacement:
               !store.share && applyStore
-                ? () => applyStore(nextState as T)
+                ? (replacementState) => applyStore(replacementState)
                 : undefined
           }
         );
