@@ -257,6 +257,36 @@ test('state proxy supports reflection traps and destroy lifecycle', () => {
     true
   );
   expect(Object.getOwnPropertyDescriptor(state, 'missing')).toBeUndefined();
+  expect(() => {
+    (state as any).count = 1;
+  }).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores.'
+  );
+  expect(() => {
+    (state as any).unknown = 1;
+  }).toThrow(TypeError);
+  expect(() => {
+    delete (state as any).count;
+  }).toThrow(TypeError);
+  expect(() => {
+    delete (state as any).unknown;
+  }).toThrow("Unknown state key 'unknown' cannot be deleted.");
+  expect(() => {
+    Object.defineProperty(state, 'count', {
+      value: 1
+    });
+  }).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores.'
+  );
+  expect(() => {
+    Object.setPrototypeOf(state, {
+      polluted: true
+    });
+  }).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores.'
+  );
+  expect(state.count).toBe(0);
+  expect((state as any).unknown).toBeUndefined();
   useStore.destroy();
 });
 
@@ -288,7 +318,7 @@ test('state proxy returns stable actions with latest state binding', () => {
   expect(state.readCount).toBe(readCount);
 });
 
-test('slices autoSelector skips non-object slice values', () => {
+test('slices autoSelector does not expose rejected dynamic root keys', () => {
   const useStore = create(
     {
       counter: () => ({
@@ -299,7 +329,9 @@ test('slices autoSelector skips non-object slice values', () => {
       sliceMode: 'slices'
     }
   );
-  (useStore.getState() as any).meta = 1;
+  expect(() => {
+    (useStore.getState() as any).meta = 1;
+  }).toThrow(TypeError);
   const selectors = useStore({ autoSelector: true }) as any;
   expect(selectors.counter.count.value).toBe(0);
   expect(selectors.meta).toBeUndefined();

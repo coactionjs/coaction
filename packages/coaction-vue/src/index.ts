@@ -104,6 +104,9 @@ const isPlainObject = (value: object) => {
   return prototype === Object.prototype || prototype === null;
 };
 
+const directMutationErrorMessage =
+  'Direct state mutation is not allowed in immutable Coaction stores. Wrap mutations in set(() => { ... }).';
+
 const createStateProxy = <T extends object>(
   store: Store<T>,
   version: Ref<number>
@@ -132,6 +135,27 @@ const createStateProxy = <T extends object>(
         ...descriptor,
         configurable: true
       };
+    },
+    set(_, key, value) {
+      const state = store.getState() as Record<PropertyKey, unknown>;
+      state[key] = value;
+      return true;
+    },
+    deleteProperty(_, key) {
+      const state = store.getState() as Record<PropertyKey, unknown>;
+      if (!(key in state)) {
+        throw new TypeError(
+          `Unknown state key '${String(key)}' cannot be deleted.`
+        );
+      }
+      delete state[key];
+      return true;
+    },
+    defineProperty() {
+      throw new Error(directMutationErrorMessage);
+    },
+    setPrototypeOf() {
+      throw new Error(directMutationErrorMessage);
     }
   });
 
