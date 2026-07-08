@@ -1087,10 +1087,11 @@ test('shared store rejects runtime symbol keyed state before emitting patches', 
   const store = create(
     (set) => ({
       count: 0,
+      nested: {} as Record<PropertyKey, unknown>,
       addSymbol() {
-        set({
-          [symbolKey]: 1
-        } as any);
+        set((draft) => {
+          draft.nested[symbolKey] = 1;
+        });
       }
     }),
     {
@@ -1099,9 +1100,11 @@ test('shared store rejects runtime symbol keyed state before emitting patches', 
   );
 
   expect(() => store.getState().addSymbol()).toThrow(
-    'Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at Symbol(runtime-state).'
+    'Symbol-keyed state is not supported in shared store mode because transport synchronization uses JSON and string action paths. Found symbol key at nested.Symbol(runtime-state).'
   );
-  expect(Object.getOwnPropertySymbols(store.getPureState())).toHaveLength(0);
+  expect(
+    Object.getOwnPropertySymbols(store.getPureState().nested)
+  ).toHaveLength(0);
   expect(transport.emit).not.toHaveBeenCalled();
 });
 
