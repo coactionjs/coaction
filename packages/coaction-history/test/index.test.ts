@@ -209,6 +209,40 @@ test('local undo and redo run root replacement through patch pipeline', () => {
   ]);
 });
 
+test('local undo honors in-place root replacement patch transforms', () => {
+  const patch = vi.fn((options: any) => {
+    options.patches[0].value = 3;
+    return options;
+  });
+  const patchMiddleware = (store: any) => {
+    store.patch = patch;
+    return store;
+  };
+  const useStore = create(
+    () => ({
+      a: 1,
+      b: 2
+    }),
+    {
+      middlewares: [patchMiddleware, history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.apply({
+    a: 1
+  } as any);
+
+  patch.mockClear();
+  expect(api.undo()).toBeTruthy();
+
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(useStore.getPureState()).toEqual({
+    a: 1,
+    b: 3
+  });
+});
+
 test('undo and redo restore array truncation', () => {
   const useStore = create(
     (set) => ({

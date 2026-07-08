@@ -214,6 +214,7 @@ export const applyRootReplacementWithPatches = <T extends object>(
     const applyExactReplacement = options.applyExactReplacement;
     const canApplyExactReplacement =
       applyExactReplacement &&
+      !store.patch &&
       finalPatches.patches === patches &&
       safePatches.length === patches.length;
     if (canApplyExactReplacement) {
