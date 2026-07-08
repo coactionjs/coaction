@@ -219,6 +219,24 @@ test('bindPinia does not replace the active pinia instance', () => {
   expect(getActivePinia()).toBe(activePinia);
 });
 
+test('adapt forwards explicit pinia and hot arguments', () => {
+  const call = jest.fn(() => ({
+    count: 0
+  }));
+  const storeDefinition = Object.assign(call, {
+    $id: 'adapt-forward-arguments'
+  }) as StoreDefinition;
+  const useStore = adapt(storeDefinition) as any;
+  const explicitPinia = createPinia();
+  const hot = {
+    count: 1
+  };
+
+  useStore(explicitPinia, hot);
+
+  expect(call).toHaveBeenCalledWith(explicitPinia, hot);
+});
+
 test('apply exact replacement removes stale data keys without deleting actions', () => {
   type Counter = {
     a: number;

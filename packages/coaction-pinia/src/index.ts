@@ -281,8 +281,10 @@ export const adapt = <T extends object>(
     return store as any as T;
   }
   const pinia = createPinia();
-  const boundStore = ((piniaOverride?: Parameters<typeof store>[0]) =>
-    store(piniaOverride ?? pinia)) as typeof store;
+  const boundStore = ((...args: Parameters<typeof store>) => {
+    const [piniaOverride, hot] = args;
+    return store(piniaOverride ?? pinia, hot);
+  }) as typeof store;
   Object.assign(boundStore, store);
   return boundStore as any as T;
 };
