@@ -104,7 +104,11 @@ Flow:
 5. immutable listeners are notified
 6. shared stores emit the patch sequence over the transport
 
+Patch paths are validated before they are applied. Runtime mutation paths reject `__proto__`, `prototype`, and `constructor` path segments with `UnsafePatchPathError`; `store.patch()` output is treated the same way, so middleware cannot accidentally produce a partial commit where safe patches apply and unsafe patches are silently dropped.
+
 Mutable-instance integrations add one extra phase. Actions may execute against a draft, and the runtime later calls `finalizeDraft()` to obtain the patch pair. That finalized patch pair still goes through the same `store.patch()` and `store.apply()` pipeline before it is emitted.
+
+Root replacement flows used by history, persist, Yjs, and shared hydration use `createRootReplacementPatches()` and `applyRootReplacementWithPatches()` so root-level add/remove/replace semantics stay consistent across middleware. Mutable adapters use the exported adapter helpers to apply patches through snapshots before syncing Coaction raw state, public state, and the external mutable runtime.
 
 ## Method Binding Rules
 

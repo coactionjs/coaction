@@ -59,6 +59,17 @@ Advanced integrations can import the native signal primitives and adapter helper
 import { computed, defineExternalStoreAdapter, effect, signal } from 'coaction';
 ```
 
+### Adapter and Middleware Utilities
+
+`coaction` also exports utilities for adapter and middleware authors. These are not needed for normal application state updates, but they are part of the supported integration surface used by the official packages:
+
+- Mutable adapter helpers: `applyMutableAdapterPatches`, `replaceMutableAdapterState`, `toMutableAdapterSnapshot`, `snapshotMutableAdapterPureState`, `isEqualMutableAdapterSnapshot`, `getMutableAdapterOwnEnumerableKeys`, `isMutableAdapterUnsafeKey`.
+- Root replacement helpers: `createRootReplacementPatches`, `applyRootReplacementWithPatches`.
+- Patch safety helpers: `assertSafePatches`, `sanitizePatches`, `UnsafePatchPathError`.
+- State shape helpers: `StateSchemaError`, `isStateSchemaError`, `sanitizeReplacementState`, `sanitizeInitialStateValue`, `replaceOwnEnumerable`.
+
+Runtime mutation paths reject unsafe patch paths before applying state changes. If a `store.patch()` hook returns a path containing `__proto__`, `prototype`, or `constructor`, Coaction throws `UnsafePatchPathError` instead of silently dropping that patch and applying the rest.
+
 Store methods using `this` are rebound to the latest state when invoked from `getState()`, so destructuring remains safe:
 
 ```ts
