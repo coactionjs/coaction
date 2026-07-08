@@ -42,6 +42,8 @@ const store = create(() =>
 
 - `@coaction/jotai` only supports binding a whole Jotai store.
 - Coaction `Slices` mode is not supported in this adapter.
+- Shared main/client mode is supported for Coaction method execution; direct
+  writes to client-side atoms are rejected.
 
 ## Documentation
 

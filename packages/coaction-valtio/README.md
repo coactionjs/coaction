@@ -35,6 +35,9 @@ store.getState().increment();
 
 - `@coaction/valtio` only supports binding a whole Valtio store.
 - Coaction `Slices` mode is not supported in this adapter.
+- Shared main/client mode is supported for Coaction method execution; direct
+  writes to the client-side Valtio proxy are restored to the authoritative
+  snapshot.
 
 ## Documentation
 
