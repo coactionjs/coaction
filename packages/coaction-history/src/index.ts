@@ -268,6 +268,9 @@ export const history =
       );
     }
     const { limit = 100, partialize = (state: T) => state } = options;
+    if (!Number.isInteger(limit) || limit < 0) {
+      throw new Error('history limit must be a non-negative integer.');
+    }
     const applyHistorySnapshot = options.partialize
       ? applyPartialSnapshot
       : applySnapshot;

@@ -473,6 +473,52 @@ test('respects history limit', () => {
   expect(api.undo()).toBeFalsy();
 });
 
+test('rejects invalid history limits', () => {
+  for (const limit of [Number.NaN, -1, 1.5, Number.POSITIVE_INFINITY]) {
+    expect(() => {
+      create(
+        () => ({
+          count: 0
+        }),
+        {
+          middlewares: [
+            history({
+              limit
+            })
+          ]
+        }
+      );
+    }).toThrow('history limit must be a non-negative integer.');
+  }
+});
+
+test('supports zero history limit', () => {
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          limit: 0
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().increment();
+
+  expect(api.getPast()).toHaveLength(0);
+  expect(api.undo()).toBeFalsy();
+  expect(useStore.getState().count).toBe(1);
+});
+
 test('clear history and partialize', () => {
   const useStore = create(
     (set) => ({
