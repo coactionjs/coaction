@@ -26,7 +26,11 @@ export const replaceExternalStoreState = <T extends CreateState>(
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
-  const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+  const safePatches =
+    sanitizePatches(finalPatches.patches, {
+      source: 'store.patch()',
+      warnOnDropped: true
+    }) ?? [];
   if (!safePatches.length) {
     return;
   }

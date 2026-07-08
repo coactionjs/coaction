@@ -4,12 +4,15 @@ export { onStoreReady } from './lifecycle';
 export { createReactiveTracker } from './reactiveTracker';
 export { replaceExternalStoreState } from './replaceExternalStoreState';
 export {
+  assertSafePatches,
   createRootReplacementPatches,
   isStateSchemaError,
   replaceOwnEnumerable,
   sanitizeInitialStateValue,
+  sanitizePatches,
   sanitizeReplacementState,
-  StateSchemaError
+  StateSchemaError,
+  UnsafePatchPathError
 } from './utils';
 export { wrapStore } from './wrapStore';
 export {

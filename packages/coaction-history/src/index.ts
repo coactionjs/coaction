@@ -1,6 +1,7 @@
 import {
   createRootReplacementPatches,
   onStoreReady,
+  sanitizePatches,
   type Middleware,
   type Store
 } from 'coaction';
@@ -333,14 +334,21 @@ export const history =
               patches: patches as any,
               inversePatches: inversePatches as any
             };
-        if (finalPatches.patches.length) {
-          store.apply(store.getPureState(), finalPatches.patches);
+        const safePatches = (sanitizePatches(finalPatches.patches, {
+          source: 'store.patch()',
+          warnOnDropped: true
+        }) ?? []) as any;
+        const safeInversePatches = (sanitizePatches(
+          finalPatches.inversePatches,
+          {
+            source: 'store.patch() inverse patches',
+            warnOnDropped: true
+          }
+        ) ?? []) as any;
+        if (safePatches.length) {
+          store.apply(store.getPureState(), safePatches);
         }
-        return [
-          store.getPureState(),
-          finalPatches.patches,
-          finalPatches.inversePatches
-        ];
+        return [store.getPureState(), safePatches, safeInversePatches];
       });
     };
     const cancelReadySubscription = onStoreReady(store, () => {

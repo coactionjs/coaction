@@ -105,9 +105,16 @@ export const handleState = <T extends CreateState>(
       const finalPatches = store.patch
         ? store.patch({ patches, inversePatches })
         : { patches, inversePatches };
-      const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+      const safePatches =
+        sanitizePatches(finalPatches.patches, {
+          source: 'store.patch()',
+          warnOnDropped: true
+        }) ?? [];
       const safeInversePatches =
-        sanitizePatches(finalPatches.inversePatches) ?? [];
+        sanitizePatches(finalPatches.inversePatches, {
+          source: 'store.patch() inverse patches',
+          warnOnDropped: true
+        }) ?? [];
       if (safePatches.length) {
         store.apply(internal.rootState as T, safePatches);
       }
@@ -271,8 +278,14 @@ export const handleState = <T extends CreateState>(
     if (result?.length) {
       result = [
         result[0],
-        sanitizePatches(result[1]) ?? [],
-        sanitizePatches(result[2]) ?? []
+        sanitizePatches(result[1], {
+          source: 'setState updater result',
+          warnOnDropped: true
+        }) ?? [],
+        sanitizePatches(result[2], {
+          source: 'setState updater inverse result',
+          warnOnDropped: true
+        }) ?? []
       ];
     }
     emit(store, internal, result?.[1]);

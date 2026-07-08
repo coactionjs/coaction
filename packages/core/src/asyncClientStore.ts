@@ -9,7 +9,11 @@ import type {
 import type { Internal } from './internal';
 import { wrapStore } from './wrapStore';
 import { validateSharedStateSerializable } from './sharedState';
-import { sanitizePatches, sanitizeReplacementState } from './utils';
+import {
+  assertSafePatches,
+  sanitizePatches,
+  sanitizeReplacementState
+} from './utils';
 
 const parseFullSyncState = (state: string) => {
   const parsed = JSON.parse(state);
@@ -141,6 +145,7 @@ export const createAsyncClientStore = <T extends CreateState>(
           return;
         }
       } else if (options.sequence === internal.sequence + 1) {
+        assertSafePatches(options.patches, 'client transport update');
         internal.applyClientState!(undefined, options.patches);
         internal.sequence = options.sequence;
         awaitingReconnectSync = false;
@@ -177,7 +182,10 @@ export const emit = <T extends CreateState>(
   internal: Internal<T>,
   patches?: Patches
 ) => {
-  const safePatches = sanitizePatches(patches);
+  const safePatches = sanitizePatches(patches, {
+    source: 'transport emit',
+    warnOnDropped: true
+  });
   if (store.transport && safePatches?.length) {
     validateSharedStateSerializable(internal.rootState);
     internal.sequence += 1;
@@ -207,7 +215,11 @@ export const handleDraft = <T extends CreateState>(
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
-  const safePatches = sanitizePatches(finalPatches.patches) ?? [];
+  const safePatches =
+    sanitizePatches(finalPatches.patches, {
+      source: 'store.patch()',
+      warnOnDropped: true
+    }) ?? [];
   if (safePatches.length) {
     store.apply(internal.rootState as T, safePatches);
     // 3rd party model will send update notifications on its own after `store.apply` in mutableInstance mode

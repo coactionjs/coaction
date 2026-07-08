@@ -11,6 +11,10 @@ export const isUnsafeKey = (key: string) =>
 export const isUnsafePathSegment = (segment: unknown) =>
   typeof segment === 'string' && isUnsafeKey(segment);
 
+export class UnsafePatchPathError extends Error {
+  name = 'UnsafePatchPathError';
+}
+
 export class StateSchemaError extends Error {
   name = 'StateSchemaError';
 }
@@ -36,10 +40,60 @@ export const hasUnsafePatchPath = (path: unknown) => {
   return segments.some(isUnsafePathSegment);
 };
 
-export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
+const formatPatchPath = (path: unknown) =>
+  Array.isArray(path)
+    ? path.map((segment) => String(segment)).join('.')
+    : String(path);
+
+const getUnsafePatchPaths = <T extends { path: unknown }>(
   patches: T[] | undefined
-) =>
-  patches
+) => patches?.filter((patch) => hasUnsafePatchPath(patch.path)) ?? [];
+
+export const assertSafePatches = <T extends { path: unknown }>(
+  patches: T[] | undefined,
+  source = 'patches'
+) => {
+  const unsafePatches = getUnsafePatchPaths(patches);
+  if (!unsafePatches.length) {
+    return;
+  }
+  const paths = unsafePatches
+    .map((patch) => `'${formatPatchPath(patch.path)}'`)
+    .join(', ');
+  throw new UnsafePatchPathError(
+    `Unsafe patch path${unsafePatches.length > 1 ? 's' : ''} ${paths} cannot be applied from ${source}.`
+  );
+};
+
+const warnDroppedUnsafePatches = <T extends { path: unknown }>(
+  unsafePatches: T[],
+  source: string
+) => {
+  if (process.env.NODE_ENV !== 'development' || !unsafePatches.length) {
+    return;
+  }
+  const paths = unsafePatches
+    .map((patch) => `'${formatPatchPath(patch.path)}'`)
+    .join(', ');
+  console.warn(
+    `Coaction dropped unsafe patch path${unsafePatches.length > 1 ? 's' : ''} ${paths} from ${source}.`
+  );
+};
+
+export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
+  patches: T[] | undefined,
+  options: {
+    source?: string;
+    warnOnDropped?: boolean;
+  } = {}
+) => {
+  if (options.warnOnDropped) {
+    warnDroppedUnsafePatches(
+      getUnsafePatchPaths(patches),
+      options.source ?? 'patches'
+    );
+  }
+  return patches
     ?.filter((patch) => !hasUnsafePatchPath(patch.path))
     .map((patch) =>
       Object.prototype.hasOwnProperty.call(patch, 'value')
@@ -49,6 +103,7 @@ export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
           }
         : patch
     );
+};
 
 export type RootReplacementPatch = {
   op: 'add' | 'remove' | 'replace';

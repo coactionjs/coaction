@@ -730,7 +730,7 @@ describe('State Management Store Tests', () => {
     ).toBe(false);
   });
 
-  test('apply sanitizes patch values and ignores unsafe patch paths', () => {
+  test('apply sanitizes patch values', () => {
     const useStore = create(() => ({
       count: 0,
       nested: {
@@ -755,16 +755,6 @@ describe('State Management Store Tests', () => {
         op: 'add',
         path: ['list', 0],
         value: item
-      },
-      {
-        op: 'add',
-        path: ['__proto__', 'polluted'],
-        value: true
-      },
-      {
-        op: 'add',
-        path: '/constructor/value',
-        value: 2
       }
     ] as any);
 
@@ -790,6 +780,77 @@ describe('State Management Store Tests', () => {
       Object.prototype.hasOwnProperty.call(pureState.list[0], 'constructor')
     ).toBe(false);
     expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test('apply rejects unsafe patch paths', () => {
+    const useStore = create(() => ({
+      count: 0
+    }));
+
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'add',
+          path: ['__proto__', 'polluted'],
+          value: true
+        },
+        {
+          op: 'add',
+          path: '/constructor/value',
+          value: 2
+        }
+      ] as any);
+    }).toThrow(
+      "Unsafe patch paths '__proto__.polluted', '/constructor/value' cannot be applied from store.apply()."
+    );
+    expect(useStore.getPureState()).toEqual({
+      count: 0
+    });
+    expect(({} as any).polluted).toBeUndefined();
+  });
+
+  test('apply rejects unsafe patch paths before applying safe patches', () => {
+    const useStore = create(() => ({
+      count: 0
+    }));
+
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'replace',
+          path: ['count'],
+          value: 1
+        },
+        {
+          op: 'add',
+          path: ['prototype', 'polluted'],
+          value: true
+        }
+      ] as any);
+    }).toThrow(
+      "Unsafe patch path 'prototype.polluted' cannot be applied from store.apply()."
+    );
+    expect(useStore.getPureState()).toEqual({
+      count: 0
+    });
+  });
+
+  test('apply rejects json pointer unsafe patch paths', () => {
+    const useStore = create(() => ({
+      count: 0
+    }));
+
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'add',
+          path: '/constructor/value',
+          value: 2
+        }
+      ] as any);
+    }).toThrow(
+      "Unsafe patch path '/constructor/value' cannot be applied from store.apply()."
+    );
   });
 
   test('preserves sparse arrays and enumerable array properties', () => {

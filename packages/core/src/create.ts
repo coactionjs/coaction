@@ -20,6 +20,7 @@ import { wrapStore } from './wrapStore';
 import { handleMainTransport } from './handleMainTransport';
 import { refreshSignalSlots } from './computed';
 import {
+  assertSafePatches,
   getOwnEnumerableKeys,
   createStateSchema,
   assertKnownStateShape,
@@ -186,6 +187,7 @@ export const create: Creator = <T extends CreateState>(
       ) => {
         internal.assertAlive?.('apply');
         internal.assertMutationAllowed?.('apply');
+        assertSafePatches(patches, 'store.apply()');
         const safePatches = sanitizePatches(patches);
         const nextState = sanitizeReplacementState(
           safePatches ? (applyWithMutative(state, safePatches) as T) : state

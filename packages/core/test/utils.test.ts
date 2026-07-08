@@ -1,8 +1,10 @@
+import { vi } from 'vitest';
 import {
   areShallowEqualWithArray,
   cloneOwnEnumerable,
   mergeObject,
   replaceOwnEnumerable,
+  sanitizePatches,
   uuid
 } from '../src/utils';
 
@@ -178,6 +180,46 @@ test('replaceOwnEnumerable preserves root cycles and shared references', () => {
   expect(target.left).toEqual({
     value: 2
   });
+});
+
+test('sanitizePatches warns about dropped unsafe paths in development', () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  process.env.NODE_ENV = 'development';
+  try {
+    const patches = sanitizePatches(
+      [
+        {
+          op: 'replace',
+          path: ['__proto__', 'polluted'],
+          value: true
+        },
+        {
+          op: 'replace',
+          path: ['count'],
+          value: 1
+        }
+      ],
+      {
+        source: 'test patch source',
+        warnOnDropped: true
+      }
+    );
+
+    expect(patches).toEqual([
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 1
+      }
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      "Coaction dropped unsafe patch path '__proto__.polluted' from test patch source."
+    );
+  } finally {
+    process.env.NODE_ENV = previousNodeEnv;
+    warn.mockRestore();
+  }
 });
 
 test('cloneOwnEnumerable preserves root cycles and shared references', () => {
