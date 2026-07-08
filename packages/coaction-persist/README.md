@@ -44,4 +44,9 @@ configured `version`, provide `migrate` to hydrate it. Without `migrate`,
 hydration is skipped and `onRehydrateStorage` receives the current state plus
 an error.
 
+Custom `merge` functions can return an exact replacement. The replacement still
+follows Coaction's fixed schema rules: unknown root keys are rejected, while
+known single-store root keys may be absent and then read as `undefined` from the
+public state object.
+
 You can find the documentation [here](https://github.com/coactionjs/coaction).

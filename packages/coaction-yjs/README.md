@@ -110,6 +110,9 @@ Middleware wrapper around `bindYjs`. It also wires cleanup into `store.destroy()
 - Keep the synced state plain and serializable.
 - Methods and getters are Coaction runtime behavior and are not the synchronization payload.
 - Prefer a plain object at the root of your store state.
+- Remote snapshots and delete operations obey Coaction's fixed schema rules:
+  unknown root keys are rejected, while known single-store root keys may be
+  absent and then read as `undefined` from the public state object.
 
 ## Compatibility and Limits
 

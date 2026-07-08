@@ -34,7 +34,7 @@ const store = create((set) => ({
 
 Core stores are immutable by default. Getters and methods can read through `this`, but writes to Coaction-owned state must happen inside `set()` or `set((draft) => ...)`. Direct writes such as `this.count += 1` in a store method throw because they bypass the commit path that notifies subscribers, produces patches when enabled, and synchronizes worker/client mirrors in shared mode.
 
-Coaction fixes the public state schema after initialization. A single store cannot add new top-level state keys later, and a slices store cannot add new slice keys or new top-level fields inside a slice. Keep dynamic data inside an existing object or array field.
+Coaction fixes the public state schema after initialization. A single store cannot add new top-level state keys later, and a slices store cannot add new slice keys or new top-level fields inside a slice. Replacement-style APIs such as `apply()` may omit a known single-store root key; the public getter remains present and reads as `undefined`, but no unknown key is promoted into the public module. Slice root keys are stricter and cannot be removed or replaced with non-object values. Keep dynamic data inside an existing object or array field.
 
 Accessor getters are cached automatically through the built-in signal runtime. Use `get(deps, selector)` when you want to declare dependencies manually:
 
