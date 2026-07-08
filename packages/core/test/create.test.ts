@@ -361,6 +361,69 @@ describe('State Management Store Tests', () => {
     expect((useStore.getState().counter as any).extra).toBeUndefined();
   });
 
+  test('rejects replacing or removing known slice roots after initialization', () => {
+    const useStore = create({
+      counter: () => ({
+        count: 0
+      })
+    });
+
+    expect(() => {
+      useStore.setState({
+        counter: 1
+      } as any);
+    }).toThrow(
+      "State slice 'counter' must remain an object after store initialization. Coaction slice schema is fixed."
+    );
+    expect(() => {
+      useStore.setState(() => ({
+        counter: 1
+      }));
+    }).toThrow(
+      "State slice 'counter' must remain an object after store initialization. Coaction slice schema is fixed."
+    );
+    expect(() => {
+      useStore.apply({
+        counter: 1
+      } as any);
+    }).toThrow(
+      "State slice 'counter' must remain an object after store initialization. Coaction slice schema is fixed."
+    );
+    expect(() => {
+      useStore.apply({} as any);
+    }).toThrow(
+      "State slice 'counter' cannot be removed after store initialization. Coaction slice schema is fixed."
+    );
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'replace',
+          path: ['counter'],
+          value: 1
+        }
+      ] as any);
+    }).toThrow(
+      "State slice 'counter' must remain an object after store initialization. Coaction slice schema is fixed."
+    );
+    expect(() => {
+      useStore.apply(useStore.getPureState(), [
+        {
+          op: 'remove',
+          path: ['counter']
+        }
+      ] as any);
+    }).toThrow(
+      "State slice 'counter' cannot be removed after store initialization. Coaction slice schema is fixed."
+    );
+
+    expect(useStore.getPureState()).toEqual({
+      counter: {
+        count: 0
+      }
+    });
+    expect(useStore.getState().counter.count).toBe(0);
+  });
+
   test('locks public state objects against extension and descriptor deletion', () => {
     const useStore = create(() => ({
       count: 0,

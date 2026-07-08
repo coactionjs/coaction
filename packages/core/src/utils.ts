@@ -98,6 +98,27 @@ const assertKnownSchemaKey = (
   );
 };
 
+const assertKnownSliceObject = (key: PropertyKey, value: unknown) => {
+  if (typeof value === 'object' && value !== null) {
+    return;
+  }
+  throw new StateSchemaError(
+    `State slice '${String(key)}' must remain an object after store initialization. Coaction slice schema is fixed.`
+  );
+};
+
+const assertKnownSlicePresent = (
+  source: Record<PropertyKey, unknown>,
+  key: PropertyKey
+) => {
+  if (Object.prototype.hasOwnProperty.call(source, key)) {
+    return;
+  }
+  throw new StateSchemaError(
+    `State slice '${String(key)}' cannot be removed after store initialization. Coaction slice schema is fixed.`
+  );
+};
+
 export const createStateSchema = (
   rootState: unknown,
   isSliceStore: boolean
@@ -128,22 +149,28 @@ export const assertKnownStateShape = (
   source: unknown,
   rootState: unknown,
   schema: StateSchema | undefined,
-  isSliceStore: boolean
+  isSliceStore: boolean,
+  options: {
+    requireSliceRoots?: boolean;
+  } = {}
 ) => {
   if (typeof source !== 'object' || source === null) {
     return;
   }
   const rootKeys = schema?.rootKeys ?? new Set(getOwnSchemaKeys(rootState));
   const sourceRecord = source as Record<PropertyKey, unknown>;
+  const knownSliceEntries = schema?.sliceKeys;
+  if (isSliceStore && options.requireSliceRoots && knownSliceEntries) {
+    knownSliceEntries.forEach((_, key) => {
+      assertKnownSlicePresent(sourceRecord, key);
+    });
+  }
   for (const key of getOwnEnumerableKeys(source)) {
     assertKnownSchemaKey(rootKeys, key, []);
     if (!isSliceStore) {
       continue;
     }
     const slice = sourceRecord[key];
-    if (typeof slice !== 'object' || slice === null) {
-      continue;
-    }
     const knownSliceKeys =
       schema?.sliceKeys?.get(key) ??
       (typeof rootState === 'object' &&
@@ -157,6 +184,7 @@ export const assertKnownStateShape = (
     if (!knownSliceKeys) {
       continue;
     }
+    assertKnownSliceObject(key, slice);
     for (const sliceKey of getOwnEnumerableKeys(slice)) {
       assertKnownSchemaKey(knownSliceKeys, sliceKey, [key]);
     }

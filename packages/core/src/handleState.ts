@@ -36,6 +36,12 @@ export const handleState = <T extends CreateState>(
     next,
     updater = (next) => {
       const merge = (_next = next) => {
+        assertKnownStateShape(
+          _next,
+          internal.rootState,
+          internal.stateSchema,
+          store.isSliceStore
+        );
         mergeObject(internal.rootState, _next, store.isSliceStore);
       };
       const fn =
@@ -83,7 +89,10 @@ export const handleState = <T extends CreateState>(
           result[0],
           internal.backupState,
           internal.stateSchema,
-          store.isSliceStore
+          store.isSliceStore,
+          {
+            requireSliceRoots: true
+          }
         );
         if (store.share === 'main') {
           validateSharedStateSerializable(result[0]);
@@ -148,6 +157,12 @@ export const handleState = <T extends CreateState>(
                   );
                 }
                 if (typeof returnValue === 'object' && returnValue !== null) {
+                  assertKnownStateShape(
+                    returnValue,
+                    internal.rootState,
+                    internal.stateSchema,
+                    store.isSliceStore
+                  );
                   mergeObject(
                     internal.rootState,
                     returnValue,
@@ -160,7 +175,10 @@ export const handleState = <T extends CreateState>(
               nextState,
               internal.backupState,
               internal.stateSchema,
-              store.isSliceStore
+              store.isSliceStore,
+              {
+                requireSliceRoots: true
+              }
             );
             internal.rootState = nextState;
           } catch (error) {
@@ -197,7 +215,10 @@ export const handleState = <T extends CreateState>(
             copy,
             internal.rootState,
             internal.stateSchema,
-            store.isSliceStore
+            store.isSliceStore,
+            {
+              requireSliceRoots: true
+            }
           );
           internal.rootState = copy;
         }
@@ -224,7 +245,10 @@ export const handleState = <T extends CreateState>(
           internal.rootState,
           internal.backupState ?? internal.rootState,
           internal.stateSchema,
-          store.isSliceStore
+          store.isSliceStore,
+          {
+            requireSliceRoots: true
+          }
         );
       }
       if (store.share === 'main') {

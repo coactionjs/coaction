@@ -194,7 +194,10 @@ export const create: Creator = <T extends CreateState>(
           nextState,
           internal.rootState,
           internal.stateSchema,
-          store.isSliceStore
+          store.isSliceStore,
+          {
+            requireSliceRoots: true
+          }
         );
         if (store.share === 'main') {
           validateSharedStateSerializable(nextState);
