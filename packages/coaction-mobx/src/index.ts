@@ -202,7 +202,7 @@ const handleStore = (
     baseDestroy();
   };
   internal.actMutable = runInAction;
-  store.apply = (state = store.getState(), patches) => {
+  store.apply = (state = store.getPureState(), patches) => {
     internal.assertAlive?.('apply');
     isApplyingCoactionState = true;
     try {

@@ -195,6 +195,39 @@ test('apply patches sync root removal and reject unknown root keys atomically', 
   expect((useStore.getState() as any).stale).toBeUndefined();
   expect(Object.prototype.hasOwnProperty.call(state, 'stale')).toBe(false);
 
+  useStore.apply(undefined, [
+    {
+      op: 'replace',
+      path: ['count'],
+      value: 2
+    }
+  ] as any);
+  expect(useStore.getPureState()).toEqual({
+    count: 2,
+    nested: {
+      value: 1
+    }
+  });
+  expect(Object.prototype.hasOwnProperty.call(state, 'stale')).toBe(false);
+
+  useStore.apply(
+    useStore.getState() as any,
+    [
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 3
+      }
+    ] as any
+  );
+  expect(useStore.getPureState()).toEqual({
+    count: 3,
+    nested: {
+      value: 1
+    }
+  });
+  expect(Object.prototype.hasOwnProperty.call(state, 'stale')).toBe(false);
+
   expect(() => {
     useStore.apply(useStore.getPureState(), [
       {
@@ -211,9 +244,9 @@ test('apply patches sync root removal and reject unknown root keys atomically', 
   }).toThrow(
     "Unknown state key 'extra' cannot be added after store initialization. Coaction state schema is fixed."
   );
-  expect(useStore.getState().count).toBe(0);
-  expect(useStore.getPureState().count).toBe(0);
-  expect(state.count).toBe(0);
+  expect(useStore.getState().count).toBe(3);
+  expect(useStore.getPureState().count).toBe(3);
+  expect(state.count).toBe(3);
   expect((useStore.getState() as any).extra).toBeUndefined();
   expect((useStore.getPureState() as any).extra).toBeUndefined();
   expect((state as any).extra).toBeUndefined();
@@ -286,6 +319,22 @@ test('shared exact replacement removes root keys from server and client mutable 
     );
     expect((serverStore.getState() as any).stale).toBeUndefined();
     expect((clientStore.getState() as any).stale).toBeUndefined();
+
+    serverStore.getState().increment();
+    await waitForSharedHydration();
+
+    expect(serverStore.getPureState()).toEqual({
+      count: 11
+    });
+    expect(clientStore.getPureState()).toEqual({
+      count: 11
+    });
+    expect(Object.prototype.hasOwnProperty.call(serverExternal, 'stale')).toBe(
+      false
+    );
+    expect(Object.prototype.hasOwnProperty.call(clientExternal, 'stale')).toBe(
+      false
+    );
   } finally {
     clientStore.destroy();
     serverStore.destroy();

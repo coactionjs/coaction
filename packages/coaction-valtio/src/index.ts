@@ -141,7 +141,7 @@ const handleStore = (
       store._destroyers = undefined;
       baseDestroy();
     };
-    store.apply = (state = store.getState(), patches) => {
+    store.apply = (state = store.getPureState(), patches) => {
       internal.assertAlive?.('apply');
       isApplyingCoactionState = true;
       try {
