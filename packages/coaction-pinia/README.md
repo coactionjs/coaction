@@ -46,6 +46,9 @@ const useStore = create(() =>
 - `bindPinia()` does not set Pinia's global active instance. Use `adapt()` for
   Coaction-owned Pinia definitions, or provide your own active Pinia when using
   raw Pinia store definitions directly.
+- Unknown root properties written directly to the Pinia store are ignored by
+  Coaction's fixed schema. They are not promoted into Coaction raw/public state,
+  and this adapter does not guarantee pruning them from the Pinia store.
 
 ## Documentation
 

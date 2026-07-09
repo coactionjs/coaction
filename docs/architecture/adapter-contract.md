@@ -118,6 +118,18 @@ Current status:
 
 Treat the last two as integration-defined behavior. If strict client-side authority enforcement is required, the adapter must add an explicit runtime guard before this repository can claim that as supported behavior.
 
+## External Unknown Keys
+
+Coaction's fixed schema is enforced at the raw/public state boundary. Official mutable adapters must not promote out-of-band unknown root properties from an external runtime into Coaction raw state or the public module. The external runtime object itself may still accept unrelated direct properties according to its own library semantics unless that adapter explicitly prunes or restores them.
+
+Adapter docs should state the policy for unknown external root keys:
+
+- `throw`: reject the external write.
+- `restore`: remove or roll back the external property.
+- `ignore`: keep the property in the third-party runtime while excluding it from Coaction state.
+
+If no policy is documented, consumers should treat Coaction state as authoritative and avoid relying on unknown properties stored directly on the external runtime.
+
 See [support-matrix.md](./support-matrix.md) for the package-by-package support status of official adapters.
 
 ## Contract Tests

@@ -38,6 +38,9 @@ const useStore = create(() =>
 
 - `@coaction/mobx` only supports binding a whole MobX store.
 - Coaction `Slices` mode is not supported in this adapter.
+- Unknown root properties written directly to the MobX instance are ignored by
+  Coaction's fixed schema. They are not promoted into Coaction raw/public state,
+  and this adapter does not guarantee pruning them from the MobX instance.
 
 ### setState()
 

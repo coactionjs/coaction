@@ -38,6 +38,9 @@ store.getState().increment();
 - Shared main/client mode is supported for Coaction method execution; direct
   writes to mirrored schema fields on the client-side Valtio proxy are restored
   to the authoritative snapshot.
+- Unknown root properties written directly to the Valtio proxy are ignored by
+  Coaction's fixed schema. They are not promoted into Coaction raw/public state,
+  and this adapter does not guarantee pruning them from the Valtio proxy.
 
 ## Documentation
 
