@@ -387,6 +387,53 @@ test('apply patches sync root removal and reject unknown root keys atomically', 
   expect(piniaStore.extra).toBeUndefined();
 });
 
+test('re-added root keys stay linked to pinia external state', async () => {
+  type Counter = {
+    count: number;
+    stale?: number;
+  };
+  const definition = adapt<Counter>(
+    defineStore(
+      'test-pinia-readd-linkage',
+      bindPinia({
+        state: () => ({
+          count: 0,
+          stale: 1
+        })
+      })
+    )
+  ) as any;
+  const piniaStore = definition();
+  const useStore = create<Counter>(() => definition, {
+    name: 'test-pinia-readd-linkage'
+  });
+
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'remove',
+      path: ['stale']
+    }
+  ] as any);
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'add',
+      path: ['stale'],
+      value: 2
+    }
+  ] as any);
+
+  expect(useStore.getPureState().stale).toBe(2);
+  expect(useStore.getState().stale).toBe(2);
+  expect(piniaStore.stale).toBe(2);
+
+  piniaStore.stale = 3;
+  await waitForSharedHydration();
+
+  expect(useStore.getPureState().stale).toBe(3);
+  expect(useStore.getState().stale).toBe(3);
+  expect(piniaStore.stale).toBe(3);
+});
+
 test('shared exact replacement removes root keys from server and client mutable state', async () => {
   type Counter = {
     count: number;

@@ -5,7 +5,7 @@ import {
   type WorkerMainTransportOptions
 } from 'data-transport';
 import { bindMobx } from '../src';
-import { makeAutoObservable, autorun } from 'mobx';
+import { makeAutoObservable, autorun, runInAction } from 'mobx';
 import { create, type Slices, type Slice } from 'coaction';
 import { persist, type PersistStorage } from '../../coaction-persist/src';
 
@@ -250,6 +250,45 @@ test('apply patches sync root removal and reject unknown root keys atomically', 
   expect((useStore.getState() as any).extra).toBeUndefined();
   expect((useStore.getPureState() as any).extra).toBeUndefined();
   expect((state as any).extra).toBeUndefined();
+});
+
+test('re-added root keys stay linked to mobx external state', async () => {
+  const state = makeAutoObservable(
+    bindMobx({
+      count: 0,
+      stale: 1
+    })
+  );
+  const useStore = create(() => state, {
+    name: 'test-mobx-readd-linkage'
+  });
+
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'remove',
+      path: ['stale']
+    }
+  ] as any);
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'add',
+      path: ['stale'],
+      value: 2
+    }
+  ] as any);
+
+  expect(useStore.getPureState().stale).toBe(2);
+  expect(useStore.getState().stale).toBe(2);
+  expect(state.stale).toBe(2);
+
+  runInAction(() => {
+    state.stale = 3;
+  });
+  await Promise.resolve();
+
+  expect(useStore.getPureState().stale).toBe(3);
+  expect(useStore.getState().stale).toBe(3);
+  expect(state.stale).toBe(3);
 });
 
 test('shared exact replacement removes root keys from server and client mutable state', async () => {

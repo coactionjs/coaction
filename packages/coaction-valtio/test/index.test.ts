@@ -185,6 +185,43 @@ test('apply handles object replacement and patches', () => {
   expect((state as any).extra).toBeUndefined();
 });
 
+test('re-added root keys stay linked to valtio external state', async () => {
+  const state = proxy(
+    bindValtio({
+      count: 0,
+      stale: 1
+    })
+  );
+  const useStore = create(() => adapt(state), {
+    name: 'test-valtio-readd-linkage'
+  });
+
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'remove',
+      path: ['stale']
+    }
+  ] as any);
+  useStore.apply(useStore.getPureState(), [
+    {
+      op: 'add',
+      path: ['stale'],
+      value: 2
+    }
+  ] as any);
+
+  expect(useStore.getPureState().stale).toBe(2);
+  expect(useStore.getState().stale).toBe(2);
+  expect(state.stale).toBe(2);
+
+  state.stale = 3;
+  await waitForSharedHydration();
+
+  expect(useStore.getPureState().stale).toBe(3);
+  expect(useStore.getState().stale).toBe(3);
+  expect(state.stale).toBe(3);
+});
+
 test('apply rejects invalid replacement atomically and after destroy', () => {
   const state = proxy(
     bindValtio({

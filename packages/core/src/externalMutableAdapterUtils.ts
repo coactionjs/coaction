@@ -46,6 +46,33 @@ export const assertCanSetMutableAdapterPublicStateKey = (
   );
 };
 
+const ensureMutableAdapterRawDescriptor = (
+  rawState: Record<PropertyKey, unknown>,
+  mutableState: Record<PropertyKey, unknown>,
+  publicState: Record<PropertyKey, unknown>,
+  key: PropertyKey
+) => {
+  if (rawState === mutableState) {
+    return;
+  }
+  const rawDescriptor = Object.getOwnPropertyDescriptor(rawState, key);
+  if (rawDescriptor?.get && rawDescriptor.set) {
+    return;
+  }
+  const publicDescriptor = Object.getOwnPropertyDescriptor(publicState, key);
+  if (!publicDescriptor || rawDescriptor?.configurable === false) {
+    return;
+  }
+  Object.defineProperty(rawState, key, {
+    get: () => mutableState[key],
+    set: (value) => {
+      mutableState[key] = value;
+    },
+    configurable: true,
+    enumerable: publicDescriptor.enumerable
+  });
+};
+
 export const replaceMutableAdapterState = (
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
@@ -86,6 +113,7 @@ export const replaceMutableAdapterState = (
   mutableSeen.set(source, mutableState);
   publicSeen.set(source, publicState);
   nextKeys.forEach((key) => {
+    ensureMutableAdapterRawDescriptor(rawState, mutableState, publicState, key);
     rawState[key] = sanitizeReplacementState(source[key], rawSeen);
     mutableState[key] = sanitizeReplacementState(source[key], mutableSeen);
     publicState[key] = sanitizeReplacementState(source[key], publicSeen);
