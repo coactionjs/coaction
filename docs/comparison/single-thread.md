@@ -83,7 +83,7 @@ const cart = (set, get) => ({
 
 > **Be precise about this one.** The explicit `useStore(selector)` path is _version + recompute + `Object.is`_, the same model Zustand uses. It does not add signal-level fine-grained invalidation on its own. The store/slice-field tracking behavior comes from `observer()`. So on explicit selectors Coaction is at **parity** with Zustand; the increment is that `observer()` lets you skip selectors entirely.
 
-### 4. `this` and getters — natural OOP-style ergonomics
+### 4. `this` and getters — natural this-bound ergonomics
 
 You can use `this` in getters and actions, and destructured methods stay bound.
 

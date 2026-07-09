@@ -89,7 +89,7 @@ fields they read invalidate together:
   No `useMemo`, no reselect.
 - **Mutable writes, immutable results** — just `this.count += 1` inside `set()`. Powered by
   [Mutative](https://github.com/unadlib/mutative) (~18x faster than Zustand + Immer in our benchmark).
-- **`this` + OOP-style actions** — natural getters and actions; methods destructured from
+- **`this` + this-bound actions** — natural getters and this-bound actions; methods destructured from
   `getState()` stay bound.
 - **Escape hatches when you want them** — `useStore(selector)`, `useStore.auto()`, and
   `get(deps, selector)` keep explicit control available.
