@@ -189,8 +189,12 @@ export const create: Creator = <T extends CreateState>(
         internal.assertMutationAllowed?.('apply');
         assertSafePatches(patches, 'store.apply()');
         const safePatches = sanitizePatches(patches);
+        const baseState =
+          state === (internal.module as unknown) ? internal.rootState : state;
         const nextState = sanitizeReplacementState(
-          safePatches ? (applyWithMutative(state, safePatches) as T) : state
+          safePatches
+            ? (applyWithMutative(baseState, safePatches) as T)
+            : baseState
         );
         assertKnownStateShape(
           nextState,

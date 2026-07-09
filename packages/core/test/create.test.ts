@@ -835,6 +835,39 @@ describe('State Management Store Tests', () => {
     });
   });
 
+  test('apply uses raw state when public state is passed as patch base', () => {
+    const useStore = create(() => ({
+      count: 0,
+      stale: 1
+    }));
+
+    useStore.apply({
+      count: 10
+    } as any);
+    expect(
+      Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'stale')
+    ).toBe(false);
+
+    useStore.apply(
+      useStore.getState() as any,
+      [
+        {
+          op: 'replace',
+          path: ['count'],
+          value: 11
+        }
+      ] as any
+    );
+
+    expect(useStore.getPureState()).toEqual({
+      count: 11
+    });
+    expect(
+      Object.prototype.hasOwnProperty.call(useStore.getPureState(), 'stale')
+    ).toBe(false);
+    expect((useStore.getState() as any).stale).toBeUndefined();
+  });
+
   test('apply rejects json pointer unsafe patch paths', () => {
     const useStore = create(() => ({
       count: 0
