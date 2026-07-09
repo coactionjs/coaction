@@ -1,5 +1,18 @@
 # @coaction/mobx
 
+## 2.1.0
+
+### Minor Changes
+
+- Applied mutable adapter patches from Coaction raw snapshots by default, preventing omitted known root keys from being resurrected by later patches.
+- Restored MobX raw accessor descriptors when known root keys are removed and later re-added, keeping MobX observable state, Coaction raw state, and public state linked.
+
+### Patch Changes
+
+- Documented that unknown root properties written directly to the MobX instance are not promoted into Coaction state and are not guaranteed to be pruned.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

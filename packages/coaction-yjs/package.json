@@ -1,6 +1,6 @@
 {
   "name": "@coaction/yjs",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A Coaction integration tool for Yjs",
   "keywords": [
     "coaction",
@@ -55,7 +55,7 @@
     "yjs": "^13.6.27"
   },
   "peerDependencies": {
-    "coaction": "^2.0.0",
+    "coaction": ">=2.1.0 <3",
     "yjs": "^13.6.0"
   },
   "authors": [

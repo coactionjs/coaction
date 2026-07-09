@@ -1,5 +1,13 @@
 # @coaction/react
 
+## 2.1.0
+
+### Patch Changes
+
+- Aligned the React binding peer dependency with Coaction 2.1's fixed-schema and mutable-adapter synchronization guarantees.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

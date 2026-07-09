@@ -1,5 +1,13 @@
 # @coaction/xstate
 
+## 2.1.0
+
+### Patch Changes
+
+- Aligned the XState adapter peer dependency with Coaction 2.1's fixed-schema runtime guarantees.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

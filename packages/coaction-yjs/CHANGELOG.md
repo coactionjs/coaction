@@ -1,5 +1,14 @@
 # @coaction/yjs
 
+## 2.1.0
+
+### Patch Changes
+
+- Applied remote root replacements and delete operations through the shared root replacement patch flow so removed known root keys stay removed.
+- Treated Coaction schema errors as recoverable remote-shape failures and restored the authoritative Yjs state instead of diverging raw and public state.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

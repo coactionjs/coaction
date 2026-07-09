@@ -1,5 +1,18 @@
 # coaction
 
+## 2.1.0
+
+### Minor Changes
+
+- Hardened fixed-schema runtime invariants by locking public state modules, rejecting destroyed-store operations, and keeping replacement-style known root key omission explicit.
+- Added shared root replacement and mutable adapter helper flows so history, persistence, Yjs, and official mutable adapters apply root add/remove/replace semantics consistently.
+
+### Patch Changes
+
+- Rejected unsafe patch-hook output before applying patches instead of silently dropping unsafe paths.
+- Prevented patch application from public state facades from resurrecting omitted known root keys.
+- Documented the supported integration helper surface and external mutable-runtime unknown-key policy.
+
 ## 2.0.0
 
 ### Major Changes

@@ -1,5 +1,19 @@
 # @coaction/pinia
 
+## 2.1.0
+
+### Minor Changes
+
+- Applied mutable adapter patches from Coaction raw snapshots by default, preventing omitted known root keys from being resurrected by later patches.
+- Restored Pinia raw accessor descriptors when known root keys are removed and later re-added, keeping Pinia state, Coaction raw state, and public state linked.
+
+### Patch Changes
+
+- Stopped `adapt()` from setting Pinia's global active instance and documented the private/default Pinia instance behavior.
+- Documented that unknown root properties written directly to the Pinia store are not promoted into Coaction state and are not guaranteed to be pruned.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

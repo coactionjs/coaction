@@ -1,5 +1,13 @@
 # @coaction/vue
 
+## 2.1.0
+
+### Patch Changes
+
+- Added Vue state proxy mutation traps so direct set, delete, defineProperty, and prototype writes reject instead of silently writing to the proxy target.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

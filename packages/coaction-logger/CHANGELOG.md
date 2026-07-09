@@ -1,5 +1,13 @@
 # @coaction/logger
 
+## 2.1.0
+
+### Patch Changes
+
+- Aligned the logger middleware peer dependency with Coaction 2.1's hardened patch pipeline and replacement semantics.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

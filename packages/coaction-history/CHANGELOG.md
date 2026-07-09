@@ -1,5 +1,14 @@
 # @coaction/history
 
+## 2.1.0
+
+### Patch Changes
+
+- Routed local undo/redo root replacements through the shared patch pipeline so middleware patch transforms, root key removals, and logger before/after state stay consistent.
+- Validated the history `limit` option as a non-negative integer.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

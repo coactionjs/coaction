@@ -1,5 +1,14 @@
 # @coaction/persist
 
+## 2.1.0
+
+### Patch Changes
+
+- Skipped hydration when a persisted version mismatches and no migration is provided, preventing stale schemas from being silently promoted.
+- Applied shared-main hydration through the root replacement patch flow so exact custom merges can remove known root keys safely.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes

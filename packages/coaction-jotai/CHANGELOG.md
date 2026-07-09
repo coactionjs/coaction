@@ -1,5 +1,13 @@
 # @coaction/jotai
 
+## 2.1.0
+
+### Patch Changes
+
+- Aligned the peer dependency with Coaction 2.1's fixed-schema runtime and patch-safety guarantees.
+- Updated dependencies
+  - coaction@2.1.0
+
 ## 2.0.0
 
 ### Major Changes
