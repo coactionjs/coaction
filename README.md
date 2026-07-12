@@ -9,7 +9,7 @@ No selectors. No `useShallow`. No `useMemo`. Just read state and it stays fast.
 
 [![Node CI](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml/badge.svg)](https://github.com/coactionjs/coaction/actions/workflows/nodejs.yml) [![npm](https://img.shields.io/npm/v/coaction.svg)](https://www.npmjs.com/package/coaction) [![License](https://img.shields.io/npm/l/coaction)](./LICENSE)
 
-[Quick look](#quick-look) · [Why Coaction](#why-coaction) · [Install](#install) · [Examples](#examples) · [Docs](#docs)
+[Website](https://coactionjs.github.io/coaction/en/) · [中文文档](https://coactionjs.github.io/coaction/zh/) · [Quick look](#quick-look) · [Why Coaction](#why-coaction) · [Install](#install) · [Examples](#examples) · [Docs](#docs)
 
 </div>
 
@@ -459,6 +459,8 @@ Custom integrations should use `defineExternalStoreAdapter()` from `coaction/ada
 
 ## Docs
 
+- [Documentation website](https://coactionjs.github.io/coaction/en/docs/)
+- [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
 - [Why Coaction Without Multithreading](./docs/comparison/single-thread.md)
 - [Coaction vs Zustand](./docs/comparison/zustand.md)
 - [Migrating from Zustand](./docs/migration/from-zustand.md)

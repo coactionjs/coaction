@@ -2,6 +2,8 @@
 
 ![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/vue.svg)](https://www.npmjs.com/package/@coaction/vue) ![license](https://img.shields.io/npm/l/@coaction/vue)
 
+[English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
+
 A Coaction integration tool for Vue
 
 ## Installation

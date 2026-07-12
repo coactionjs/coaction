@@ -2,6 +2,8 @@
 
 ![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/react.svg)](https://www.npmjs.com/package/@coaction/react) ![license](https://img.shields.io/npm/l/@coaction/react)
 
+[English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
+
 A Coaction integration tool for React
 
 ## Installation

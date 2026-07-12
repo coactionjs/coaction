@@ -2,6 +2,8 @@
 
 ![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/persist.svg)](https://www.npmjs.com/package/@coaction/persist) ![license](https://img.shields.io/npm/l/@coaction/persist)
 
+[English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
+
 A persist middleware for Coaction.
 
 ## Installation

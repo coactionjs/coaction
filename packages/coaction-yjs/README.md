@@ -2,6 +2,8 @@
 
 ![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/yjs.svg)](https://www.npmjs.com/package/@coaction/yjs) ![license](https://img.shields.io/npm/l/@coaction/yjs)
 
+[English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
+
 A Coaction integration tool for Yjs.
 
 ## Installation

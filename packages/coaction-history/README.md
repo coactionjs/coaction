@@ -2,6 +2,8 @@
 
 ![Node CI](https://github.com/coactionjs/coaction/workflows/Node%20CI/badge.svg) [![npm](https://img.shields.io/npm/v/@coaction/history.svg)](https://www.npmjs.com/package/@coaction/history) ![license](https://img.shields.io/npm/l/@coaction/history)
 
+[English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
+
 A undo/redo middleware for Coaction.
 
 ## Installation
