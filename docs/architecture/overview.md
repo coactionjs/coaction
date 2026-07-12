@@ -36,7 +36,9 @@ The public API is intentionally small, but the runtime has several distinct laye
 
 ## Reading Order
 
-- Start with [core-runtime.md](./core-runtime.md) for creation flow and patch semantics.
+- Start with [ADR-0001](../adr/0001-json-only-shared-runtime.md) for the accepted
+  JSON-only shared-runtime direction and capability boundaries.
+- Continue with [core-runtime.md](./core-runtime.md) for creation flow and patch semantics.
 - Then read [threading-model.md](./threading-model.md) for local/main/client authority rules.
 - Read [support-matrix.md](./support-matrix.md) for the officially maintained feature-combination boundaries.
 - Read [api-evolution.md](./api-evolution.md) for the maintenance boundary of `create()`.

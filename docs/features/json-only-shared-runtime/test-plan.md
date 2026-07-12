@@ -1,0 +1,45 @@
+---
+type: test-plan
+title: JSON-only shared runtime test plan
+description: Required evidence for JSON validation, transport authorization, convergence, lifecycle safety, and bundle isolation.
+owner: unadlib
+status: proposed
+risk_level: critical
+tags: [core, testing, json, concurrency]
+---
+
+## Required coverage
+
+| Area              | Required evidence                                                                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| JSON acceptance   | Primitives, dense arrays, nested plain records, null, and safe numeric boundaries round trip exactly.                                                                                                     |
+| JSON rejection    | Undefined, BigInt, non-finite numbers, negative zero, functions, symbols, accessors, custom `toJSON`, sparse arrays, unsafe keys, cycles, repeated references, and platform objects fail before encoding. |
+| Protocol          | Unknown versions/types, malformed JSON, invalid fields, invalid epochs/sequences, oversized payloads, and unsafe patch operations fail closed.                                                            |
+| Authorization     | Unknown actions and denied requests never execute; allowed sync and async actions return JSON results and errors through distinct tagged variants.                                                        |
+| Convergence       | Contiguous updates apply once; duplicates are ignored; gaps, stale epochs, reconnects, and stale full-sync responses recover without rollback or lost updates.                                            |
+| Lifecycle         | Failed setup, reentrant destroy, listener failure, rejected emit, and pending action cleanup leave no active listener or waiter.                                                                          |
+| Static boundaries | Local consumer bundles exclude shared and adapter runtime code; shared bundles exclude adapter internals.                                                                                                 |
+| Compatibility     | Framework bindings and supported peer versions continue to build against their declared entry point.                                                                                                      |
+
+## Test layers
+
+- Focused core unit tests for codec, protocol, patch, and lifecycle invariants.
+- Deterministic fake-transport tests for race ordering and reconnect behavior.
+- Worker and SharedWorker browser tests for real structured execution and
+  reconnect behavior.
+- Package quality checks for ESM, CJS, declarations, and subpath exports.
+- Consumer bundle fixtures that measure production minified gzip per entry.
+- Full monorepo tests for adapters, middlewares, Yjs, examples, and peers.
+
+## Completion gate
+
+The feature is not complete until all required cases have named tests, the full
+repository gate passes without stale rich-state expectations, and the consumer
+size budgets prove static isolation.
+
+## Verification
+
+- Existing baseline: `pnpm --filter coaction test`.
+- New focused commands and test names: Verification: Missing until implemented.
+- Full release command: Verification: Missing until the new package scripts and
+  entry points are wired into the repository gate.
