@@ -11,7 +11,8 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "env": ["GITHUB_ACTIONS", "GITHUB_REPOSITORY", "SITE_BASE_PATH"],
+      "outputs": ["dist/**", ".next/**", "out/**"]
     },
     "dev": {
       "cache": false,
