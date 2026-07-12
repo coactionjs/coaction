@@ -1,7 +1,7 @@
 {
   "adapter": {
-    "baselineGzipBytes": 2543,
-    "maxGzipBytes": 2800
+    "baselineGzipBytes": 1424,
+    "maxGzipBytes": 1600
   },
   "local": {
     "baselineGzipBytes": 5911,

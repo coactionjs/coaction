@@ -8,4 +8,4 @@
 
 > **JsonPrimitive** = `null` \| `boolean` \| `number` \| `string`
 
-Defined in: [packages/core/src/sharedState.ts:3](https://github.com/coactionjs/coaction/blob/main/packages/core/src/sharedState.ts#L3)
+Defined in: [packages/core/src/jsonTypes.ts:1](https://github.com/coactionjs/coaction/blob/main/packages/core/src/jsonTypes.ts#L1)

@@ -1,9 +1,6 @@
 import type { Patches } from 'mutative';
-import {
-  decodeSharedJson,
-  encodeSharedJson,
-  type JsonValue
-} from './sharedState';
+import { decodeSharedJson, encodeSharedJson } from './sharedState';
+import type { JsonValue } from './jsonTypes';
 import { isUnsafePathSegment } from './utils';
 
 export const transportProtocolVersion = 1 as const;

@@ -50,4 +50,4 @@ export type {
   TransportPolicyRequest,
   StoreWithAsyncFunction as AsyncStore
 } from './src/interface';
-export type { JsonPrimitive, JsonValue } from './src/sharedState';
+export type { JsonPrimitive, JsonValue } from './src/jsonTypes';

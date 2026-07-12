@@ -218,12 +218,12 @@
         "maxGzipBytes": 15500
       },
       "dist/adapter.mjs": {
-        "baselineGzipBytes": 6229,
-        "maxGzipBytes": 6800
+        "baselineGzipBytes": 4910,
+        "maxGzipBytes": 5400
       },
       "dist/adapter.js": {
-        "baselineGzipBytes": 6682,
-        "maxGzipBytes": 7300
+        "baselineGzipBytes": 5362,
+        "maxGzipBytes": 5900
       }
     }
   }

@@ -21,6 +21,13 @@ const forbiddenLocalRuntime = [
   'full-sync',
   'transportEpoch'
 ];
+const forbiddenAdapterRuntime = [
+  'Client transport',
+  'data-transport',
+  'execute-result',
+  'full-sync',
+  'Shared transport'
+];
 
 const formatBytes = (bytes) => `${(bytes / 1024).toFixed(2)} KiB`;
 let failed = false;
@@ -66,6 +73,17 @@ for (const name of Object.keys(budgets).sort()) {
       if (leaked.length) {
         console.error(
           `FAIL core/local contains shared-runtime markers: ${leaked.join(', ')}`
+        );
+        failed = true;
+      }
+    }
+    if (name === 'adapter') {
+      const leaked = forbiddenAdapterRuntime.filter((marker) =>
+        code.includes(marker)
+      );
+      if (leaked.length) {
+        console.error(
+          `FAIL core/adapter contains shared-runtime markers: ${leaked.join(', ')}`
         );
         failed = true;
       }

@@ -1,6 +1,6 @@
 import type { Transport } from 'data-transport';
 import type { Draft, Patches } from 'mutative';
-import type { JsonValue } from './sharedState';
+import type { JsonValue } from './jsonTypes';
 
 /**
  * Generic object shape used by stores and slices.

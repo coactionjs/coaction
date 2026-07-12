@@ -41,4 +41,4 @@ export type {
   StoreWithAsyncFunction as AsyncStore
 } from './interface';
 
-export type { JsonPrimitive, JsonValue } from './sharedState';
+export type { JsonPrimitive, JsonValue } from './jsonTypes';

@@ -8,4 +8,4 @@
 
 > **JsonValue** = [`JsonPrimitive`](JsonPrimitive.md) \| `JsonValue`[] \| \{\[`key`: `string`\]: `JsonValue`; \}
 
-Defined in: [packages/core/src/sharedState.ts:5](https://github.com/coactionjs/coaction/blob/main/packages/core/src/sharedState.ts#L5)
+Defined in: [packages/core/src/jsonTypes.ts:3](https://github.com/coactionjs/coaction/blob/main/packages/core/src/jsonTypes.ts#L3)

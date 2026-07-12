@@ -1,12 +1,8 @@
 import { Computed } from './computed';
+import type { JsonValue } from './jsonTypes';
 import { isUnsafeKey } from './utils';
 
-export type JsonPrimitive = null | boolean | number | string;
-
-export type JsonValue =
-  | JsonPrimitive
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+export type { JsonPrimitive, JsonValue } from './jsonTypes';
 
 type JsonPath = readonly PropertyKey[];
 

@@ -1,5 +1,4 @@
 import { create as createWithMutative, type Patches } from 'mutative';
-import { emit } from './asyncClientStore';
 import type { CreateState, MiddlewareStore } from './interface';
 import type { Internal } from './internal';
 import { replaceOwnEnumerable, sanitizeCheckedPatches } from './utils';
@@ -43,5 +42,5 @@ export const replaceExternalStoreState = <T extends CreateState>(
   } finally {
     internal.updateImmutable = updateImmutable;
   }
-  emit(store, internal, safePatches);
+  internal.emitPatches?.(safePatches);
 };

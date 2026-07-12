@@ -60,12 +60,10 @@ test('mutable adapter patches validate before any state is replaced', () => {
 
 test('external store replacement validates before apply and emit', () => {
   const store = {
-    apply: vi.fn(),
-    transport: {
-      emit: vi.fn()
-    }
+    apply: vi.fn()
   } as any;
   const internal = {
+    emitPatches: vi.fn(),
     rootState: { count: 0 },
     sequence: 0,
     validateState: vi.fn(() => {
@@ -81,7 +79,41 @@ test('external store replacement validates before apply and emit', () => {
   ).toThrow('invalid transport state');
   expect(internal.validateState).toHaveBeenCalledWith({ count: new Date(0) });
   expect(store.apply).not.toHaveBeenCalled();
-  expect(store.transport.emit).not.toHaveBeenCalled();
+  expect(internal.emitPatches).not.toHaveBeenCalled();
+});
+
+test('external store replacement publishes through the injected runtime', () => {
+  const store = {
+    apply: vi.fn()
+  } as any;
+  const internal = {
+    emitPatches: vi.fn(),
+    rootState: { count: 0 }
+  } as any;
+
+  replaceExternalStoreState(store, internal, {
+    count: 1
+  });
+
+  expect(store.apply).toHaveBeenCalledWith(
+    internal.rootState,
+    expect.arrayContaining([
+      expect.objectContaining({
+        op: 'replace',
+        path: ['count'],
+        value: 1
+      })
+    ])
+  );
+  expect(internal.emitPatches).toHaveBeenCalledWith(
+    expect.arrayContaining([
+      expect.objectContaining({
+        op: 'replace',
+        path: ['count'],
+        value: 1
+      })
+    ])
+  );
 });
 
 test('applyMiddlewares validates middleware type in development', () => {
