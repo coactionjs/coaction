@@ -76,6 +76,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov'],
+      reportOnFailure: true,
+      thresholds: {
+        statements: 92,
+        branches: 85,
+        functions: 94,
+        lines: 92
+      },
       all: true,
       include: ['packages/**/src/**/*.ts'],
       exclude: ['**/dist/**', '**/test/**']
