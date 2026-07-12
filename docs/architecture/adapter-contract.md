@@ -1,3 +1,13 @@
+---
+type: contract
+title: External store adapter contract
+description: Lifecycle, authority, replacement-state, and compatibility requirements for official Coaction adapters.
+owner: unadlib
+status: accepted
+risk_level: critical
+tags: [adapter, lifecycle, shared-state, contract]
+---
+
 # Adapter Contract
 
 This document covers official adapter expectations.
@@ -97,6 +107,20 @@ Officially unsupported:
 - adapter behavior that allows client mode to become an independent write authority
 - adapter-specific transport semantics that bypass the core sequence model
 
+## Shared Replacement Boundary
+
+In shared-main mode, caller-supplied replacement state MUST satisfy the shared
+JSON contract before an adapter reads, clones, normalizes, or applies it. An
+adapter MUST NOT make an unsupported value appear valid by invoking accessors
+or silently dropping fields before validation.
+
+Adapter-owned current state is a distinct boundary. A mutable adapter may keep
+proxy or accessor machinery in its current raw/public objects, but it MUST
+expose a plain JSON transport snapshot and validate that snapshot before it is
+emitted. `apply()` overrides belong in `handleStore()` so the core can install
+its final validation wrapper after adapter initialization; replacing `apply()`
+later from a readiness callback would bypass that maintained contract.
+
 ## Client-Bound External Writes
 
 Shared client support is narrower than local whole-store support.
@@ -149,3 +173,13 @@ That suite should verify at least:
 - stable type expectations where TypeScript coverage exists
 
 Package-specific tests should remain for behavior that is unique to the underlying state system, but baseline adapter behavior should not be repeated by copying the same test file across packages.
+
+## Verification
+
+- Shared binder baseline: `packages/core/test/binderAdapterContract.ts` and each
+  supported package's `test/contract.test.ts`.
+- Replacement validation before adapter reads:
+  `packages/core/test/index.test.ts`.
+- Mutable adapter patch atomicity:
+  `packages/core/test/branch.test.ts` and package-specific adapter tests.
+- Full official adapter matrix: `pnpm exec turbo run test --force`.

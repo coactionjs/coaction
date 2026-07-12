@@ -3,7 +3,7 @@ type: feature-spec
 title: JSON-only shared runtime
 description: Rebuild Coaction shared state around a JSON-tree wire contract while preserving authorization and convergence guarantees.
 owner: unadlib
-status: proposed
+status: accepted
 risk_level: critical
 tags: [core, transport, json, concurrency, bundle-size]
 ---
@@ -101,7 +101,7 @@ full sync.
 
 ## Compatibility strategy
 
-This is a major-version change. Existing 2.x behavior remains available from
+Coaction 3.0 is a major-version change. Existing 2.x behavior remains available from
 the archived implementation history while the new main line establishes the
 new contract. Migration documentation MUST explain how to replace non-JSON
 state with plain data or an explicit local-only extension.

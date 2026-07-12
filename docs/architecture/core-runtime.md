@@ -1,3 +1,13 @@
+---
+type: architecture
+title: Core runtime lifecycle
+description: Store creation, readiness, authority, state materialization, and patch-commit boundaries in the Coaction core.
+owner: unadlib
+status: accepted
+risk_level: critical
+tags: [core, lifecycle, state, patches]
+---
+
 # Core Runtime
 
 This document describes how a Coaction store is created, initialized, and mutated inside `packages/core`.
@@ -19,10 +29,19 @@ The creation path is the same until transport handling splits:
 5. Apply middlewares in order
 6. Materialize the initial state through `getInitialState()`
 7. Materialize the raw state and bound methods through `getRawState()`
-8. Wrap the store for callable usage
-9. If needed, attach main-side transport listeners or create a client mirror
+8. If needed, attach the main/client transport and register its listeners
+9. Mark the store ready, run readiness callbacks, and confirm that callbacks did
+   not destroy the store
+10. Wrap the initialized store for callable usage
 
 The important detail is step 5: middlewares run before the initial state is finalized. A middleware may therefore influence initialization behavior by wrapping store methods such as `setState()`, `apply()`, or `destroy()`.
+
+`onStoreReady()` is the integration boundary for work that requires a finalized
+store. Local callbacks run after state materialization. Shared-main and client
+callbacks run only after the transport and its listeners are installed. If
+initialization or a readiness callback throws or destroys the store, creation
+MUST fail and installed listeners and transports MUST be released before the
+caller can observe a returned store.
 
 ## Store Categories and Authority
 
@@ -148,3 +167,12 @@ Officially unsupported combinations at the core layer:
 - shared mode with patch generation explicitly disabled
 
 Those boundaries are enforced partly by runtime checks and partly by adapter or middleware-specific contracts.
+
+## Verification
+
+- Creation, readiness, failure cleanup, and re-entrant destroy behavior:
+  `packages/core/test/index.test.ts`.
+- Patch validation and commit atomicity: `packages/core/test/branch.test.ts` and
+  `packages/core/test/transportProtocol.test.ts`.
+- Full core behavior: `pnpm --filter coaction test`.
+- Package entry isolation and budgets: `pnpm package:size`.

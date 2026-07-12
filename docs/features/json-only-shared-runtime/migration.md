@@ -1,9 +1,9 @@
 ---
-type: migration-guide
-title: Migrating to the JSON-only shared runtime
-description: Import, state-model, transport, and adapter changes required by Coaction's JSON-only shared contract.
+type: runbook
+title: Migrating from Coaction 2.x to the 3.x JSON-only shared runtime
+description: Import, state-model, transport, and adapter changes required when upgrading to Coaction 3.x.
 owner: unadlib
-status: proposed
+status: accepted
 risk_level: critical
 tags: [core, transport, json, migration, bundle-size]
 ---
@@ -73,9 +73,9 @@ or sequence gap triggers a full JSON snapshot; stale and duplicate updates are
 ignored. Applications should await client methods because their promise now
 also waits for the mirrored state to catch up.
 
-## Coordinate the 2.x to next-major deployment
+## Coordinate the 2.x to 3.x deployment
 
-Coaction 2.x and this next-major runtime are not wire-compatible. The new
+Coaction 2.x and the 3.x runtime are not wire-compatible. The 3.x
 runtime sends version-tagged JSON strings and rejects the legacy message
 shapes. There is no protocol negotiation, downgrade path, or mixed-version
 compatibility shim. An authority and every client connected to it MUST run the
@@ -90,7 +90,7 @@ Treat one authority and all of its clients as a single deployment cohort:
 5. Verify `fullSync`, one remote action, one incremental update, and one
    reconnect before restoring traffic.
 
-Do not perform a rolling upgrade in which a 2.x authority serves next-major
+Do not perform a rolling upgrade in which a 2.x authority serves 3.x
 clients, or the reverse. Protocol failures are intentionally fail-closed, but
 they are not an application-level availability or state-handoff mechanism.
 
@@ -107,7 +107,7 @@ A SharedWorker can outlive one page and is reused by matching constructor URL
 and name. For one logical shared store, first arrange a coordinated reload or
 maintenance window so all 2.x tabs destroy their stores and release their
 ports. If the application owns additional `MessagePort` objects, close those
-too. Only then start the next-major cohort.
+too. Only then start the 3.x cohort.
 
 Use both an immutable script URL and a release-specific worker name, for
 example:
@@ -120,7 +120,7 @@ const worker = new SharedWorker(
 ```
 
 Changing both values prevents a new page from attaching to the old worker, but
-it does not make two live authorities safe. Do not let the 2.x and next-major
+it does not make two live authorities safe. Do not let the 2.x and 3.x
 SharedWorkers concurrently own the same logical state. If state must survive
 the cutover, persist an application-owned JSON snapshot before draining 2.x and
 use it to initialize the new authority; Coaction does not transfer state
@@ -149,11 +149,11 @@ the local or shared core entry.
 
 ## Human review
 
-Before release, the application owner MUST confirm the complete
-authority/client cohort inventory, the SharedWorker drain and state-handoff
-plan, and an all-members rollback procedure. The Coaction maintainer MUST also
-confirm that unsupported 2.x message shapes fail closed rather than reaching
-application actions.
+Repository-level 3.0 acceptance is recorded in the
+[rollout plan](rollout.md#human-review). Before deployment, the application
+owner MUST still confirm the complete authority/client cohort inventory, the
+SharedWorker drain and state-handoff plan, and an all-members rollback
+procedure.
 
 ## Verification
 

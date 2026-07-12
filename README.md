@@ -462,6 +462,7 @@ Custom integrations should use `defineExternalStoreAdapter()` from `coaction/ada
 - [Why Coaction Without Multithreading](./docs/comparison/single-thread.md)
 - [Coaction vs Zustand](./docs/comparison/zustand.md)
 - [Migrating from Zustand](./docs/migration/from-zustand.md)
+- [Migrating from Coaction 2.x to 3.x](./docs/features/json-only-shared-runtime/migration.md)
 - [Architecture Overview](./docs/architecture/overview.md)
 - [Threading Model](./docs/architecture/threading-model.md)
 - [Support Matrix](./docs/architecture/support-matrix.md)
@@ -563,9 +564,16 @@ Run the full gate locally with `pnpm check` (lint + typecheck + build + package 
 Releases run through [Changesets](https://github.com/changesets/changesets):
 
 1. `pnpm changeset` — describe the change and pick version bumps.
-2. `pnpm changeset:check` — validate pending changesets.
-3. `pnpm run version` — apply version bumps across the workspace.
-4. `pnpm run publish -- --provenance` — publish with npm Trusted Publishing.
+2. `pnpm changeset:check` — validate pending changesets. Set
+   `ALLOW_MAJOR_RELEASE=1` when intentionally preparing a major release.
+3. `ALLOW_MAJOR_RELEASE=1 pnpm run version` — validate and apply a major bump
+   across the workspace; omit the environment variable for patch/minor bumps.
+4. Run `pnpm check`, commit only the generated version/changelog changes, and
+   push the release commit.
+5. Publish a GitHub Release whose `vX.Y.Z` tag points at that commit. The
+   [npm publish workflow](./.github/workflows/npm-publish.yml) checks the tagged
+   source and publishes every official package with npm Trusted Publishing and
+   provenance.
 
 All official packages are versioned together and released as a single line.
 

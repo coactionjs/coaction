@@ -29,3 +29,7 @@ Add static `coaction/local`, `coaction/shared`, and `coaction/adapter` entry
 points. Adapter-authoring helpers move from the root export to
 `coaction/adapter`; official adapters now expose plain JSON transport snapshots
 without linking adapter internals into the core runtime.
+
+Read the [Coaction 3.0 migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
+before upgrading any Worker, SharedWorker, injected-transport, or custom-adapter
+deployment.

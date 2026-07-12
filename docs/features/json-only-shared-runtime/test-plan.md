@@ -3,7 +3,7 @@ type: test-plan
 title: JSON-only shared runtime test plan
 description: Required evidence for JSON validation, transport authorization, convergence, lifecycle safety, and bundle isolation.
 owner: unadlib
-status: proposed
+status: accepted
 risk_level: critical
 tags: [core, testing, json, concurrency]
 ---

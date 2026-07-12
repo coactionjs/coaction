@@ -1,3 +1,13 @@
+---
+type: architecture
+title: Threading and authority model
+description: Local, shared-main, and client-mirror authority, sequencing, and protocol-cohort rules.
+owner: unadlib
+status: accepted
+risk_level: critical
+tags: [core, threading, authority, transport]
+---
+
 # Threading Model
 
 This document explains how Coaction treats local, main, and client runtimes.
@@ -110,7 +120,7 @@ can remain alive while tabs still hold ports to it. A major upgrade must drain
 the old ports and authority before the new cohort takes ownership of the same
 logical state. Versioned worker URLs and names isolate deployments, but they do
 not coordinate state between two concurrent authorities. See the
-[JSON-only migration guide](../features/json-only-shared-runtime/migration.md#coordinate-the-2x-to-next-major-deployment)
+[JSON-only migration guide](../features/json-only-shared-runtime/migration.md#coordinate-the-2x-to-3x-deployment)
 for the cutover and rollback procedure.
 
 ## Guarantee Levels
@@ -125,3 +135,10 @@ The runtime makes three distinct guarantee levels:
   - external state libraries, persistence backends, CRDT providers, framework lifecycles
 
 When documenting package-level features, maintainers should say which level a feature belongs to. If a guarantee is integration-defined, the docs should not present it as a core invariant.
+
+## Verification
+
+- Authority, execution, epoch, sequence, reconnect, and teardown behavior:
+  `packages/core/test`.
+- Real Worker and SharedWorker behavior: `pnpm test:e2e:browser`.
+- Supported combinations: [support-matrix.md](./support-matrix.md).
