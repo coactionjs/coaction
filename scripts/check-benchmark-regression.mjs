@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import benchmark from 'benchmark';
 import { create as createWithZustand } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { create as createWithCoaction } from '../packages/core/dist/index.mjs';
+import { create as createWithCoaction } from '../packages/core/dist/local.mjs';
 
 const { Suite } = benchmark;
 const scriptDir = dirname(fileURLToPath(import.meta.url));

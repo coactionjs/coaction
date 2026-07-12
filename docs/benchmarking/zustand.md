@@ -41,6 +41,26 @@ The comparison includes:
 
 The maintained Zustand field is included intentionally. It is the fastest way to read a derived value in Zustand, but it shifts consistency work into actions. Coaction's value proposition is that cached derived state is part of the store runtime instead of a field that application code must keep synchronized.
 
+The update-plus-read cases also traverse Coaction's protected immutable public
+state. Nested objects and arrays remain behind readonly proxies so an action
+cannot mutate them outside `set()`. Those cases therefore measure both the
+update and the enforced public-state boundary; they are not equivalent to
+traversing an unprotected raw array. Stable cached reads and large Mutative
+updates remain separate cases so regressions in those paths are visible
+independently.
+
+The blocking regression check uses the transport-free `coaction/local` entry:
+
+```sh
+pnpm build
+pnpm benchmark:check
+```
+
+Its thresholds are regression floors with headroom for CI variance, not
+publishable performance claims. Any threshold change requires a reviewed
+runtime-semantic or benchmark-methodology change; a failing gate must not be
+silenced by rebaselining alone.
+
 ## How to Interpret Results
 
 Do not publish one benchmark as a universal statement that one library is always faster.
