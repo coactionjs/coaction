@@ -1,0 +1,82 @@
+---
+title: Slices
+description: Compose a native Coaction store from named state factories and update across namespaces safely.
+---
+
+Slices are a native store shape for organizing Coaction-owned state into namespaces.
+
+```ts
+const counter = (set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  },
+  incrementByStep() {
+    set((draft) => {
+      draft.counter.count += draft.settings.step;
+    });
+  }
+});
+
+const settings = (set) => ({
+  step: 1,
+  setStep(step: number) {
+    set(() => {
+      this.step = step;
+    });
+  }
+});
+
+const store = create({ counter, settings }, { sliceMode: 'slices' });
+```
+
+Inside `set(() => ...)`, `this` targets the current slice. The explicit `draft` parameter always
+represents the root store, which is the right tool for cross-slice updates.
+
+## Select slice fields
+
+With React, `observer()` tracks the slice fields read during render:
+
+```tsx
+const Counter = observer(() => {
+  const state = store();
+  return (
+    <button onClick={state.counter.increment}>{state.counter.count}</button>
+  );
+});
+```
+
+You can also select explicitly:
+
+```tsx
+const count = store((state) => state.counter.count);
+```
+
+## Declare mode for ambiguous objects
+
+`sliceMode` accepts three values:
+
+- `'single'`: treat the input as one state object;
+- `'slices'`: require an object of slice factories;
+- `'auto'`: infer from the input shape (the compatibility default).
+
+An object whose enumerable values are all functions is ambiguous: it could be a method-only
+single store or a map of slice factories. Development builds warn when `auto` encounters this
+shape. Make the intent explicit:
+
+```ts
+create({ ping() {} }, { sliceMode: 'single' });
+create({ counter: (set) => ({ count: 0 }) }, { sliceMode: 'slices' });
+```
+
+## Boundaries
+
+- Slice keys and each slice's root fields are fixed after initialization.
+- Methods destructured from `getState().counter` stay bound to the slice.
+- Native slices work in local, shared-main, and shared-client modes.
+- External-state adapters are **whole-store only** and cannot be nested as slices.
+
+Use slices when namespaces clarify ownership. A small store does not need to be split merely to
+imitate a folder structure.

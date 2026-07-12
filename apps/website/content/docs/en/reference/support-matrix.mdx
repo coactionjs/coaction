@@ -1,0 +1,66 @@
+---
+title: Support matrix
+description: The maintained combinations for native stores, external adapters, middleware, and Yjs.
+---
+
+“Supported” means covered by tests and intended as a maintained contract. “Limited” means the
+integration has a narrower guarantee than its surrounding feature might suggest. Anything not
+listed should not be inferred to work.
+
+## Native stores
+
+| Combination                          | Status      | Notes                              |
+| ------------------------------------ | ----------- | ---------------------------------- |
+| Single store, local                  | Supported   | Default synchronous authority      |
+| Native slices, local                 | Supported   | Namespaced native state            |
+| Single or slices, shared main        | Supported   | Patch stream is required           |
+| Single or slices, shared client      | Supported   | Methods become async proxies       |
+| Direct client `setState()`/`apply()` | Unsupported | Client is a mirror                 |
+| Shared mode with patches disabled    | Unsupported | Synchronization depends on patches |
+
+## External adapters
+
+All adapters bind a whole store. Slices mode is unsupported for every adapter.
+
+| Adapter       | Local     | Shared main/client | Notes                                              |
+| ------------- | --------- | ------------------ | -------------------------------------------------- |
+| Zustand       | Supported | Supported          | Direct client Zustand writes rejected              |
+| MobX          | Supported | Supported          | Client external writes integration-defined         |
+| Pinia         | Supported | Supported          | Client external writes integration-defined         |
+| Jotai         | Supported | Supported          | Direct client atom writes rejected                 |
+| Redux Toolkit | Supported | Unsupported        | Local whole-store binding only                     |
+| Valtio        | Supported | Supported          | Client proxy writes restored to authority snapshot |
+| XState        | Supported | Unsupported        | Update through actor events; `setState()` blocked  |
+
+Shared adapter support covers remote Coaction method execution. It does not make arbitrary
+out-of-band external writes a uniform cross-adapter contract.
+
+## Middleware and collaboration
+
+| Integration | Local     | Shared main | Shared client      |
+| ----------- | --------- | ----------- | ------------------ |
+| Logger      | Supported | Supported   | Limited visibility |
+| Persist     | Supported | Supported   | Unsupported        |
+| History     | Supported | Supported   | Unsupported        |
+| Yjs         | Supported | Supported   | Unsupported        |
+
+Put integrations that mutate, rehydrate, time-travel, or merge state on the authority.
+
+## Framework selector boundaries
+
+Framework-generated selector maps are built from descriptors known during initialization. Known
+keys receive stable selectors; new dynamic paths do not extend the map. Put dynamic values inside
+a declared record and use an explicit selector.
+
+For React, `useStore.auto()` returns selector functions. It does not directly read the field:
+
+```tsx
+const selectors = useStore.auto();
+const count = useStore(selectors.count);
+```
+
+## Shared deployment boundary
+
+Every authority and connected client must use the same Coaction major and compatible wire
+protocol. Mixed-major workers, shared workers, and custom transports are unsupported even if the
+TypeScript surface appears compatible.

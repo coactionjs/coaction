@@ -1,25 +1,77 @@
 ---
-title: Introduction
-description: Coaction is state management with automatic render tracking and cached computed state.
+title: Coaction documentation
+description: Build a precise local store today and move the same state model into workers, shared tabs, or collaboration when you need it.
 ---
 
-Coaction gives local applications a focused state model and leaves a deliberate path to shared
-workers, multiple tabs, and collaborative state.
+Coaction is a Zustand-style state library with three pieces designed to work as one system:
 
-## Start here
+- **automatic render tracking** at the store or slice-field boundary;
+- **cached computed values** declared as normal accessor getters;
+- **mutable-looking updates** that publish immutable state.
+
+The default path is intentionally local and synchronous. Shared workers, multiple tabs, and
+collaboration are capabilities you opt into when the architecture calls for them.
 
 <Cards>
   <Card
-    title="Install Coaction"
-    href="https://www.npmjs.com/package/coaction"
-    description="Choose the core or a framework package."
+    title="Install and choose an entry point"
+    href="/en/docs/getting-started/installation"
+    description="Start with the smallest package boundary that fits your application."
   />
   <Card
     title="Build your first store"
-    href="https://github.com/coactionjs/coaction#usage"
-    description="Create state, actions, and a cached getter."
+    href="/en/docs/getting-started/quick-start"
+    description="Create state, a cached getter, an action, and a React component."
+  />
+  <Card
+    title="Understand the state model"
+    href="/en/docs/concepts/state-and-actions"
+    description="Learn the immutable boundary, fixed schema, subscriptions, and lifecycle."
+  />
+  <Card
+    title="Scale into shared mode"
+    href="/en/docs/shared/overview"
+    description="Move execution into a Worker or SharedWorker without inventing a second authority."
   />
 </Cards>
 
-The full guide is being assembled from the runtime's tested contracts. Every example on this site
-targets Coaction 3.x.
+## Why Coaction
+
+Coaction is most useful when an application has selector-heavy components, repeated derived
+state, or a likely path toward worker-backed state. Instead of assembling independent tracking,
+computed, immutable-update, and selector plugins, Coaction connects those concerns through one
+reactive graph.
+
+That cohesion has a cost. Zustand remains smaller and more mature, and its explicit selector
+model is often exactly right for a small store. Coaction's differentiation is concentrated in
+`observer()`, cached getters, natural `this`-bound actions, and the optional shared runtime—not
+in claiming every store should be more complicated.
+
+## Choose your path
+
+| Goal                                             | Start with                                             |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| Vanilla, local-only state                        | `coaction/local`                                       |
+| React with automatic render tracking             | `coaction` + `@coaction/react`                         |
+| Vue, Angular, Svelte, or Solid                   | The matching `@coaction/*` framework package           |
+| Worker or SharedWorker authority                 | `coaction/shared` or a framework package with `worker` |
+| Keep an existing Zustand/MobX/Pinia/etc. runtime | The matching whole-store adapter                       |
+| Synchronize Coaction-owned state through Yjs     | `@coaction/yjs` on the owning store                    |
+
+<Callout type="info" title="Documentation version">
+  This site documents Coaction 3.x. A shared authority and every client
+  connected to it must use the same Coaction major and wire protocol.
+</Callout>
+
+## Design rules worth knowing early
+
+1. Writes to Coaction-owned state happen inside `set()`.
+2. The public root schema is fixed after initialization; keep dynamic keys inside a declared
+   object or array field.
+3. A shared client is a mirror, not a write authority. Call methods and await them; do not call
+   `setState()` on the client.
+4. Shared data is a strict JSON tree. Local stores do not inherit that restriction.
+5. External-state adapters bind a whole store and are not supported inside native slices.
+
+Continue with [installation](/en/docs/getting-started/installation) or jump directly to the
+[quick start](/en/docs/getting-started/quick-start).

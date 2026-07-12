@@ -1,0 +1,71 @@
+---
+title: FAQ
+description: Direct answers about local use, selectors, serialization, schemas, workers, adapters, and DevTools.
+---
+
+## Can I use Coaction without workers?
+
+Yes. Local mode is the recommended starting point and exposes the full native state, action,
+computed, slices, and framework experience. Vanilla local-only applications should import
+`coaction/local`.
+
+## Do I have to use `observer()` in React?
+
+No. Without `observer()`, `useStore()` is a whole-store subscription. You can also call
+`useStore(selector)` or use the cached map from `useStore.auto()`.
+
+`observer()` is the path that adds automatic store/slice-field tracking.
+
+## Are getters recomputed on every read?
+
+No. Native accessor getters are cached through the signal runtime and invalidated when their
+dependencies change. Keep them pure.
+
+## Why did a direct mutation throw?
+
+Coaction's public state is immutable. Write inside `set()` so the runtime can commit state,
+invalidate computed values, notify subscribers, and produce patches when required.
+
+## Can I add state keys later?
+
+Not at the public root. Coaction fixes the root schema after initialization. Declare a record or
+array field and add dynamic entries inside it.
+
+## Why does my client action return a promise?
+
+A shared client does not execute the method locally. It sends the method path and arguments to the
+authority, waits for the result, and then waits for its mirrored state to reach the authority's
+reported sequence.
+
+## Why was my shared value rejected even though JSON.stringify works?
+
+`JSON.stringify()` silently normalizes or drops several values. Coaction requires a lossless JSON
+tree and rejects `undefined`, non-finite numbers, `-0`, accessors, platform objects, sparse arrays,
+cycles, and repeated references.
+
+## Can I persist or undo on a shared client?
+
+No. Persist and history are authority-side integrations. A client-local write would create a
+second authority and diverge from other mirrors.
+
+## Can an adapter be one slice?
+
+No. Zustand, MobX, Pinia, Jotai, Redux, Valtio, and XState integrations are whole-store adapters.
+Use native Coaction slices or an external adapter, not both in one store.
+
+## Does Coaction include signal primitives?
+
+Yes, advanced `alien-signals` primitives are re-exported. Normal application derived state should
+still use accessor getters or `get(deps, selector)`.
+
+## Does Coaction have Redux DevTools integration?
+
+Not as a maintained built-in contract today. Use logger and project-specific tooling, and do not
+promise a DevTools surface based only on internal hooks.
+
+## When should I choose Zustand instead?
+
+Choose Zustand when a very small hook store, explicit selectors, minimal bundle size, and ecosystem
+maturity are the highest priorities. Choose Coaction when automatic render tracking, maintained
+cached derivation, natural `this` actions, or a future shared runtime meaningfully reduce
+application complexity.

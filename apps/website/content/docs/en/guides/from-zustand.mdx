@@ -1,0 +1,119 @@
+---
+title: Migrate from Zustand
+description: Move an existing store incrementally while keeping selectors, middleware, and worker adoption deliberate.
+---
+
+Coaction deliberately keeps a familiar `create()` shape, but a migration is more than changing
+an import. Move one behavior at a time and keep tests green between steps.
+
+## 1. Start locally
+
+Do not begin by moving the store into a worker. First reproduce the current local behavior:
+
+```ts
+import { create } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set((draft) => {
+      draft.count += 1;
+    });
+  }
+}));
+```
+
+Zustand updaters usually return a partial object. Coaction also accepts object merges, but its
+native path is a draft callback inside `set()`.
+
+## 2. Keep selectors first
+
+Existing selector-oriented components can keep the explicit style:
+
+```tsx
+const count = useCounter((state) => state.count);
+```
+
+The behavior is a version + selector recomputation + `Object.is` comparison, so it is a familiar
+and low-risk migration point.
+
+Once the store is stable, use `observer()` where automatic read tracking removes meaningful
+selector boilerplate:
+
+```tsx
+const Counter = observer(() => {
+  const state = useCounter();
+  return <button onClick={state.increment}>{state.count}</button>;
+});
+```
+
+## 3. Move repeated derived state into getters
+
+```ts
+const useCart = create((set) => ({
+  items: [] as Item[],
+  get total() {
+    return this.items.reduce((sum, item) => sum + item.price, 0);
+  }
+}));
+```
+
+Accessor getters are cached. Use `get(deps, selector)` only when explicit dependencies make the
+code clearer.
+
+## 4. Decide whether namespaced slices help
+
+Zustand's common slice pattern spreads factories into one flat object. Coaction native slices
+are namespaced:
+
+```ts
+const store = create({ counter, settings }, { sliceMode: 'slices' });
+```
+
+Do not convert solely to preserve the word “slice.” Keep a single store when the flat shape is
+clearer.
+
+## 5. Replace middleware separately
+
+| Zustand concern                   | Coaction path                                          |
+| --------------------------------- | ------------------------------------------------------ |
+| Immer update middleware           | Built-in draft updates through `set()`                 |
+| Persist                           | `@coaction/persist` on the owning store                |
+| Selector subscriptions            | Framework selectors or automatic tracking              |
+| Existing external Zustand runtime | `@coaction/zustand` whole-store adapter                |
+| Custom external runtime           | `defineExternalStoreAdapter()` from `coaction/adapter` |
+
+Coaction does not currently promise a Redux DevTools-compatible built-in experience. Keep
+project-specific diagnostics or use logger until a maintained DevTools surface exists.
+
+## 6. Keep Zustand underneath when that is safer
+
+Use `@coaction/zustand` when the existing Zustand store is itself public API, other modules
+depend on it directly, or replacing ownership would create more risk than value. The adapter is a
+whole-store integration; it cannot live inside native Coaction slices.
+
+## 7. Add shared mode last
+
+After local tests pass, create the same source on a worker authority and connect a client:
+
+```ts
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+const store = create(source, { worker });
+await store.getState().increment();
+```
+
+Audit the state against the strict JSON contract and change call sites to await actions. Direct
+client `setState()` is not a supported migration shortcut.
+
+## Checklist
+
+- Keep explicit selectors during the first behavior-preserving step.
+- Move writes into `set()` and keep the root schema stable.
+- Convert repeated derived selectors into cached getters selectively.
+- Choose namespaced slices only when they improve ownership.
+- Replace persistence/history/logging one at a time.
+- Keep the existing Zustand runtime through the adapter when appropriate.
+- Introduce workers only after local behavior and serialization are verified.

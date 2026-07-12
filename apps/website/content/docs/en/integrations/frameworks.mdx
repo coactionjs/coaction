@@ -1,0 +1,118 @@
+---
+title: Framework integrations
+description: Connect one Coaction store model to React, Vue, Angular, Svelte, or Solid.
+---
+
+Framework packages wrap the core `Store` contract with the reactive primitive native to each
+ecosystem. State creation, actions, computed getters, slices, and shared-mode rules remain core
+behavior.
+
+## React
+
+`@coaction/react` supports React 17, 18, and 19.
+
+```tsx
+import { create, observer } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+
+const Counter = observer(() => {
+  const state = useCounter();
+  return <button onClick={state.increment}>{state.count}</button>;
+});
+```
+
+Inside `observer()`, a no-selector hook call tracks fields read during render. Outside
+`observer()`, it is a whole-store subscription. Use an explicit selector when that intent is
+clearer:
+
+```tsx
+const count = useCounter((state) => state.count);
+```
+
+`<Observer>` creates a smaller tracked render region, and `useCounter.auto()` returns a cached
+field-selector map.
+
+## Vue
+
+```ts
+import { create } from '@coaction/vue';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set((draft) => {
+      draft.count += 1;
+    });
+  }
+}));
+
+export default {
+  setup() {
+    const state = useCounter();
+    const count = useCounter((current) => current.count);
+    return { state, count };
+  }
+};
+```
+
+`useCounter({ autoSelector: true })` returns computed refs for known fields. Call methods directly
+and read data refs through `.value`.
+
+## Angular
+
+```ts
+import { create } from '@coaction/ng';
+
+const store = create(source);
+const count = store.select((state) => state.count);
+
+console.log(count());
+```
+
+`select()` returns an Angular signal-like accessor for the selector result.
+
+## Svelte
+
+```ts
+import { create } from '@coaction/svelte';
+
+const store = create(source);
+const count = store((state) => state.count);
+
+const unsubscribe = count.subscribe((value) => {
+  console.log(value);
+});
+```
+
+The selector call returns a readable Svelte store.
+
+## Solid
+
+```ts
+import { create } from '@coaction/solid';
+
+const store = create(source);
+const count = store((state) => state.count);
+
+console.log(count());
+```
+
+The selector result is a Solid accessor.
+
+## Shared-mode note
+
+Framework packages can wrap a client mirror. Store methods then return promises even if the same
+method is synchronous in a local store. Await mutations when the store is created with a Worker
+or SharedWorker.
+
+Generated selector maps are based on the schema known during initialization. Dynamic paths
+inside a declared record should use an explicit selector rather than expecting an auto-selector
+map to grow.

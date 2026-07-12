@@ -1,0 +1,123 @@
+---
+title: Quick start
+description: Create a React store with immutable updates, cached derived state, and precise render tracking.
+---
+
+This example uses React because it shows state creation and render tracking in one place. The
+underlying store model is the same in every framework.
+
+## 1. Create the store
+
+```tsx
+import { create, observer } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  step: 1,
+
+  get doubled() {
+    return this.count * 2;
+  },
+
+  increment() {
+    set(() => {
+      this.count += this.step;
+    });
+  }
+}));
+```
+
+The accessor getter is cached. Coaction records which state fields it reads and recomputes it
+only after one of those dependencies changes.
+
+`set()` opens an immutable update boundary. Code inside the callback edits a Mutative draft;
+subscribers receive the committed next state.
+
+## 2. Render it precisely
+
+```tsx
+const Counter = observer(() => {
+  const store = useCounter();
+
+  return (
+    <button onClick={store.increment}>
+      {store.count} × 2 = {store.doubled}
+    </button>
+  );
+});
+```
+
+Inside `observer()`, `useCounter()` tracks the fields read during render. The component above
+depends on `count`, `doubled`, and the `increment` method; unrelated store fields do not cause it
+to render again.
+
+Without `observer()`, calling `useCounter()` subscribes to the whole store. That behavior is
+useful when the store is small or a component intentionally observes everything.
+
+## 3. Use explicit selectors when they are clearer
+
+Automatic tracking is optional:
+
+```tsx
+function CountOnly() {
+  const count = useCounter((state) => state.count);
+  return <output>{count}</output>;
+}
+```
+
+The explicit selector path follows a version + recompute + `Object.is` model, similar to Zustand.
+For frequently reused field selectors, create a cached selector map once:
+
+```tsx
+const selectors = useCounter.auto();
+
+function CountButton() {
+  const count = useCounter(selectors.count);
+  const increment = useCounter(selectors.increment);
+  return <button onClick={increment}>{count}</button>;
+}
+```
+
+## 4. Use the imperative store API outside React
+
+Framework stores retain the core store contract:
+
+```ts
+const unsubscribe = useCounter.subscribe(() => {
+  console.log(useCounter.getPureState());
+});
+
+const { increment } = useCounter.getState();
+increment(); // remains bound to the latest state
+
+unsubscribe();
+useCounter.destroy();
+```
+
+`getState()` includes data, methods, and getters. `getPureState()` returns only the data view and
+is the better choice for logging, serialization, and tests.
+
+## Next steps
+
+<Cards>
+  <Card
+    title="State and actions"
+    href="/en/docs/concepts/state-and-actions"
+    description="Understand writes, schema, subscriptions, and lifecycle."
+  />
+  <Card
+    title="Computed state"
+    href="/en/docs/concepts/computed"
+    description="Choose between accessor getters and explicit dependencies."
+  />
+  <Card
+    title="Slices"
+    href="/en/docs/concepts/slices"
+    description="Organize a larger native store into namespaces."
+  />
+  <Card
+    title="Shared runtime"
+    href="/en/docs/shared/overview"
+    description="Move method execution into a worker authority."
+  />
+</Cards>

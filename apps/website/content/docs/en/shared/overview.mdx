@@ -1,0 +1,89 @@
+---
+title: Shared runtime overview
+description: Use one authority and any number of local mirrors across Workers, SharedWorkers, or custom transports.
+---
+
+Coaction shared mode keeps a single mutation authority. A Worker, SharedWorker, or custom
+transport can host the main store; page runtimes hold client mirrors.
+
+```text
+client mirror ── execute(action, args) ──▶ main authority
+client mirror ◀── ordered patch update ── main authority
+client mirror ◀── full snapshot ───────── main authority (recovery)
+```
+
+Clients are not peers. They can read local mirrored state, subscribe to it, and call methods that
+execute on the authority. They cannot create an independent write path with `setState()`.
+
+## Move the same source
+
+Keep the state factory in a module shared by the authority and clients:
+
+```ts title="counter.ts"
+export const counter = (set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+});
+```
+
+Create it in a worker:
+
+```ts title="worker.ts"
+import { create } from 'coaction/shared';
+import { counter } from './counter';
+
+create(counter);
+```
+
+Connect from the page:
+
+```ts title="store.ts"
+import { create } from 'coaction/shared';
+import { counter } from './counter';
+
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+export const store = create(counter, { worker });
+```
+
+On the page, `increment()` returns a promise:
+
+```ts
+await store.getState().increment();
+```
+
+TypeScript models this client shape with `StoreWithAsyncFunction`/`Asyncify`: methods become
+promise-returning while data fields remain readable from the local mirror.
+
+## What the runtime handles
+
+- action discovery and remote method execution;
+- strict JSON encoding and message-shape validation;
+- monotonically ordered patch updates within an authority epoch;
+- duplicate suppression and gap detection;
+- atomic full-snapshot recovery;
+- reconnect generation isolation;
+- rejection of responses from a superseded authority.
+
+## What the application still owns
+
+- choosing the Worker/SharedWorker lifetime;
+- designing idempotent actions or application-level deduplication;
+- authorization policy for requests reaching the authority;
+- keeping every connected runtime on the same Coaction major;
+- ensuring state, arguments, and results obey the [JSON contract](/en/docs/shared/json-contract).
+
+## Middleware placement
+
+Persistence, history, and Yjs belong on the owning main store. They mutate or merge state and
+are rejected on a client mirror. Logger can run on either side, but a client logger observes
+mirror updates and proxied calls rather than hidden authority-side work.
+
+See [workers and reconnect](/en/docs/shared/workers-and-reconnect) for multi-tab setup, epochs, and in-flight
+action behavior.

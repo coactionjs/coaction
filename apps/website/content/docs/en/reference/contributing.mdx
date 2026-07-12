@@ -1,0 +1,69 @@
+---
+title: Contributing
+description: Navigate the repository, run the quality gates, and extend adapters without weakening maintained contracts.
+---
+
+Read the repository's
+[CONTRIBUTING.md](https://github.com/coactionjs/coaction/blob/main/CONTRIBUTING.md),
+[Code of Conduct](https://github.com/coactionjs/coaction/blob/main/CODE_OF_CONDUCT.md), and
+[Security Policy](https://github.com/coactionjs/coaction/blob/main/SECURITY.md) before opening a
+change. Report vulnerabilities through the security process, not a public issue.
+
+## Repository map
+
+- `packages/core`: local/shared creation, state materialization, patch flow, transports, adapter
+  hooks, and lifecycle;
+- `packages/coaction-*`: framework wrappers, whole-store adapters, middleware, and Yjs;
+- `examples`: runnable framework, adapter, shared-worker, middleware, and collaboration examples;
+- `docs`: architecture contracts, generated API, comparisons, migration, and benchmark notes;
+- `apps/website`: this static Fumadocs site.
+
+## Quality commands
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm format
+pnpm build
+pnpm test
+pnpm package:quality
+pnpm package:size
+```
+
+Run the focused package test while iterating, then the relevant repository gates before handing
+off the change. Generated core API docs are checked with:
+
+```bash
+pnpm docs:api:check
+```
+
+## Add an external adapter
+
+First choose the right integration family:
+
+- framework wrapper: reactive/lifecycle binding for a UI framework;
+- whole-store adapter: an external runtime owns state;
+- middleware: Coaction owns state and the integration decorates it.
+
+Whole-store adapters use `defineExternalStoreAdapter()` from `coaction/adapter`.
+
+1. Normalize external state in `handleState`.
+2. Wire subscriptions and lifecycle in `handleStore`.
+3. Preserve idempotent `destroy()` and the core store contract.
+4. Notify Coaction after a direct external immutable write changes root state.
+5. Never create a second write authority for a shared client.
+6. Add the shared binder contract suite and type expectations.
+7. Update the support matrix and package README in the same change.
+
+Do not imply slices support for a whole-store adapter.
+
+## Change shared behavior carefully
+
+Shared protocol changes require message validation, epoch/sequence reasoning, reconnect tests, and
+mixed-runtime deployment consideration. An authority and client must fail closed on malformed
+messages and unsafe values.
+
+## Pull request CI
+
+Pull request CI is maintainer-gated. A maintainer adds the `run-ci` label when a PR is ready;
+subsequent pushes to that PR continue running CI after the label is present.

@@ -1,0 +1,119 @@
+---
+title: Workers, policies, and reconnect
+description: Configure Worker and SharedWorker clients, restrict authority actions, and handle epoch changes safely.
+---
+
+## Dedicated Worker
+
+A dedicated Worker gives one page its own authority lifetime:
+
+```ts
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+const store = create(source, { worker });
+```
+
+Destroy the Coaction store when the client no longer owns the connection. Terminate the Worker
+according to your application's ownership model.
+
+## SharedWorker across tabs
+
+A reusable module can create a SharedWorker in page runtimes and become the authority inside the
+worker runtime:
+
+```ts
+import { create } from 'coaction/shared';
+
+const worker = globalThis.SharedWorker
+  ? new SharedWorker(new URL('./store.ts', import.meta.url), {
+      type: 'module'
+    })
+  : undefined;
+
+export const store = create(source, worker ? { worker } : undefined);
+```
+
+Each tab gets a client mirror while the SharedWorker owns one state instance. Browser support and
+worker lifetime rules still apply; provide a local fallback only when independent per-tab state
+is acceptable.
+
+## Restrict the authority surface
+
+The authority only exposes method paths discovered from its store. `transportPolicy` can narrow
+that surface further:
+
+```ts
+const authority = create(source, {
+  transport,
+  transportPolicy: {
+    allowedActions: [['counter', 'increment']],
+    authorize(request) {
+      return request.type === 'fullSync' || hasAccess(request);
+    },
+    mapError(error) {
+      return error instanceof DomainError ? error.publicMessage : undefined;
+    }
+  }
+});
+```
+
+- `allowedActions` is an allowlist of method paths.
+- `authorize` receives a decoded JSON execute or full-sync request.
+- `mapError` may return a deliberately client-visible message.
+
+Unexpected action errors are redacted to `Remote action failed`. The original error remains on
+the authority. Treat policy code as trusted application code and keep it side-effect free where
+possible.
+
+## Epochs and sequence recovery
+
+Each authority lifetime owns a unique epoch and a sequence that begins at zero. A client:
+
+1. fetches an atomic `{ epoch, sequence, state }` snapshot;
+2. applies only the next sequence for that epoch;
+3. ignores duplicate or older updates;
+4. requests a full snapshot after a sequence gap or epoch change.
+
+Snapshot replacement is atomic. A failed validation or apply step leaves the client's previous
+epoch, sequence, and state intact.
+
+## Awaiting action visibility
+
+An action response includes the authority epoch and resulting sequence. The client waits for its
+mirror to catch up before resolving the action promise. If the incremental update does not arrive
+within `executeSyncTimeoutMs` (default `1500` ms), the client falls back to full sync.
+
+```ts
+const store = create(source, {
+  worker,
+  executeSyncTimeoutMs: 3000
+});
+```
+
+Increase the timeout only when legitimate worker execution and message scheduling routinely
+exceed the default. It is not a replacement for fixing a broken transport.
+
+## Authority changes during an action
+
+If the authority changes while an action is in flight, a response from the old epoch rejects with
+`ActionAuthorityChangedError`.
+
+Its `outcome` is `unknown`: the old authority may already have performed the action. Retry only
+when the action is idempotent or protected by an application-level idempotency key.
+
+```ts
+import { ActionAuthorityChangedError } from 'coaction/shared';
+
+try {
+  await store.getState().submitOrder({ idempotencyKey });
+} catch (error) {
+  if (error instanceof ActionAuthorityChangedError) {
+    // Reconcile by key; do not blindly repeat a non-idempotent action.
+  }
+}
+```
+
+Reconnect callbacks are generation-scoped, so a late callback from an older connection cannot
+overwrite state established by a newer one.

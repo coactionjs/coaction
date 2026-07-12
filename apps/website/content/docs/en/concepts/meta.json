@@ -1,0 +1,4 @@
+{
+  "title": "Core concepts",
+  "pages": ["state-and-actions", "computed", "slices", "store-modes"]
+}

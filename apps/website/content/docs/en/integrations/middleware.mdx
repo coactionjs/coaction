@@ -1,0 +1,101 @@
+---
+title: Logger, persist, and history
+description: Add diagnostics, persistence, and undo/redo to a Coaction-owned store through middleware.
+---
+
+Middleware receives the store during creation and may decorate its methods or attach an API. Pass
+middleware in array order through the plural `middlewares` option.
+
+## Logger
+
+```ts
+import { create } from 'coaction';
+import { logger } from '@coaction/logger';
+
+const store = create(source, {
+  middlewares: [
+    logger({
+      collapsed: true,
+      serialized: false,
+      stackTrace: false,
+      verbose: false
+    })
+  ]
+});
+```
+
+You may inject a console-compatible logger. Serialized mode safely handles circular diagnostic
+values and BigInt; logging does not weaken the shared JSON contract.
+
+Install logger on the authority for authority-side action and patch diagnostics. A client logger
+is limited to mirrored updates and proxied calls.
+
+## Persist
+
+```ts
+import { persist } from '@coaction/persist';
+
+const store = create(source, {
+  middlewares: [
+    persist({
+      name: 'counter',
+      version: 2,
+      partialize: (state) => ({ count: state.count }),
+      migrate: (persisted, version) => migrateCounter(persisted, version)
+    })
+  ]
+});
+```
+
+The default storage is `localStorage` when available. `createJSONStorage()` adapts another Web
+Storage instance, and a custom `PersistStorage` may be synchronous or asynchronous.
+
+`persist()` attaches:
+
+```ts
+await store.persist.rehydrate();
+await store.persist.clearStorage();
+store.persist.hasHydrated();
+```
+
+If a payload contains an explicit version that differs from the configured version, provide
+`migrate`. Without it, hydration is skipped and `onRehydrateStorage` receives the error.
+
+`merge` output still obeys the fixed schema: unknown root keys are rejected.
+
+## History
+
+```ts
+import { history } from '@coaction/history';
+
+const store = create(source, {
+  middlewares: [
+    history({
+      limit: 100,
+      partialize: (state) => ({ count: state.count })
+    })
+  ]
+});
+
+store.history.undo();
+store.history.redo();
+store.history.canUndo();
+store.history.canRedo();
+store.history.clear();
+```
+
+`partialize` limits which state participates in time travel. `limit` must be a non-negative
+integer.
+
+## Shared placement
+
+| Middleware | Local     | Shared main | Shared client      |
+| ---------- | --------- | ----------- | ------------------ |
+| Logger     | Supported | Supported   | Limited visibility |
+| Persist    | Supported | Supported   | Rejected           |
+| History    | Supported | Supported   | Rejected           |
+
+Persistence and time travel are writes. Put them on the authority store so every client observes
+one result. Never present client-local persistence or undo as authoritative state.
+
+`persist` and `history` coordinate so hydration does not create misleading undo entries.

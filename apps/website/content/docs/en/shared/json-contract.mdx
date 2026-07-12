@@ -1,0 +1,105 @@
+---
+title: Shared JSON contract
+description: Know exactly which values may cross Coaction's worker, tab, and transport boundary.
+---
+
+Every value crossing shared mode is encoded as JSON. Coaction validates values before they enter
+the wire protocol rather than relying on `JSON.stringify()` to silently normalize them.
+
+The rule applies to:
+
+- initial shared state and full-sync snapshots;
+- action arguments;
+- non-void action results;
+- patch values;
+- replacement state carried by transport operations.
+
+## Supported values
+
+A transported value must be a tree composed of:
+
+- `null`;
+- booleans and strings;
+- finite numbers other than negative zero;
+- dense arrays of supported values;
+- plain records with safe string keys and supported values.
+
+```ts
+const valid = {
+  user: { id: 'u_123', active: true },
+  scores: [10, 12, 18],
+  cursor: null
+};
+```
+
+## Rejected values
+
+Coaction rejects values that JSON cannot preserve without semantic loss:
+
+| Category                         | Examples                                                         |
+| -------------------------------- | ---------------------------------------------------------------- |
+| Missing/non-JSON primitives      | `undefined`, `BigInt`, symbols                                   |
+| Non-finite or normalized numbers | `NaN`, `Infinity`, `-Infinity`, `-0`                             |
+| Runtime behavior in data         | functions, accessors                                             |
+| Non-plain platform objects       | `Date`, `URL`, `Map`, `Set`, typed arrays, DOM objects           |
+| Ambiguous graphs                 | circular references, repeated references to the same object      |
+| Non-dense arrays                 | sparse arrays or arrays with extra enumerable properties         |
+| Unsafe keys/paths                | `__proto__`, `prototype`, `constructor` in protected patch paths |
+
+Repeated references are rejected even if `JSON.stringify()` would duplicate them. A tree does
+not preserve object identity, so accepting aliases would make the authority and client graphs
+observably different.
+
+## Methods and getters are not data
+
+Store methods and computed accessors remain runtime behavior. Coaction extracts pure state for
+transport, then materializes the methods and getters declared by the local source on each side.
+
+```ts
+const source = (set) => ({
+  count: 0, // transported
+  get doubled() {
+    return this.count * 2; // runtime behavior, not transported
+  },
+  increment() {
+    set(() => {
+      this.count += 1; // remotely callable method
+    });
+  }
+});
+```
+
+Do not place a function inside a data object and expect it to behave like an action.
+
+## Model common values explicitly
+
+```ts
+// Date -> ISO string
+{
+  createdAt: new Date().toISOString();
+}
+
+// Map -> record or entries
+{
+  usersById: Object.fromEntries(users);
+}
+
+// Set -> array
+{
+  selectedIds: [...selectedIds];
+}
+```
+
+Convert the value at the application boundary and give it a stable domain representation.
+
+## Local mode is different
+
+The strict JSON contract applies only when state crosses a shared boundary. A local store may
+hold richer application values, subject to the normal immutable state model. If a store might
+move into a worker later, keeping its data JSON-shaped from the beginning makes that migration
+predictable.
+
+<Callout type="warn" title="Do not use an escape hatch to weaken the wire">
+  Shared mode intentionally fails closed. If a value is not a lossless JSON
+  tree, model or encode it explicitly instead of bypassing transport validation.
+</Callout>

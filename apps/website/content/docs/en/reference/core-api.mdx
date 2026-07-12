@@ -1,0 +1,101 @@
+---
+title: Core API reference
+description: A curated reference for create options, store methods, types, lifecycle helpers, and isolated entry points.
+---
+
+## `create(createState, options?)`
+
+`create()` accepts a single store factory/object or a map of slice factories.
+
+```ts
+const store = create((set, get, store) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+```
+
+The factory receives:
+
+- `set`: the immutable update boundary;
+- `get`: current state access or explicit computed declaration;
+- `store`: the core store shell for advanced integrations.
+
+### Store options
+
+| Option                                       | Purpose                                                       |
+| -------------------------------------------- | ------------------------------------------------------------- |
+| `name?: string`                              | Store name used by diagnostics and integration defaults       |
+| `middlewares?: Middleware[]`                 | Enhancers applied in array order before state materialization |
+| `enablePatches?: boolean`                    | Enable forward/inverse patch generation locally               |
+| `sliceMode?: 'auto' \| 'single' \| 'slices'` | Resolve the input shape explicitly                            |
+| `transport?: Transport`                      | Create a shared-main authority from an injected transport     |
+| `transportPolicy?: TransportPolicy`          | Restrict actions, authorize requests, and map public errors   |
+
+Client options add:
+
+| Option                            | Purpose                                                             |
+| --------------------------------- | ------------------------------------------------------------------- |
+| `worker?: Worker \| SharedWorker` | Build a client transport from a worker instance                     |
+| `clientTransport?: Transport`     | Inject a client-side transport                                      |
+| `executeSyncTimeoutMs?: number`   | Wait before action catch-up falls back to full sync; default `1500` |
+
+`coaction/local` intentionally omits all transport-only options.
+
+## Store methods and fields
+
+| Member                    | Meaning                                                          |
+| ------------------------- | ---------------------------------------------------------------- |
+| `name`                    | Store name                                                       |
+| `share`                   | `false`, `'main'`, or `'client'`                                 |
+| `isSliceStore`            | Whether the input was materialized as slices                     |
+| `getState()`              | Public data, bound methods, and computed getters                 |
+| `getPureState()`          | Data-only representation                                         |
+| `getInitialState()`       | State produced during initialization                             |
+| `setState(next)`          | Merge a deep partial or run a draft updater; rejected on clients |
+| `subscribe(listener)`     | Subscribe and receive an unsubscribe function                    |
+| `apply(state?, patches?)` | Low-level integration/transport update; rejected on clients      |
+| `destroy()`               | Idempotent cleanup of subscriptions, integrations, and transport |
+
+Application code should prefer named actions over `apply()`. `apply()` is a low-level contract for
+transports, middleware, and adapters.
+
+## Computed declaration
+
+```ts
+const source = (set, get) => ({
+  items: [] as Item[],
+  total: get(
+    (state) => [state.items] as const,
+    (items) => items.reduce((sum, item) => sum + item.price, 0)
+  )
+});
+```
+
+Call `get()` with no arguments to read the current root state.
+
+## Lifecycle helpers
+
+`onStoreReady(store, callback)` defers work until state and integrations are fully materialized.
+The callback may return cleanup that runs during `destroy()`.
+
+`wrapStore(store)` is available for framework and integration authors that need the callable
+store shape.
+
+## Signal primitives
+
+`coaction/local` and the compatibility surface re-export advanced `alien-signals` primitives,
+including `signal`, `computed`, `effect`, `effectScope`, batching helpers, and type guards.
+Application state normally uses getters or `get(deps, selector)` instead.
+
+## Adapter entry
+
+`coaction/adapter` exposes `defineExternalStoreAdapter()` (and compatibility alias
+`createBinder()`), mutable-adapter snapshot helpers, root replacement helpers, schema errors, and
+patch path safety utilities. This surface is for integration authors, not ordinary state updates.
+
+For the generated symbol-by-symbol TypeDoc output, see the
+[repository API directory](https://github.com/coactionjs/coaction/tree/main/docs/api/core).

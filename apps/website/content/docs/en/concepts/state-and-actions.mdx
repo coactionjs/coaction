@@ -1,0 +1,111 @@
+---
+title: State and actions
+description: Learn Coaction's immutable update boundary, fixed public schema, method binding, subscriptions, and lifecycle.
+---
+
+## State is immutable outside `set()`
+
+Coaction exposes a readonly public state. Actions may read through `this`, but all writes to
+Coaction-owned state must happen inside `set()`:
+
+```ts
+const store = create((set) => ({
+  count: 0,
+  incrementWrong() {
+    this.count += 1; // throws: outside the update boundary
+  },
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+```
+
+You can also use the root draft explicitly:
+
+```ts
+store.setState((draft) => {
+  draft.count += 1;
+});
+
+store.setState({ count: 10 });
+```
+
+A deep-partial object merges known fields. Passing `null` is a no-op. Application code should
+normally keep updates in named store methods; direct `setState()` is useful for integration,
+tests, and controlled imperative updates.
+
+## The root schema is fixed
+
+Coaction records the public shape during initialization. A single store cannot add unknown
+top-level keys later. A slice store cannot add new slices or new top-level fields inside a
+slice.
+
+Declare a container for dynamic data:
+
+```ts
+const store = create((set) => ({
+  records: {} as Record<string, { title: string }>,
+  add(id: string, title: string) {
+    set(() => {
+      this.records[id] = { title };
+    });
+  }
+}));
+```
+
+Replacement-style APIs may omit a known root field in a single store. The public getter remains
+present and reads as `undefined`. Slice root keys are stricter: a slice cannot disappear or be
+replaced with a non-object value.
+
+## Actions stay bound
+
+Methods obtained from `getState()` are rebound to the latest public state at call time:
+
+```ts
+const { increment } = store.getState();
+increment();
+```
+
+This makes `this` actions safe to pass to event handlers or destructure. Do not use arrow
+functions when the action needs `this`; arrow functions capture lexical `this`.
+
+## Read, inspect, and subscribe
+
+```ts
+const state = store.getState(); // data + actions + computed getters
+const data = store.getPureState(); // data only
+const initial = store.getInitialState();
+
+const unsubscribe = store.subscribe(() => {
+  console.log(store.getPureState());
+});
+```
+
+Subscribers are notified after a state change is committed. Framework packages build their own
+reactive primitives on the same contract.
+
+## Patches are opt-in locally
+
+Local stores use the shortest update path by default. Set `enablePatches: true` only when an
+integration needs patch pairs:
+
+```ts
+const store = create(source, { enablePatches: true });
+```
+
+Shared stores enable patch behavior because incremental synchronization depends on it. Unsafe
+patch paths containing `__proto__`, `prototype`, or `constructor` are rejected atomically.
+
+## Destroy the store when ownership ends
+
+```ts
+store.destroy();
+store.destroy(); // idempotent
+```
+
+`destroy()` clears subscriptions, runs registered integration cleanup, and disposes transports.
+Operations after destruction are rejected. Components normally let their framework wrapper
+manage subscription cleanup, but dynamically created stores, Yjs bindings, and custom transports
+still need an explicit ownership plan.

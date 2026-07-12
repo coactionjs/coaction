@@ -1,0 +1,67 @@
+---
+title: Store modes and entry points
+description: Understand local stores, shared authorities, client mirrors, and Coaction's isolated package boundaries.
+---
+
+The same public store contract appears in three runtime modes.
+
+| Mode          | `store.share` | Mutation authority | Method result                  |
+| ------------- | ------------- | ------------------ | ------------------------------ |
+| Local         | `false`       | Current runtime    | Synchronous                    |
+| Shared main   | `'main'`      | Main runtime       | Synchronous on the authority   |
+| Shared client | `'client'`    | Main runtime       | Promise returned to the client |
+
+## Local mode
+
+```ts
+import { create } from 'coaction/local';
+
+const store = create(source);
+```
+
+Local mode owns state and execution in one runtime. It keeps patch generation off unless you
+explicitly enable it, making it the recommended starting point.
+
+## Shared main mode
+
+A store becomes a shared authority when it owns a main transport or runs in the detected worker
+authority environment:
+
+```ts
+import { create } from 'coaction/shared';
+
+const store = create(source, { transport });
+```
+
+The main store executes actions, commits state, emits ordered patches, and serves full snapshots.
+
+## Shared client mode
+
+Passing a `Worker`, `SharedWorker`, or client transport creates a mirror:
+
+```ts
+const store = create(source, { worker });
+
+await store.getState().increment();
+```
+
+Client methods are async because execution happens on the authority. The client may read and
+subscribe to mirrored state, but direct `setState()` and `apply()` calls are rejected.
+
+## Isolated entry points
+
+The package exposes static boundaries so a bundler can avoid loading unrelated runtime code:
+
+| Entry              | Contains                                                                 |
+| ------------------ | ------------------------------------------------------------------------ |
+| `coaction/local`   | Local creation, lifecycle helpers, signal primitives                     |
+| `coaction/shared`  | Shared-capable creation, JSON protocol, authority/client synchronization |
+| `coaction/adapter` | External-store binding and state/patch safety helpers                    |
+| `coaction`         | Compatibility surface spanning local and shared selection                |
+
+Framework packages expose their own `create()` wrapper and may support both local and worker
+options. Vanilla code gets the clearest bundle boundary by choosing `coaction/local` or
+`coaction/shared` directly.
+
+Continue with the [shared runtime overview](/en/docs/shared/overview) for authority semantics and
+deployment rules.

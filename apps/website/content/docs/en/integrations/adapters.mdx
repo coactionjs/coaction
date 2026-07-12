@@ -1,0 +1,101 @@
+---
+title: External state adapters
+description: Keep an existing Zustand, MobX, Pinia, Jotai, Redux, Valtio, or XState runtime as a whole-store integration.
+---
+
+An external-state adapter bridges a complete third-party runtime into Coaction. The external
+runtime keeps its native mutation and derived-state semantics; Coaction supplies its store,
+framework, lifecycle, and—for supported adapters—shared method-execution surface.
+
+<Callout type="warn" title="Whole stores only">
+  Binder-backed adapters are not native slices. Never mount an adapted external
+  store below a Coaction slice key.
+</Callout>
+
+## Support matrix
+
+| Adapter       | Package             | Local     | Shared main/client | Direct client writes           |
+| ------------- | ------------------- | --------- | ------------------ | ------------------------------ |
+| Zustand       | `@coaction/zustand` | Supported | Supported          | Rejected                       |
+| MobX          | `@coaction/mobx`    | Supported | Supported          | Integration-defined            |
+| Pinia         | `@coaction/pinia`   | Supported | Supported          | Integration-defined            |
+| Jotai         | `@coaction/jotai`   | Supported | Supported          | Rejected                       |
+| Redux Toolkit | `@coaction/redux`   | Supported | Unsupported        | N/A                            |
+| Valtio        | `@coaction/valtio`  | Supported | Supported          | Restored to authority snapshot |
+| XState        | `@coaction/xstate`  | Supported | Unsupported        | N/A                            |
+
+Shared support means Coaction method execution is maintained. It does not promise that arbitrary
+out-of-band writes to every external runtime propagate across authority and client.
+
+## Zustand example
+
+```ts
+import { create } from 'coaction';
+import { bindZustand } from '@coaction/zustand';
+import { create as createZustand } from 'zustand';
+
+const store = create(() =>
+  createZustand(
+    bindZustand((set) => ({
+      count: 0,
+      increment: () => set((state) => ({ count: state.count + 1 }))
+    }))
+  )
+);
+```
+
+Use this path when the Zustand store must remain public API or other modules still consume it
+directly. For a new store owned by Coaction, prefer the native state model.
+
+## MobX example
+
+```ts
+import { create } from 'coaction';
+import { bindMobx } from '@coaction/mobx';
+import { makeAutoObservable } from 'mobx';
+
+const store = create(() =>
+  makeAutoObservable(
+    bindMobx({
+      count: 0,
+      increment() {
+        this.count += 1;
+      }
+    })
+  )
+);
+```
+
+The external runtime owns its mutable object. Unknown root properties written directly onto a
+mutable adapter are not promoted into Coaction's fixed raw/public schema.
+
+## Pinia, Jotai, Redux, Valtio, and XState
+
+These packages expose `bind*` helpers and, where needed, an `adapt()` wrapper:
+
+```ts
+// Pinia
+create(() => adapt(defineStore('counter', bindPinia(options))));
+
+// Jotai
+create(() => adapt(bindJotai({ store: jotaiStore, atoms, actions })));
+
+// Redux Toolkit
+create(() => adapt(bindRedux(reduxStore)));
+
+// Valtio
+create(() => adapt(proxy(bindValtio(state))));
+
+// XState
+create(() => adapt(bindXState(actor)));
+```
+
+XState blocks `setState()`; send actor events. Redux and XState are local-only maintained
+contracts today.
+
+## Authoring an adapter
+
+Custom adapters import `defineExternalStoreAdapter()` from `coaction/adapter`. They must preserve
+the core `Store` lifecycle, notify Coaction after direct external immutable writes, and declare
+support boundaries with contract tests. See [contributing](/en/docs/reference/contributing) before
+starting one.

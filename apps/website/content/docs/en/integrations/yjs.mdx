@@ -1,0 +1,75 @@
+---
+title: Yjs collaboration
+description: Bind Coaction-owned pure state to a Y.Doc and let a Yjs provider handle peer transport.
+---
+
+`@coaction/yjs` synchronizes a Coaction store's pure data with Yjs. It does not provide a network
+connection; choose `y-websocket`, `y-webrtc`, or another Yjs provider for peer transport.
+
+## Middleware setup
+
+```ts
+import { create } from 'coaction';
+import { yjs } from '@coaction/yjs';
+
+const store = create(source, {
+  middlewares: [yjs()]
+});
+```
+
+The middleware creates a `Y.Doc`, binds the store, and connects cleanup to `store.destroy()`.
+
+## Use an existing Y.Doc
+
+```ts
+import { bindYjs } from '@coaction/yjs';
+import { Doc } from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+const doc = new Doc();
+const provider = new WebsocketProvider(
+  'wss://collaboration.example',
+  'room-id',
+  doc
+);
+
+const binding = bindYjs(store, {
+  doc,
+  key: 'counter'
+});
+
+// later
+binding.destroy();
+provider.destroy();
+store.destroy();
+```
+
+`bindYjs()` returns the `doc`, root `map`, `syncNow()`, and `destroy()`.
+
+## Storage and sync model
+
+- State lives under `doc.getMap(key).get('state')`.
+- Nested objects and arrays become nested `Y.Map` and `Y.Array` structures.
+- Local Coaction changes are diffed against the last synchronized snapshot.
+- Remote Yjs updates are replayed into Coaction.
+- Methods and computed getters are not part of the synchronized payload.
+
+The default key is `coaction:${store.name}`.
+
+## Conflict semantics
+
+Concurrent edits to different fields can merge through Yjs. Conflicts on the same scalar field
+follow Yjs semantics, effectively last-writer-wins for that value. When an operation must be
+commutative—such as a distributed counter—model that field with a CRDT-native Yjs structure or
+operation instead of repeatedly replacing a scalar.
+
+## Requirements and limits
+
+- Keep synchronized state plain and serializable.
+- Yjs binding is supported on local and shared-main stores, not shared clients.
+- Bind the owning store only; a client mirror must not create a second collaboration authority.
+- Very large or highly volatile trees can generate substantial update traffic.
+- Always release old bindings to prevent duplicate observers and stale writes.
+
+Remote snapshots and deletes still follow Coaction's fixed schema. Unknown root keys are rejected;
+known single-store fields may become `undefined` if absent from an exact replacement.

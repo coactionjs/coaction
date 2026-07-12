@@ -1,0 +1,88 @@
+---
+title: Computed state
+description: Define cached derived state with accessor getters or explicit dependency selectors.
+---
+
+Coaction's computed values use the same signal graph as field tracking. A component can read a
+cached getter, that getter can read store fields, and invalidation flows through the graph without
+manual memo arrays.
+
+## Accessor getters
+
+Use a normal getter for the default derived-state experience:
+
+```ts
+type Item = { price: number; quantity: number };
+
+const cart = create((set) => ({
+  items: [] as Item[],
+  taxRate: 0.08,
+
+  get subtotal() {
+    return this.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+  },
+
+  get total() {
+    return this.subtotal * (1 + this.taxRate);
+  },
+
+  add(item: Item) {
+    set(() => {
+      this.items.push(item);
+    });
+  }
+}));
+```
+
+`subtotal` is cached until `items` changes. `total` depends on the cached `subtotal` and
+`taxRate`; those relationships are discovered automatically.
+
+Keep getters pure. A getter should not call `setState()`, mutate external state, or produce a
+different result from hidden side effects.
+
+## Explicit dependencies with `get()`
+
+The second argument passed to a store factory can declare dependencies manually:
+
+```ts
+const cart = create((set, get) => ({
+  items: [] as Item[],
+  total: get(
+    (state) => [state.items] as const,
+    (items) => items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  )
+}));
+```
+
+Use this form when dependency declaration makes cross-slice logic clearer, or when integration
+code should not rely on implicit getter reads.
+
+Calling `get()` without arguments returns the current root state. In a slice factory this is a
+convenient way to read another namespace, though update logic should still happen through
+`set()`.
+
+## Tracking granularity
+
+Automatic render tracking operates at each own enumerable field on the store or slice. Nested
+object reads are tracked through the containing top-level field. Updating a sibling property in
+that same nested object can therefore invalidate the same subscriber.
+
+If a hot component needs narrower nested behavior, use an explicit selector that returns the
+specific nested value and relies on `Object.is`.
+
+## External adapters
+
+Native accessor/getter computed behavior belongs to Coaction-owned state. Mutable external
+adapter instances do not gain Coaction's cached getters or `get(deps, selector)` semantics.
+Their own runtime—MobX computed values, Pinia getters, selectors, or machine state—remains
+responsible for derived state.
+
+## Performance expectations
+
+Stable repeated reads are the strongest path for cached getters. Updates still preserve the
+readonly public-state boundary and must refresh the cached snapshot before the next derived read.
+Treat microbenchmarks as regression signals, not universal claims; see the
+[performance guide](/en/docs/guides/performance) for the maintained commands and interpretation.
