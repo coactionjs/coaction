@@ -8,6 +8,8 @@ import { createLocal } from '../src/createLocal';
 test('re-exports runtime APIs from package entry', () => {
   expect(core.create).toBe(create);
   expect(shared.create).toBeInstanceOf(Function);
+  expect(shared.ActionAuthorityChangedError).toBeInstanceOf(Function);
+  expect('ActionAuthorityChangedError' in local).toBe(false);
   expect(local.create).not.toBe(create);
   expect('createLocal' in core).toBe(false);
   expect('createBinder' in core).toBe(false);

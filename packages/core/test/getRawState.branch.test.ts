@@ -135,6 +135,36 @@ test('client action requests full sync when the authority epoch changes', async 
   expect(internal.syncClientState).toHaveBeenCalledWith('epoch-2', 3);
 });
 
+test('client action rejects a response from a superseded authority', async () => {
+  let resolveResponse!: (value: string) => void;
+  const { store, internal } = createClientStoreContext(
+    () =>
+      new Promise<string>((resolve) => {
+        resolveResponse = resolve;
+      })
+  );
+  const pending = store.getState().increment(1);
+  internal.transportEpoch = 'epoch-2';
+  resolveResponse(
+    encodeExecuteResponse({
+      epoch: 'epoch-1',
+      ok: true,
+      sequence: 2,
+      value: 'old result'
+    })
+  );
+
+  await expect(pending).rejects.toMatchObject({
+    code: 'COACTION_ACTION_AUTHORITY_CHANGED',
+    name: 'ActionAuthorityChangedError',
+    outcome: 'unknown'
+  });
+  await expect(pending).rejects.toThrow(
+    'The action may have completed on the previous authority; retry only if it is idempotent.'
+  );
+  expect(internal.syncClientState).not.toHaveBeenCalled();
+});
+
 test('client action falls back to full sync after the catch-up timeout', async () => {
   vi.useFakeTimers();
   try {

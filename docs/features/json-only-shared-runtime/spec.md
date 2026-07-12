@@ -72,6 +72,10 @@ full sync.
 - A client MUST apply only the next contiguous update for its active epoch.
 - A sequence gap, unknown epoch, or invalid update MUST trigger full sync rather
   than partial recovery.
+- An action response from an authority superseded after the request was sent
+  MUST be rejected without synchronizing the mirror back to that old epoch. Its
+  side-effect outcome is unknown and MUST NOT be retried automatically unless
+  the application knows the action is idempotent.
 - Full sync MUST snapshot state, epoch, and sequence atomically.
 - Unsafe or malformed patches MUST fail before any state is committed.
 - Destroyed stores MUST reject new work and release transport listeners and

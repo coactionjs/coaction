@@ -6,6 +6,22 @@ import {
 } from './transportProtocol';
 import { uuid } from './utils';
 
+/**
+ * The authority changed while a remote action was in flight, so its side-effect
+ * outcome cannot be determined safely from the current client mirror.
+ */
+export class ActionAuthorityChangedError extends Error {
+  readonly code = 'COACTION_ACTION_AUTHORITY_CHANGED';
+  readonly outcome = 'unknown';
+
+  constructor(action: string) {
+    super(
+      `The authority changed while action '${action}' was in flight. The action may have completed on the previous authority; retry only if it is idempotent.`
+    );
+    this.name = 'ActionAuthorityChangedError';
+  }
+}
+
 type CreateClientActionOptions<T extends CreateState> = {
   clientExecuteSyncTimeoutMs: number;
   internal: Internal<T>;
@@ -63,6 +79,7 @@ export const createClientAction = <T extends CreateState>({
     const action =
       typeof sliceKey === 'undefined' ? [key] : [String(sliceKey), key];
     const encoded = encodeExecuteRequest(action, args);
+    const requestEpoch = internal.transportEpoch;
 
     return traceAction(() => {
       const emitted = store.transport!.emit('execute', encoded);
@@ -75,6 +92,13 @@ export const createClientAction = <T extends CreateState>({
         const syncClientState = internal.syncClientState;
         if (!syncClientState) {
           throw new Error('Client fullSync is not available');
+        }
+
+        if (
+          internal.transportEpoch !== requestEpoch &&
+          response.epoch !== internal.transportEpoch
+        ) {
+          throw new ActionAuthorityChangedError(key);
         }
 
         if (response.epoch !== internal.transportEpoch) {

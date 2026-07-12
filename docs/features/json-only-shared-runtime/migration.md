@@ -89,6 +89,14 @@ or sequence gap triggers a full JSON snapshot; stale and duplicate updates are
 ignored. Applications should await client methods because their promise now
 also waits for the mirrored state to catch up.
 
+If the authority changes while an action is in flight and its response belongs
+to the superseded authority, the promise rejects with
+`ActionAuthorityChangedError`. Its `code` is
+`COACTION_ACTION_AUTHORITY_CHANGED` and its `outcome` is `unknown`: the old
+authority may already have committed a state change or external side effect.
+Do not automatically retry unless the action is idempotent or the application
+has its own deduplication key.
+
 ## Coordinate the 2.x to 3.x deployment
 
 Coaction 2.x and the 3.x runtime are not wire-compatible. The 3.x

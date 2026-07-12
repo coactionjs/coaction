@@ -80,6 +80,11 @@ Unexpected action failures use a generic client-visible message. Applications
 must opt in through `transportPolicy.mapError` when a domain error is safe to
 cross the transport boundary.
 
+An action response from an epoch that was superseded while the request was in
+flight is not used to pull the mirror back to that authority. The client rejects
+with `ActionAuthorityChangedError` because execution on the previous authority
+may already have happened and blind retry is unsafe for non-idempotent actions.
+
 This means the returned promise represents both remote execution and the local mirror catching up to the corresponding state version.
 
 ## External Writes

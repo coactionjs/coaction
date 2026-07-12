@@ -15,6 +15,10 @@ This file is not a runtime entry point. An export appearing here does not
 imply that it is available from the package root; see the generated import
 map for the owning public subpath.
 
+## Classes
+
+- [ActionAuthorityChangedError](classes/ActionAuthorityChangedError.md)
+
 ## Interfaces
 
 - [MiddlewareStore](interfaces/MiddlewareStore.md)

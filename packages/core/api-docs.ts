@@ -13,6 +13,7 @@ export { create } from './src/create';
 export { createLocal } from './src/createLocal';
 export { createBinder, defineExternalStoreAdapter } from './src/binder';
 export { createReactiveTracker } from './src/reactiveTracker';
+export { ActionAuthorityChangedError } from './src/getRawStateClientAction';
 export { wrapStore } from './src/wrapStore';
 export {
   computed,

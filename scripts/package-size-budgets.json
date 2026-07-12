@@ -194,12 +194,12 @@
   "coaction": {
     "files": {
       "dist/index.mjs": {
-        "baselineGzipBytes": 15635,
-        "maxGzipBytes": 16200
+        "baselineGzipBytes": 16251,
+        "maxGzipBytes": 16800
       },
       "dist/index.js": {
-        "baselineGzipBytes": 15738,
-        "maxGzipBytes": 16300
+        "baselineGzipBytes": 16376,
+        "maxGzipBytes": 16950
       },
       "dist/local.mjs": {
         "baselineGzipBytes": 9963,
@@ -210,12 +210,12 @@
         "maxGzipBytes": 10450
       },
       "dist/shared.mjs": {
-        "baselineGzipBytes": 15635,
-        "maxGzipBytes": 16200
+        "baselineGzipBytes": 16251,
+        "maxGzipBytes": 16800
       },
       "dist/shared.js": {
-        "baselineGzipBytes": 15738,
-        "maxGzipBytes": 16300
+        "baselineGzipBytes": 16376,
+        "maxGzipBytes": 16950
       },
       "dist/adapter.mjs": {
         "baselineGzipBytes": 4910,

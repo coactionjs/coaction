@@ -8,7 +8,7 @@
     "maxGzipBytes": 7000
   },
   "shared": {
-    "baselineGzipBytes": 10601,
-    "maxGzipBytes": 11100
+    "baselineGzipBytes": 10998,
+    "maxGzipBytes": 11400
   }
 }
