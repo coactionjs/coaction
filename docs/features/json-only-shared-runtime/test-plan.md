@@ -14,7 +14,7 @@ tags: [core, testing, json, concurrency]
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | JSON acceptance   | Primitives, dense arrays, nested plain records, null, and safe numeric boundaries round trip exactly.                                                                                                     |
 | JSON rejection    | Undefined, BigInt, non-finite numbers, negative zero, functions, symbols, accessors, custom `toJSON`, sparse arrays, unsafe keys, cycles, repeated references, and platform objects fail before encoding. |
-| Protocol          | Unknown versions/types, malformed JSON, invalid fields, invalid epochs/sequences, oversized payloads, and unsafe patch operations fail closed.                                                            |
+| Protocol          | Unknown versions/types, malformed JSON, invalid fields, invalid epochs/sequences, and unsafe patch operations fail closed.                                                                                |
 | Authorization     | Unknown actions and denied requests never execute; allowed sync and async actions return JSON results and errors through distinct tagged variants.                                                        |
 | Convergence       | Contiguous updates apply once; duplicates are ignored; gaps, stale epochs, reconnects, and stale full-sync responses recover without rollback or lost updates.                                            |
 | Lifecycle         | Failed setup, reentrant destroy, listener failure, rejected emit, and pending action cleanup leave no active listener or waiter.                                                                          |
@@ -39,7 +39,16 @@ size budgets prove static isolation.
 
 ## Verification
 
-- Existing baseline: `pnpm --filter coaction test`.
-- New focused commands and test names: Verification: Missing until implemented.
-- Full release command: Verification: Missing until the new package scripts and
-  entry points are wired into the repository gate.
+- Core codec, protocol, convergence, authorization, and lifecycle tests:
+  `pnpm --filter coaction test`.
+- Official adapter and framework matrix:
+  `pnpm exec turbo run test --force`.
+- Independent production consumer bundles:
+  `node scripts/check-core-entry-isolation.mjs`.
+- ESM/CJS/declaration exports: `pnpm package:quality`.
+- Full release matrix: `pnpm check`.
+- Instrumented coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35%
+  statements and 88.37% branches).
+- Real worker transports: `pnpm test:e2e:browser` (27 tests in Chromium,
+  Firefox, and WebKit).
+- Major release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

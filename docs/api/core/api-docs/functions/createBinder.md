@@ -8,9 +8,10 @@
 
 > **createBinder**\<`F`\>(`__namedParameters`): `F`
 
-Defined in: [packages/core/src/binder.ts:89](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L89)
+Defined in: [packages/core/src/binder.ts:93](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L93)
 
-Build an adapter helper for bridging an external store implementation into Coaction.
+Build an adapter helper for bridging an external store implementation into
+Coaction.
 
 ## Type Parameters
 
@@ -30,4 +31,6 @@ Build an adapter helper for bridging an external store implementation into Coact
 
 ## Remarks
 
-Official bindings use this to integrate stores such as Redux, Jotai, Pinia, Zustand, MobX, and Valtio. Binder-backed integrations are whole-store adapters; they are not compatible with Coaction slices mode.
+Official bindings use this to integrate stores such as Redux, Jotai, Pinia,
+Zustand, MobX, and Valtio. Binder-backed integrations are whole-store
+adapters; they are not compatible with Coaction slices mode.

@@ -8,7 +8,7 @@
 
 > **StoreOptions**\<`T`\> = `object`
 
-Defined in: [packages/core/src/interface.ts:277](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L277)
+Defined in: [packages/core/src/interface.ts:285](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L285)
 
 Options for creating a local store or the main side of a shared store.
 
@@ -24,13 +24,14 @@ Options for creating a local store or the main side of a shared store.
 
 > `optional` **enablePatches**: `boolean`
 
-Defined in: [packages/core/src/interface.ts:302](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L302)
+Defined in: [packages/core/src/interface.ts:312](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L312)
 
 Enable patch generation.
 
 #### Remarks
 
-Required for async client stores and useful for middleware or mutable integrations that depend on patch streams.
+Required for async client stores and useful for middleware or mutable
+integrations that depend on patch streams.
 
 ---
 
@@ -38,7 +39,7 @@ Required for async client stores and useful for middleware or mutable integratio
 
 > `optional` **middlewares**: [`Middleware`](Middleware.md)\<`T`\>[]
 
-Defined in: [packages/core/src/interface.ts:294](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L294)
+Defined in: [packages/core/src/interface.ts:304](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L304)
 
 Middleware chain applied before the initial state is finalized.
 
@@ -48,7 +49,7 @@ Middleware chain applied before the initial state is finalized.
 
 > `optional` **name**: `string`
 
-Defined in: [packages/core/src/interface.ts:281](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L281)
+Defined in: [packages/core/src/interface.ts:289](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L289)
 
 The name of the store.
 
@@ -58,13 +59,14 @@ The name of the store.
 
 > `optional` **sliceMode**: `"auto"` \| `"slices"` \| `"single"`
 
-Defined in: [packages/core/src/interface.ts:312](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L312)
+Defined in: [packages/core/src/interface.ts:322](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L322)
 
 Control how `createState` should be interpreted.
 
 #### Remarks
 
-- auto: infer from createState shape. Object maps whose values are all functions are ambiguous, so prefer setting `sliceMode` explicitly.
+- auto: infer from createState shape. Object maps whose values are all
+  functions are ambiguous, so prefer setting `sliceMode` explicitly.
 - slices: force slices mode.
 - single: force single-store mode.
 
@@ -74,9 +76,19 @@ Control how `createState` should be interpreted.
 
 > `optional` **transport**: `Transport`
 
-Defined in: [packages/core/src/interface.ts:290](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L290)
+Defined in: [packages/core/src/interface.ts:298](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L298)
 
 Inject a pre-built transport for advanced shared-store setups.
+
+---
+
+### transportPolicy?
+
+> `optional` **transportPolicy**: [`TransportPolicy`](TransportPolicy.md)
+
+Defined in: [packages/core/src/interface.ts:300](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L300)
+
+Restrict requests accepted by a shared-main store.
 
 ---
 
@@ -84,8 +96,9 @@ Inject a pre-built transport for advanced shared-store setups.
 
 > `optional` **workerType**: `"SharedWorkerInternal"` \| `"WebWorkerInternal"`
 
-Defined in: [packages/core/src/interface.ts:286](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L286)
+Defined in: [packages/core/src/interface.ts:294](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L294)
 
 #### Deprecated
 
-Internal worker-mode override retained for compatibility. Prefer passing `transport` or letting the runtime infer the environment.
+Internal worker-mode override retained for compatibility.
+Prefer passing `transport` or letting the runtime infer the environment.

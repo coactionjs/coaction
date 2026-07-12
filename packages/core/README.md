@@ -17,7 +17,7 @@ pnpm add coaction
 ## Usage
 
 ```jsx
-import { create } from 'coaction';
+import { create } from 'coaction/local';
 
 const store = create((set) => ({
   count: 0,
@@ -55,15 +55,17 @@ const store = create((set, get) => ({
 }));
 ```
 
-Advanced integrations can import the native signal primitives and adapter helper directly from `coaction`:
+Local stores can import signal primitives from `coaction/local`. Adapter
+authors use the statically separate `coaction/adapter` entry:
 
 ```ts
-import { computed, defineExternalStoreAdapter, effect, signal } from 'coaction';
+import { computed, effect, signal } from 'coaction/local';
+import { defineExternalStoreAdapter } from 'coaction/adapter';
 ```
 
 ### Adapter and Middleware Utilities
 
-`coaction` also exports utilities for adapter and middleware authors. These are not needed for normal application state updates, but they are part of the supported integration surface used by the official packages:
+`coaction/adapter` exports utilities for adapter and middleware authors. These are not needed for normal application state updates, but they are part of the supported integration surface used by the official packages:
 
 - Mutable adapter helpers: `applyMutableAdapterPatches`, `replaceMutableAdapterState`, `toMutableAdapterSnapshot`, `snapshotMutableAdapterPureState`, `isEqualMutableAdapterSnapshot`, `getMutableAdapterOwnEnumerableKeys`, `isMutableAdapterUnsafeKey`.
 - Root replacement helpers: `createRootReplacementPatches`, `applyRootReplacementWithPatches`.
@@ -71,6 +73,23 @@ import { computed, defineExternalStoreAdapter, effect, signal } from 'coaction';
 - State shape helpers: `StateSchemaError`, `isStateSchemaError`, `sanitizeReplacementState`, `sanitizeInitialStateValue`, `replaceOwnEnumerable`.
 
 Runtime mutation paths reject unsafe patch paths before applying state changes. If a `store.patch()` hook returns a path containing `__proto__`, `prototype`, or `constructor`, Coaction throws `UnsafePatchPathError` instead of silently dropping that patch and applying the rest.
+
+### Shared JSON contract
+
+Import `create` from `coaction/shared` when state crosses a Worker,
+SharedWorker, or injected transport boundary:
+
+```ts
+import { create } from 'coaction/shared';
+```
+
+Shared state, action arguments, action results, patch values, and full-sync
+snapshots must be JSON trees: finite numbers, strings, booleans, null, dense
+arrays, and plain records. Coaction rejects values that JSON would normalize or
+cannot represent losslessly, including `undefined`, `BigInt`, `NaN`, infinity,
+negative zero, functions in data, symbols, accessors, platform objects, sparse
+arrays, circular references, and repeated object references. Local stores do
+not inherit this restriction.
 
 Store methods using `this` are rebound to the latest state when invoked from `getState()`, so destructuring remains safe:
 

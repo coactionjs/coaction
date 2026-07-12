@@ -109,6 +109,19 @@ For the core library without any framework:
 npm install coaction
 ```
 
+Vanilla applications that do not use workers can select the transport-free
+entry explicitly:
+
+```ts
+import { create } from 'coaction/local';
+```
+
+Use `coaction/shared` for a shared-main store or client mirror, and
+`coaction/adapter` when authoring an external-state adapter. The compatibility
+`coaction` entry still supports both local and shared creation, but
+`coaction/local` gives bundlers a hard boundary that excludes the transport,
+JSON protocol, epoch, and reconnect runtime.
+
 For React applications:
 
 ```bash
@@ -357,7 +370,7 @@ For multi-tab state, the same store module can create a `SharedWorker` on the we
 as the authority store inside the worker:
 
 ```js
-import { create } from 'coaction';
+import { create } from 'coaction/shared';
 
 const worker = globalThis.SharedWorker
   ? new SharedWorker(new URL('./store.js', import.meta.url), { type: 'module' })

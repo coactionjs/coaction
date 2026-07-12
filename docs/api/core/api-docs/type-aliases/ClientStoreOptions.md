@@ -8,7 +8,7 @@
 
 > **ClientStoreOptions**\<`T`\> = `object` & `ClientTransportOptions`
 
-Defined in: [packages/core/src/interface.ts:322](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L322)
+Defined in: [packages/core/src/interface.ts:338](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L338)
 
 Options for creating a client mirror of a shared store.
 
@@ -34,7 +34,8 @@ Control how `createState` should be interpreted.
 
 #### Remarks
 
-- auto: infer from createState shape. Object maps whose values are all functions are ambiguous, so prefer setting `sliceMode` explicitly.
+- auto: infer from createState shape. Object maps whose values are all
+  functions are ambiguous, so prefer setting `sliceMode` explicitly.
 - slices: force slices mode.
 - single: force single-store mode.
 
@@ -46,4 +47,5 @@ Control how `createState` should be interpreted.
 
 ## Remarks
 
-Methods on the returned store become promise-returning methods because execution happens on the main/shared store.
+Methods on the returned store become promise-returning methods because
+execution happens on the main/shared store.

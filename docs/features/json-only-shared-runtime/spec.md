@@ -88,7 +88,9 @@ full sync.
 
 ## Technical design
 
-- A small JSON codec owns validation, encoding, decoding, and payload limits.
+- A small JSON codec owns validation, encoding, and decoding. Transport-specific
+  payload limits remain the responsibility of the selected transport because a
+  universal library limit would reject valid application snapshots arbitrarily.
 - The wire protocol uses versioned tagged messages represented as JSON strings.
 - Local creation, shared authority/client creation, and adapter integration use
   static entry points. The public signatures remain code-owned.
@@ -147,6 +149,13 @@ service dashboards.
 
 - Contract rules: [test-plan.md](test-plan.md).
 - Architecture decision: [ADR-0001](../../adr/0001-json-only-shared-runtime.md).
-- Baseline core command: `pnpm --filter coaction test`.
-- Full repository command and consumer size gates: Verification: Missing until
-  the new entry points and scripts are implemented.
+- Core tests: `pnpm --filter coaction test` (18 files, 217 tests).
+- Full release check: `pnpm check` (format, lint, typecheck, 17-package build,
+  package quality, size, package tests, and 68 example tests).
+- Coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35% statements,
+  88.37% branches, 97.06% functions, and 94.40% lines).
+- Real browser transports: `pnpm test:e2e:browser` (27 tests across Chromium,
+  Firefox, and WebKit).
+- Static consumer gates: `node scripts/check-core-entry-isolation.mjs`.
+- Package artifacts and budgets: `pnpm build && pnpm package:size`.
+- Major release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

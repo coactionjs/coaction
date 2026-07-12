@@ -14,6 +14,7 @@ This reference is generated from the docs-only entry point in `packages/core/api
 - [Slice](api-docs/type-aliases/Slice.md) and [Slices](api-docs/type-aliases/Slices.md): state-factory signatures.
 - [Middleware](api-docs/type-aliases/Middleware.md): store enhancement contract.
 - [defineExternalStoreAdapter](api-docs/functions/defineExternalStoreAdapter.md): third-party whole-store adapter helper. `createBinder` remains available as the compatibility name.
+- [createReactiveTracker](api-docs/functions/createReactiveTracker.md): low-level signal dependency tracker for framework adapters that need render/effect invalidation without selectors.
 - [wrapStore](api-docs/functions/wrapStore.md): low-level helper used by framework bindings.
 - `signal`, `computed`, `effect`, `effectScope`, `trigger`, batching helpers, and introspection helpers: alien-signals primitives re-exported for advanced integrations.
 

@@ -8,7 +8,7 @@
 
 > **Middleware**\<`T`\> = (`store`) => [`MiddlewareStore`](../interfaces/MiddlewareStore.md)\<`T`\>
 
-Defined in: [packages/core/src/interface.ts:262](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L262)
+Defined in: [packages/core/src/interface.ts:270](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L270)
 
 Store enhancer invoked during store creation.
 
@@ -30,4 +30,5 @@ Store enhancer invoked during store creation.
 
 ## Remarks
 
-Middleware may mutate the received store in place or return a replacement store object, but it must preserve the [Store](../interfaces/Store.md) contract.
+Middleware may mutate the received store in place or return a replacement
+store object, but it must preserve the [Store](../interfaces/Store.md) contract.

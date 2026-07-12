@@ -8,7 +8,7 @@
 
 > **Slices**\<`T`, `K`\> = (`set`, `get`, `store`) => `T`\[`K`\]
 
-Defined in: [packages/core/src/interface.ts:240](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L240)
+Defined in: [packages/core/src/interface.ts:248](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L248)
 
 Factory for a named slice inside a slices store.
 
@@ -42,4 +42,6 @@ Factory for a named slice inside a slices store.
 
 ## Remarks
 
-The returned object becomes the value stored under the slice key. When an object input only contains functions, prefer explicit `sliceMode` to avoid ambiguity between slices and a plain method-only store.
+The returned object becomes the value stored under the slice key. When an
+object input only contains functions, prefer explicit `sliceMode` to avoid
+ambiguity between slices and a plain method-only store.

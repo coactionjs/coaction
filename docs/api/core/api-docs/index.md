@@ -20,20 +20,29 @@
 - [ClientStoreOptions](type-aliases/ClientStoreOptions.md)
 - [ExternalStoreAdapterOptions](type-aliases/ExternalStoreAdapterOptions.md)
 - [ISlices](type-aliases/ISlices.md)
+- [JsonPrimitive](type-aliases/JsonPrimitive.md)
+- [JsonValue](type-aliases/JsonValue.md)
+- [LocalCreator](type-aliases/LocalCreator.md)
+- [LocalStoreOptions](type-aliases/LocalStoreOptions.md)
 - [Middleware](type-aliases/Middleware.md)
+- [ReactiveTracker](type-aliases/ReactiveTracker.md)
 - [Slice](type-aliases/Slice.md)
 - [Slices](type-aliases/Slices.md)
 - [SliceState](type-aliases/SliceState.md)
 - [StoreOptions](type-aliases/StoreOptions.md)
+- [TransportPolicy](type-aliases/TransportPolicy.md)
+- [TransportPolicyRequest](type-aliases/TransportPolicyRequest.md)
 
 ## Variables
 
 - [create](variables/create.md)
+- [createLocal](variables/createLocal.md)
 
 ## Functions
 
 - [computed](functions/computed.md)
 - [createBinder](functions/createBinder.md)
+- [createReactiveTracker](functions/createReactiveTracker.md)
 - [defineExternalStoreAdapter](functions/defineExternalStoreAdapter.md)
 - [effect](functions/effect.md)
 - [effectScope](functions/effectScope.md)

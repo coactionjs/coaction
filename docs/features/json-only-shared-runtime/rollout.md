@@ -30,6 +30,17 @@ branch and MUST NOT be merged wholesale into the new main line.
 6. Add major changesets and user migration documentation.
 7. Run the complete package, peer, integration, browser, release, and size gates.
 
+Current progress:
+
+| Stage                                      | Status   | Evidence                                                                     |
+| ------------------------------------------ | -------- | ---------------------------------------------------------------------------- |
+| JSON codec and protocol                    | Complete | Focused codec/protocol tests in `packages/core/test`                         |
+| Authority, convergence, reconnect, cleanup | Complete | Core fake-transport and worker tests                                         |
+| Static entries and consumer budgets        | Complete | `coaction/local`, `coaction/shared`, `coaction/adapter`; `pnpm package:size` |
+| Official package migration                 | Complete | Adapter sources import `coaction/adapter`; 17-package test matrix passes     |
+| Migration and major release metadata       | Complete | Migration guide and 17-package major changeset validate successfully         |
+| Final release gates                        | Complete | Full check, coverage, browser matrix, package quality, and size gates pass   |
+
 ## Release gates
 
 - No known authorization, convergence, lifecycle, or package-entry defect.
@@ -51,5 +62,12 @@ branch is not published as an emergency replacement.
 ## Verification
 
 - Archive branch existence is verified with `git branch --list`.
-- Implementation and release gates: Verification: Missing until the migration
-  stages are complete.
+- Runtime and package matrix: `pnpm exec turbo run test --force`.
+- Static bundle isolation and budgets: `pnpm package:size`.
+- Package export validity: `pnpm package:quality`.
+- Full release matrix: `pnpm check`.
+- Coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35% statements and
+  88.37% branches).
+- Browser workers: `pnpm test:e2e:browser` (27 tests across Chromium, Firefox,
+  and WebKit).
+- Release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

@@ -8,7 +8,7 @@
 
 > **Slice**\<`T`\> = (`set`, `get`, `store`) => `T`
 
-Defined in: [packages/core/src/interface.ts:217](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L217)
+Defined in: [packages/core/src/interface.ts:225](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L225)
 
 Factory for a single store object.
 
@@ -38,4 +38,5 @@ Factory for a single store object.
 
 ## Remarks
 
-Return a plain object containing state, getters, and methods. Methods and getters may use `this` to access the live store state.
+Return a plain object containing state, getters, and methods. Methods and
+getters may use `this` to access the live store state.

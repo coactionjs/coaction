@@ -4,7 +4,9 @@ This directory documents Coaction from the maintainer's point of view.
 
 The public API is intentionally small, but the runtime has several distinct layers:
 
-1. Core store creation and state lifecycle in `packages/core/src/create.ts`
+1. Shared-mode selection in `packages/core/src/create.ts`, local-only creation
+   in `packages/core/src/createLocal.ts`, and common lifecycle construction in
+   `packages/core/src/storeFactory.ts`
 2. State materialization and method binding in `packages/core/src/getInitialState.ts` and `packages/core/src/getRawState.ts`
 3. Local and shared mutation flow in `packages/core/src/handleState.ts`
 4. Client/main synchronization in `packages/core/src/asyncClientStore.ts` and `packages/core/src/handleMainTransport.ts`
@@ -13,7 +15,10 @@ The public API is intentionally small, but the runtime has several distinct laye
 ## Package Layers
 
 - `packages/core`
-  - Runtime authority model, state materialization, patch generation, transport integration, middleware hooks, adapter hooks
+  - `coaction/local`: transport-free local creation
+  - `coaction/shared`: JSON protocol, authority/client synchronization, and reconnect recovery
+  - `coaction/adapter`: external runtime integration helpers
+  - `coaction`: compatibility entry that retains local and shared mode selection
 - `packages/coaction-*` framework bindings
   - Wrap a core store for framework-specific reactivity and lifecycle behavior
 - `packages/coaction-*` state adapters
@@ -47,7 +52,8 @@ The public API is intentionally small, but the runtime has several distinct laye
 
 ## Design Constraints
 
-- `create()` supports multiple modes today for backward compatibility, but new semantics should prefer explicit helpers or variants over additional overload ambiguity.
+- The compatibility `coaction` entry supports multiple modes, while new
+  vanilla code should select `coaction/local` or `coaction/shared` explicitly.
 - Shared mode treats the main store as the single execution authority.
 - Client stores are mirrors, not peers. They may read local mirrored state, but they do not own mutation authority.
 - Binder-backed adapters and Coaction slices solve different composition problems and should not be mixed.
