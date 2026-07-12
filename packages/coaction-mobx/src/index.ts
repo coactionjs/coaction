@@ -26,6 +26,13 @@ type MobxInternal = {
   actMutable?: typeof runInAction;
   notifyStateChange?: () => void;
   assertAlive?: (operation: 'apply' | 'subscribe') => void;
+  validateState?: (state: unknown) => void;
+};
+
+const reportAdapterStateError = (error: unknown) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(error);
+  }
 };
 
 const deleteUnsafeEnumerableKeys = (
@@ -95,6 +102,10 @@ const handleStore = (
     if (!mutableState) {
       return;
     }
+    const rollbackSnapshot = toTransportState(snapshot) as Record<
+      PropertyKey,
+      unknown
+    >;
     isApplyingCoactionState = true;
     try {
       runInAction(() => {
@@ -106,7 +117,7 @@ const handleStore = (
           currentRawState,
           mutableState as Record<PropertyKey, unknown>,
           store.getState() as Record<PropertyKey, unknown>,
-          snapshot
+          rollbackSnapshot
         );
       });
     } finally {
@@ -138,6 +149,14 @@ const handleStore = (
             syncImmutable: false
           }
         );
+      } catch (error) {
+        try {
+          restoreClientState(lastSnapshot);
+        } catch (rollbackError) {
+          reportAdapterStateError(rollbackError);
+        }
+        reportAdapterStateError(error);
+        return 'ignored';
       } finally {
         internal.rootState = rootState;
       }
@@ -208,9 +227,11 @@ const handleStore = (
   internal.actMutable = runInAction;
   store.apply = (state = store.getPureState(), patches) => {
     internal.assertAlive?.('apply');
+    const previousSnapshot = lastSnapshot ?? snapshotPureState(store);
     isApplyingCoactionState = true;
     try {
       if (!patches) {
+        internal.validateState?.(toTransportState(state));
         runInAction(() => {
           const currentRawState = (internal.rootState ?? rawState) as Record<
             PropertyKey,
@@ -235,9 +256,17 @@ const handleStore = (
           patches!,
           currentRawState,
           internal.toMutableRaw!(rawState) as Record<PropertyKey, unknown>,
-          store.getState() as Record<PropertyKey, unknown>
+          store.getState() as Record<PropertyKey, unknown>,
+          internal.validateState
         );
       });
+    } catch (error) {
+      try {
+        restoreClientState(previousSnapshot);
+      } catch (rollbackError) {
+        reportAdapterStateError(rollbackError);
+      }
+      throw error;
     } finally {
       lastSnapshot = snapshotPureState(store);
       isApplyingCoactionState = false;

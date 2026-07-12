@@ -56,6 +56,8 @@ export type WorkerBinderAdapterContract = {
   expectedValueAfterClientUpdate: number;
   writeServerExternal?: () => Awaitable<unknown>;
   expectedValueAfterServerExternalWrite?: number;
+  writeInvalidServerExternal?: () => Awaitable<unknown>;
+  readServerExternal?: () => unknown;
   writeClientExternal?: () => Awaitable<unknown>;
   cleanup?: () => Awaitable<void>;
 };
@@ -203,6 +205,28 @@ export const runBinderAdapterContract = ({
               expect(contract.readValue(clientStore)).toBe(
                 contract.expectedValueAfterServerExternalWrite
               );
+            });
+          }
+
+          if (contract.writeInvalidServerExternal) {
+            const expectedAuthoritativeValue =
+              typeof contract.expectedValueAfterServerExternalWrite === 'number'
+                ? contract.expectedValueAfterServerExternalWrite
+                : contract.expectedValueAfterClientUpdate;
+            await contract.writeInvalidServerExternal();
+            await waitForNextTick();
+            await vi.waitFor(() => {
+              expect(contract.readValue(serverStore)).toBe(
+                expectedAuthoritativeValue
+              );
+              expect(contract.readValue(clientStore)).toBe(
+                expectedAuthoritativeValue
+              );
+              if (contract.readServerExternal) {
+                expect(contract.readServerExternal()).toBe(
+                  expectedAuthoritativeValue
+                );
+              }
             });
           }
 

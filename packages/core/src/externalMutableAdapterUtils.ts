@@ -125,7 +125,8 @@ export const applyMutableAdapterPatches = (
   patches: Patches,
   rawState: Record<PropertyKey, unknown>,
   mutableState: Record<PropertyKey, unknown>,
-  publicState: Record<PropertyKey, unknown>
+  publicState: Record<PropertyKey, unknown>,
+  validateState?: (state: unknown) => void
 ) => {
   assertSafePatches(patches, 'mutable adapter apply()');
   const patchBase = baseState === publicState ? rawState : baseState;
@@ -133,6 +134,7 @@ export const applyMutableAdapterPatches = (
     toMutableAdapterSnapshot(patchBase) as Record<PropertyKey, unknown>,
     patches
   ) as Record<PropertyKey, unknown>;
+  validateState?.(nextState);
   replaceMutableAdapterState(rawState, mutableState, publicState, nextState);
 };
 

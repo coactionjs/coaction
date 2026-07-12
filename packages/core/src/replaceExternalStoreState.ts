@@ -14,7 +14,7 @@ export const replaceExternalStoreState = <T extends CreateState>(
   source: Record<PropertyKey, unknown>,
   { syncImmutable = true }: ReplaceExternalStoreStateOptions = {}
 ) => {
-  const [, patches, inversePatches] = createWithMutative(
+  const [nextState, patches, inversePatches] = createWithMutative(
     internal.rootState,
     (draft) => {
       replaceOwnEnumerable(draft as Record<PropertyKey, unknown>, source);
@@ -23,6 +23,7 @@ export const replaceExternalStoreState = <T extends CreateState>(
       enablePatches: true
     }
   ) as [T, Patches, Patches];
+  internal.validateState?.(nextState);
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };

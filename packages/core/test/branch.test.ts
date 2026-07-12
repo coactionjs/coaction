@@ -1,9 +1,11 @@
 import { createAsyncClientStore } from '../src/asyncClientStore';
 import { applyMiddlewares } from '../src/applyMiddlewares';
 import { create } from '../src/create';
+import { applyMutableAdapterPatches } from '../src/externalMutableAdapterUtils';
 import { getInitialState } from '../src/getInitialState';
 import { handleMainTransport } from '../src/handleMainTransport';
 import { handleDraft } from '../src/handleDraft';
+import { replaceExternalStoreState } from '../src/replaceExternalStoreState';
 import {
   decodeExecuteResponse,
   encodeExecuteRequest,
@@ -23,6 +25,63 @@ const createStoreLike = () => ({
   destroy: vi.fn(),
   apply: vi.fn(),
   getPureState: vi.fn(() => ({}))
+});
+
+test('mutable adapter patches validate before any state is replaced', () => {
+  const rawState = { count: 0 };
+  const mutableState = { count: 0 };
+  const publicState = { count: 0 };
+  const validateState = vi.fn(() => {
+    throw new TypeError('invalid transport state');
+  });
+
+  expect(() =>
+    applyMutableAdapterPatches(
+      publicState,
+      [
+        {
+          op: 'replace',
+          path: ['count'],
+          value: new Date(0)
+        }
+      ] as any,
+      rawState,
+      mutableState,
+      publicState,
+      validateState
+    )
+  ).toThrow('invalid transport state');
+
+  expect(validateState).toHaveBeenCalledWith({ count: new Date(0) });
+  expect(rawState.count).toBe(0);
+  expect(mutableState.count).toBe(0);
+  expect(publicState.count).toBe(0);
+});
+
+test('external store replacement validates before apply and emit', () => {
+  const store = {
+    apply: vi.fn(),
+    transport: {
+      emit: vi.fn()
+    }
+  } as any;
+  const internal = {
+    rootState: { count: 0 },
+    sequence: 0,
+    validateState: vi.fn(() => {
+      throw new TypeError('invalid transport state');
+    })
+  } as any;
+
+  expect(() =>
+    replaceExternalStoreState(store, internal, {
+      count: new Date(0),
+      increment: () => undefined
+    })
+  ).toThrow('invalid transport state');
+  expect(internal.validateState).toHaveBeenCalledWith({ count: new Date(0) });
+  expect(store.apply).not.toHaveBeenCalled();
+  expect(store.transport.emit).not.toHaveBeenCalled();
 });
 
 test('applyMiddlewares validates middleware type in development', () => {

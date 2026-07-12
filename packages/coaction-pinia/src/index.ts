@@ -7,6 +7,7 @@ import {
   replaceMutableAdapterState as replaceMutableState,
   sanitizeInitialStateValue,
   snapshotMutableAdapterPureState as snapshotPureState,
+  toMutableAdapterSnapshot as toTransportState,
   type Store
 } from 'coaction/adapter';
 import { createPinia } from 'pinia';
@@ -34,6 +35,13 @@ type PiniaInternal = {
   toMutableRaw?: (key: object) => PiniaStoreInstance | undefined;
   notifyStateChange?: () => void;
   assertAlive?: (operation: 'apply' | 'subscribe') => void;
+  validateState?: (state: unknown) => void;
+};
+
+const reportAdapterStateError = (error: unknown) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(error);
+  }
 };
 
 type StoreWithSubscriptions = Store<object> & {
@@ -85,6 +93,10 @@ const handleStore = (
     if (!mutableStore) {
       return;
     }
+    const rollbackSnapshot = toTransportState(snapshot) as Record<
+      PropertyKey,
+      unknown
+    >;
     isApplyingCoactionState = true;
     try {
       const currentRawState = (internal.rootState ?? rawState) as Record<
@@ -95,7 +107,7 @@ const handleStore = (
         currentRawState,
         mutableStore as unknown as Record<PropertyKey, unknown>,
         store.getState() as Record<PropertyKey, unknown>,
-        snapshot
+        rollbackSnapshot
       );
     } finally {
       lastSnapshot = snapshotPureState(store);
@@ -126,6 +138,14 @@ const handleStore = (
             syncImmutable: false
           }
         );
+      } catch (error) {
+        try {
+          restoreClientState(lastSnapshot);
+        } catch (rollbackError) {
+          reportAdapterStateError(rollbackError);
+        }
+        reportAdapterStateError(error);
+        return 'ignored';
       } finally {
         internal.rootState = rootState;
       }
@@ -165,10 +185,12 @@ const handleStore = (
     };
     store.apply = (nextState = store.getPureState(), patches) => {
       internal.assertAlive?.('apply');
+      const previousSnapshot = lastSnapshot ?? snapshotPureState(store);
       isApplyingCoactionState = true;
       try {
         if (!patches) {
           if (nextState === store.getState()) return;
+          internal.validateState?.(toTransportState(nextState));
           const currentRawState = (internal.rootState ?? rawState) as Record<
             PropertyKey,
             unknown
@@ -196,8 +218,16 @@ const handleStore = (
             PropertyKey,
             unknown
           >,
-          store.getState() as Record<PropertyKey, unknown>
+          store.getState() as Record<PropertyKey, unknown>,
+          internal.validateState
         );
+      } catch (error) {
+        try {
+          restoreClientState(previousSnapshot);
+        } catch (rollbackError) {
+          reportAdapterStateError(rollbackError);
+        }
+        throw error;
       } finally {
         lastSnapshot = snapshotPureState(store);
         isApplyingCoactionState = false;

@@ -69,6 +69,10 @@ runBinderAdapterContract({
         serverExternal!.count = 7;
       },
       expectedValueAfterServerExternalWrite: 7,
+      writeInvalidServerExternal: () => {
+        (serverExternal as any).count = new Date(0);
+      },
+      readServerExternal: () => serverExternal!.count,
       writeClientExternal: () => {
         client.external.count = 9;
       }
