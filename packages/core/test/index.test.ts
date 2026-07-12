@@ -666,6 +666,30 @@ describe('shared initial state validation', () => {
   });
 });
 
+test('failed shared adapter initialization runs its installed cleanup', () => {
+  const cleanup = jest.fn();
+  const bindThirdParty = createBinder({
+    handleState: ((state: { value: Date }) => ({
+      copyState: state,
+      bind: (next: { value: Date }) => next
+    })) as any,
+    handleStore: (store) => {
+      const baseDestroy = store.destroy;
+      store.destroy = () => {
+        cleanup();
+        baseDestroy();
+      };
+    }
+  });
+
+  expect(() =>
+    create(() => bindThirdParty({ value: new Date(0) }) as any, {
+      transport: {} as any
+    })
+  ).toThrow('Non-plain object state');
+  expect(cleanup).toHaveBeenCalledTimes(1);
+});
+
 describe('Store Name Lifecycle', () => {
   const NODE_ENV = process.env.NODE_ENV;
 

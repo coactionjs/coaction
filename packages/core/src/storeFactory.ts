@@ -236,6 +236,13 @@ export const createStore = <T extends CreateState>(
     markStoreReady(store);
     return { store, internal };
   } catch (error) {
+    try {
+      store.destroy?.();
+    } catch (destroyError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(destroyError);
+      }
+    }
     releaseStoreName();
     throw error;
   }
