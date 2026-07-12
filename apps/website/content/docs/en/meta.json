@@ -2,17 +2,11 @@
   "title": "Coaction",
   "pages": [
     "index",
-    "---Getting started---",
     "getting-started",
-    "---Core concepts---",
     "concepts",
-    "---Shared runtime---",
     "shared",
-    "---Integrations---",
     "integrations",
-    "---Guides---",
     "guides",
-    "---Reference---",
     "reference"
   ]
 }
