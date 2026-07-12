@@ -7,11 +7,58 @@ const { getPackagesSync } = require('@manypkg/get-packages');
 const rootDir = path.join(__dirname, '..');
 const changesetDir = path.join(rootDir, '.changeset');
 
-const packageNames = new Set(
-  getPackagesSync(rootDir)
-    .packages.map((pkg) => pkg.packageJson.name)
-    .filter((name) => name === 'coaction' || name.startsWith('@coaction/'))
+const coactionPackages = getPackagesSync(rootDir).packages.filter(
+  (pkg) =>
+    pkg.packageJson.name === 'coaction' ||
+    pkg.packageJson.name.startsWith('@coaction/')
 );
+const packageNames = new Set(
+  coactionPackages.map((pkg) => pkg.packageJson.name)
+);
+
+const corePackage = coactionPackages.find(
+  (pkg) => pkg.packageJson.name === 'coaction'
+);
+const coreMajor = Number.parseInt(
+  String(corePackage?.packageJson.version).split('.')[0],
+  10
+);
+
+const hasCanonicalSameMajorRange = (range, major) => {
+  const normalized = range.replace(/\s+/g, ' ').trim();
+  const prerelease = '(?:-[0-9A-Za-z.-]+)?';
+  const caret = new RegExp(`^\\^${major}\\.\\d+\\.\\d+${prerelease}$`);
+  const bounded = new RegExp(
+    `^>= ?${major}\\.\\d+\\.\\d+${prerelease} < ?${major + 1}(?:\\.0\\.0)?$`
+  );
+  return caret.test(normalized) || bounded.test(normalized);
+};
+
+const invalidCorePeerRanges = coactionPackages
+  .filter((pkg) => pkg.packageJson.name !== 'coaction')
+  .map((pkg) => ({
+    name: pkg.packageJson.name,
+    range: pkg.packageJson.peerDependencies?.coaction
+  }))
+  .filter(
+    ({ range }) =>
+      typeof range !== 'string' ||
+      !Number.isSafeInteger(coreMajor) ||
+      !hasCanonicalSameMajorRange(range, coreMajor)
+  );
+
+if (invalidCorePeerRanges.length) {
+  console.error(
+    '[changeset validation] Coaction peer ranges must stay within the current core major.'
+  );
+  for (const { name, range } of invalidCorePeerRanges) {
+    console.error(`  - ${name}: ${range}`);
+  }
+  console.error(
+    `Use ^${coreMajor}.x.y or >=${coreMajor}.x.y <${coreMajor + 1}.`
+  );
+  process.exit(1);
+}
 
 const changesetFiles = fs
   .readdirSync(changesetDir)

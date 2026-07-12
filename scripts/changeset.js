@@ -23,6 +23,7 @@ if (args[0] === 'version') {
   run(process.execPath, [changesetBin, 'version', ...args.slice(1)]);
   run('node', [path.join(__dirname, 'sync-root-version.js')]);
   run('node', [path.join(__dirname, 'bump-peer-dep-ranges.js')]);
+  run('node', [path.join(__dirname, 'validate-changesets.js')]);
   process.exit(0);
 }
 
