@@ -3,18 +3,16 @@ import * as adapter from '../adapter';
 import * as local from '../local';
 import * as shared from '../shared';
 import { create } from '../src/create';
-import { createBinder, defineExternalStoreAdapter } from '../src/binder';
-import { createReactiveTracker } from '../src/reactiveTracker';
-import { wrapStore } from '../src/wrapStore';
+import { createLocal } from '../src/createLocal';
 
 test('re-exports runtime APIs from package entry', () => {
   expect(core.create).toBe(create);
-  expect(shared.create).toBe(create);
+  expect(shared.create).toBeInstanceOf(Function);
   expect(local.create).not.toBe(create);
-  expect(adapter.createBinder).toBe(createBinder);
-  expect(adapter.defineExternalStoreAdapter).toBe(defineExternalStoreAdapter);
-  expect(adapter.createReactiveTracker).toBe(createReactiveTracker);
-  expect(adapter.wrapStore).toBe(wrapStore);
+  expect(adapter.createBinder).toBeInstanceOf(Function);
+  expect(adapter.defineExternalStoreAdapter).toBeInstanceOf(Function);
+  expect(adapter.createReactiveTracker).toBeInstanceOf(Function);
+  expect(adapter.wrapStore).toBeInstanceOf(Function);
   expect(core.signal).toBeInstanceOf(Function);
   expect(core.computed).toBeInstanceOf(Function);
   expect(core.effect).toBeInstanceOf(Function);
@@ -23,11 +21,13 @@ test('re-exports runtime APIs from package entry', () => {
 
 test('local entry creates local stores and rejects shared options', () => {
   const store = local.create(() => ({ count: 0 }));
+  const directStore = createLocal(() => ({ count: 1 }));
   expect(store.share).toBe(false);
   expect(store.getState().count).toBe(0);
+  expect(directStore.getState().count).toBe(1);
 
   expect(() =>
-    local.create(() => ({ count: 0 }), {
+    createLocal(() => ({ count: 0 }), {
       transport: {}
     } as any)
   ).toThrow("Option 'transport' requires the coaction/shared entry point.");

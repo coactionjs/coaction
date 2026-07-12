@@ -109,7 +109,7 @@ test('destroy unsubscribes autorun only once', async () => {
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
 
-test('shared sync snapshots preserve sparse array shape', async () => {
+test('adapter snapshots preserve local rich values before JSON validation', async () => {
   vi.resetModules();
   let capturedHandleStore: any;
   let autorunRunner: (() => void) | undefined;

@@ -193,7 +193,13 @@ export const handleMainTransport = <T extends CreateState>(
     internal.destroyCallbacks?.delete(cleanup);
     cleanup();
     store.transport = undefined;
-    transport.dispose?.();
+    try {
+      transport.dispose?.();
+    } catch (disposeError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(disposeError);
+      }
+    }
     throw error;
   }
 };

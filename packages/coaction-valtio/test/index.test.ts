@@ -14,6 +14,26 @@ const waitForSharedHydration = async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
+test('shared store rejects non-JSON values from adapter snapshots', () => {
+  const state = proxy(
+    bindValtio({
+      stamp: new Date('2026-01-01T00:00:00.000Z')
+    })
+  );
+
+  expect(() =>
+    create(() => adapt(state), {
+      transport: {
+        dispose() {},
+        emit() {},
+        listen() {}
+      } as any
+    })
+  ).toThrow(
+    'Non-plain object state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at stamp.'
+  );
+});
+
 test('base', () => {
   const state = proxy(
     bindValtio({

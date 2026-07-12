@@ -1,7 +1,8 @@
-import type { Transport } from 'data-transport';
-import { create } from '../../../packages/core/shared';
+import { create, type StoreOptions } from '../../../packages/core/shared';
 
-export const createSharedCounter = (transport: Transport) =>
+export const createSharedCounter = (
+  transport: NonNullable<StoreOptions<any>['transport']>
+) =>
   create(
     (set) => ({
       count: 0,

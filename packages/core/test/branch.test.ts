@@ -1529,3 +1529,191 @@ test('handleMainTransport applies action and authorization policy', async () => 
     expect.any(String)
   );
 });
+
+test('handleMainTransport cleans partial listener setup failures', () => {
+  const disposeExecute = vi.fn();
+  const disposeTransport = vi.fn();
+  const internal = {
+    destroyCallbacks: new Set<() => void>(),
+    rootState: {},
+    sequence: 0,
+    sharedActionPaths: new Set()
+  } as any;
+  const store = {
+    name: 'main',
+    getState: () => ({})
+  } as any;
+  const listen = vi
+    .fn()
+    .mockReturnValueOnce(disposeExecute)
+    .mockImplementationOnce(() => {
+      throw new Error('fullSync listener failed');
+    });
+
+  expect(() =>
+    handleMainTransport(
+      store,
+      internal,
+      {
+        dispose: disposeTransport,
+        listen
+      } as any,
+      null,
+      false
+    )
+  ).toThrow('fullSync listener failed');
+
+  expect(disposeExecute).toHaveBeenCalledTimes(1);
+  expect(disposeTransport).toHaveBeenCalledTimes(1);
+  expect(internal.destroyCallbacks).toHaveLength(0);
+  expect(store.transport).toBeUndefined();
+});
+
+test('handleMainTransport reports a declared path that is no longer a function', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
+  handleMainTransport(
+    {
+      name: 'main',
+      getState: () => ({ removed: 1 })
+    } as any,
+    {
+      rootState: {},
+      sequence: 0,
+      sharedActionPaths: new Set([JSON.stringify(['removed'])])
+    } as any,
+    {
+      listen: vi.fn((name: string, handler: any) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
+      })
+    } as any,
+    null,
+    false
+  );
+
+  expect(
+    decodeExecuteResponse(
+      await executeHandler!(encodeExecuteRequest(['removed'], []))
+    )
+  ).toEqual(
+    expect.objectContaining({
+      error: 'The function is not found',
+      ok: false
+    })
+  );
+});
+
+test('handleMainTransport cancels an in-flight authorized action on destroy', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
+  let resolveAuthorization!: (allowed: boolean) => void;
+  const destroyCallbacks = new Set<() => void>();
+  handleMainTransport(
+    {
+      name: 'main',
+      getState: () => ({
+        read() {
+          return 1;
+        }
+      })
+    } as any,
+    {
+      destroyCallbacks,
+      rootState: {},
+      sequence: 0,
+      sharedActionPaths: new Set([JSON.stringify(['read'])])
+    } as any,
+    {
+      listen: vi.fn((name: string, handler: any) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
+        return () => undefined;
+      })
+    } as any,
+    null,
+    false,
+    {
+      authorize: () =>
+        new Promise<boolean>((resolve) => {
+          resolveAuthorization = resolve;
+        })
+    }
+  );
+
+  const pending = executeHandler!(encodeExecuteRequest(['read'], []));
+  await Promise.resolve();
+  destroyCallbacks.forEach((destroy) => destroy());
+  resolveAuthorization(true);
+
+  expect(decodeExecuteResponse(await pending)).toEqual(
+    expect.objectContaining({
+      error: 'Transport request was cancelled after store destroy',
+      ok: false
+    })
+  );
+});
+
+test('handleMainTransport rejects non-record full-sync state', async () => {
+  let fullSyncHandler: ((message: string) => Promise<string>) | undefined;
+  handleMainTransport(
+    {
+      name: 'main',
+      getState: () => ({})
+    } as any,
+    {
+      rootState: [],
+      sequence: 0,
+      sharedActionPaths: new Set()
+    } as any,
+    {
+      listen: vi.fn((name: string, handler: any) => {
+        if (name === 'fullSync') {
+          fullSyncHandler = handler;
+        }
+      })
+    } as any,
+    null,
+    false
+  );
+
+  await expect(fullSyncHandler!(encodeFullSyncRequest())).rejects.toThrow(
+    'Shared store state must be a JSON object'
+  );
+});
+
+test('createAsyncClientStore cleans partial listener setup failures', () => {
+  const disposeUpdate = vi.fn();
+  const disposeTransport = vi.fn();
+  const internal = {
+    destroyCallbacks: new Set<() => void>(),
+    sequence: 0
+  } as any;
+
+  expect(() =>
+    createAsyncClientStore(
+      () => ({
+        store: {
+          apply: vi.fn(),
+          getState: () => ({}),
+          name: 'client'
+        } as any,
+        internal
+      }),
+      {
+        clientTransport: {
+          dispose: disposeTransport,
+          emit: vi.fn(),
+          listen: vi.fn(() => disposeUpdate),
+          onConnect: vi.fn(() => {
+            throw new Error('connect listener failed');
+          })
+        } as any
+      }
+    )
+  ).toThrow('connect listener failed');
+
+  expect(disposeUpdate).toHaveBeenCalledTimes(1);
+  expect(disposeTransport).toHaveBeenCalledTimes(1);
+  expect(internal.destroyCallbacks).toHaveLength(0);
+});

@@ -256,7 +256,11 @@ export const createAsyncClientStore = <T extends CreateState>(
   } catch (error) {
     internal.destroyCallbacks?.delete(cleanup);
     cleanup();
-    transport.dispose?.();
+    try {
+      transport.dispose?.();
+    } catch (disposeError) {
+      reportTransportError(disposeError);
+    }
     throw error;
   }
 

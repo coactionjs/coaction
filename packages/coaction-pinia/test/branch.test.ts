@@ -226,7 +226,7 @@ test('destroy cleans pinia subscriptions before base destroy errors', async () =
   expect(baseDestroy).toHaveBeenCalledTimes(1);
 });
 
-test('shared sync snapshots preserve sparse array shape', async () => {
+test('adapter snapshots preserve local rich values before JSON validation', async () => {
   const {
     capturedHandleStore,
     capturedHandleState,

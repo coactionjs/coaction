@@ -9,6 +9,9 @@ const packageAlias = (packageName: string) =>
 export default {
   resolve: {
     alias: {
+      'coaction/adapter': resolve(__dirname, 'packages/core/adapter.ts'),
+      'coaction/local': resolve(__dirname, 'packages/core/local.ts'),
+      'coaction/shared': resolve(__dirname, 'packages/core/shared.ts'),
       coaction: packageAlias('core'),
       '@coaction/history': packageAlias('coaction-history'),
       '@coaction/jotai': packageAlias('coaction-jotai'),
