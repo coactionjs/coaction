@@ -6,6 +6,7 @@ export type MutationOperation = 'setState' | 'apply';
 export type StoreOperation =
   | MutationOperation
   | 'subscribe'
+  | 'store initialization'
   | `action ${string}`;
 
 export type SignalSlot = {

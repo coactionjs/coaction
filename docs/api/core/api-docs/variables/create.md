@@ -8,7 +8,7 @@
 
 > `const` **create**: `Creator`
 
-Defined in: [packages/core/src/create.ts:87](https://github.com/coactionjs/coaction/blob/main/packages/core/src/create.ts#L87)
+Defined in: [packages/core/src/create.ts:84](https://github.com/coactionjs/coaction/blob/main/packages/core/src/create.ts#L84)
 
 Create a local store, the main side of a shared store, or a client mirror of
 a shared store.

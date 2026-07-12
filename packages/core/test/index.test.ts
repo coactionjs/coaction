@@ -12,6 +12,8 @@ import {
 } from '../src';
 import { createBinder } from '../src/binder';
 import { bindSymbol } from '../src/constant';
+import { createLocal } from '../src/createLocal';
+import { onStoreReady } from '../src/lifecycle';
 import {
   decodeExecuteResponse,
   encodeExecuteRequest
@@ -731,6 +733,154 @@ test('shared adapters validate replacement sources before reading them', () => {
     store.destroy();
   }
 });
+
+test('shared stores become ready after main transport setup', () => {
+  const transport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn())
+  };
+  let transportAtReady: unknown;
+  const store = create(() => ({ count: 0 }), {
+    transport: transport as any,
+    middlewares: [
+      (middlewareStore) => {
+        onStoreReady(middlewareStore, () => {
+          transportAtReady = middlewareStore.transport;
+        });
+        return middlewareStore;
+      }
+    ]
+  });
+
+  expect(transportAtReady).toBe(transport);
+  store.destroy();
+  expect(transport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('client stores become ready after client transport setup', () => {
+  const clientTransport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn()),
+    onConnect: jest.fn(() => jest.fn())
+  };
+  let transportAtReady: unknown;
+  const store = create(() => ({ count: 0 }), {
+    clientTransport: clientTransport as any,
+    middlewares: [
+      (middlewareStore) => {
+        onStoreReady(middlewareStore, () => {
+          transportAtReady = middlewareStore.transport;
+        });
+        return middlewareStore;
+      }
+    ]
+  });
+
+  expect(transportAtReady).toBe(clientTransport);
+  store.destroy();
+  expect(clientTransport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('destroy from a main ready callback aborts store creation', () => {
+  const transport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn())
+  };
+
+  expect(() =>
+    create(() => ({ count: 0 }), {
+      transport: transport as any,
+      middlewares: [
+        (middlewareStore) => {
+          onStoreReady(middlewareStore, () => middlewareStore.destroy());
+          return middlewareStore;
+        }
+      ]
+    })
+  ).toThrow('store initialization cannot be called after store.destroy()');
+  expect(transport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('destroy from a client ready callback aborts store creation', () => {
+  const clientTransport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn()),
+    onConnect: jest.fn(() => jest.fn())
+  };
+
+  expect(() =>
+    create(() => ({ count: 0 }), {
+      clientTransport: clientTransport as any,
+      middlewares: [
+        (middlewareStore) => {
+          onStoreReady(middlewareStore, () => middlewareStore.destroy());
+          return middlewareStore;
+        }
+      ]
+    })
+  ).toThrow('store initialization cannot be called after store.destroy()');
+  expect(clientTransport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('destroy from a local ready callback aborts store creation', () => {
+  expect(() =>
+    createLocal(() => ({ count: 0 }), {
+      middlewares: [
+        (middlewareStore) => {
+          onStoreReady(middlewareStore, () => middlewareStore.destroy());
+          return middlewareStore;
+        }
+      ]
+    })
+  ).toThrow('store initialization cannot be called after store.destroy()');
+});
+
+test('destroy during initialization prevents transport listener setup', () => {
+  const transport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn())
+  };
+
+  expect(() =>
+    create(
+      (_set, _get, initializingStore) => {
+        initializingStore.destroy();
+        return { count: 0 };
+      },
+      { transport: transport as any }
+    )
+  ).toThrow('store initialization cannot be called after store.destroy()');
+  expect(transport.listen).not.toHaveBeenCalled();
+  expect(transport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('destroy during client initialization prevents transport setup', () => {
+  const clientTransport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn()),
+    onConnect: jest.fn(() => jest.fn())
+  };
+
+  expect(() =>
+    create(
+      (_set, _get, initializingStore) => {
+        initializingStore.destroy();
+        return { count: 0 };
+      },
+      { clientTransport: clientTransport as any }
+    )
+  ).toThrow('store initialization cannot be called after store.destroy()');
+  expect(clientTransport.listen).not.toHaveBeenCalled();
+  expect(clientTransport.onConnect).not.toHaveBeenCalled();
+  expect(clientTransport.dispose).toHaveBeenCalledTimes(1);
+});
+
 describe('Store Name Lifecycle', () => {
   const NODE_ENV = process.env.NODE_ENV;
 

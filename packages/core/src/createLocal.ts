@@ -4,6 +4,7 @@ import type {
   LocalStoreOptions,
   Slice
 } from './interface';
+import { markStoreReady } from './lifecycle';
 import { createStore } from './storeFactory';
 import { wrapStore } from './wrapStore';
 
@@ -33,5 +34,19 @@ export const createLocal: LocalCreator = <T extends CreateState>(
       );
     }
   }
-  return wrapStore(createStore(createState, options).store);
+  const { store, internal } = createStore(createState, options);
+  try {
+    markStoreReady(store);
+    internal.assertAlive?.('store initialization');
+  } catch (error) {
+    try {
+      store.destroy();
+    } catch (destroyError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(destroyError);
+      }
+    }
+    throw error;
+  }
+  return wrapStore(store);
 };

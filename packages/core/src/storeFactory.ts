@@ -16,7 +16,6 @@ import type {
   StoreOptions
 } from './interface';
 import type { Internal } from './internal';
-import { markStoreReady } from './lifecycle';
 import {
   assertKnownStateShape,
   assertSafePatches,
@@ -223,6 +222,7 @@ export const createStore = <T extends CreateState>(
     if (middlewareStore !== store) {
       Object.assign(store, middlewareStore);
     }
+    internal.assertAlive?.('store initialization');
     if (validatePatches && store.patch) {
       const patch = store.patch.bind(store);
       store.patch = (options) => {
@@ -232,6 +232,7 @@ export const createStore = <T extends CreateState>(
       };
     }
     const initialState = getInitialState(store, createState, internal) as T;
+    internal.assertAlive?.('store initialization');
     internal.sharedActionPaths = runtime.collectActionPaths?.(
       initialState,
       store.isSliceStore
@@ -271,7 +272,6 @@ export const createStore = <T extends CreateState>(
       store.isSliceStore
     );
     validateState?.(internal.getTransportState?.() ?? internal.rootState);
-    markStoreReady(store);
     return { store, internal };
   } catch (error) {
     try {

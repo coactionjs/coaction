@@ -8,6 +8,12 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import {
+  failStoreSetup,
+  failTransportInitialization,
+  markStoreReady,
+  reportLifecycleError
+} from './lifecycle';
+import {
   decodeFullSyncResponse,
   decodeUpdateMessage,
   encodeFullSyncRequest,
@@ -19,24 +25,6 @@ import { wrapStore } from './wrapStore';
 const clientApplyErrorMessage =
   'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.';
 
-const reportTransportError = (error: unknown) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.error(error);
-  }
-};
-
-const destroyAfterSetupFailure = <T extends CreateState>(
-  store: MiddlewareStore<T>,
-  error: unknown
-): never => {
-  try {
-    store.destroy();
-  } catch (destroyError) {
-    reportTransportError(destroyError);
-  }
-  throw error;
-};
-
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
     store: MiddlewareStore<T>;
@@ -44,7 +32,13 @@ export const createAsyncClientStore = <T extends CreateState>(
   },
   options: ClientTransportOptions
 ) => {
-  const { store, internal } = createStore({ share: 'client' });
+  let createdStore: ReturnType<typeof createStore>;
+  try {
+    createdStore = createStore({ share: 'client' });
+  } catch (error) {
+    return failTransportInitialization(options.clientTransport, error);
+  }
+  const { store, internal } = createdStore;
   let canApplyClientState = false;
   const previousAssertMutationAllowed = internal.assertMutationAllowed;
   internal.assertMutationAllowed = (operation) => {
@@ -84,10 +78,10 @@ export const createAsyncClientStore = <T extends CreateState>(
         )
       : options.clientTransport;
   } catch (error) {
-    return destroyAfterSetupFailure(store, error);
+    return failStoreSetup(store, error);
   }
   if (!transport) {
-    return destroyAfterSetupFailure(store, new Error('transport is required'));
+    return failStoreSetup(store, new Error('transport is required'));
   }
   try {
     store.transport = transport;
@@ -95,7 +89,7 @@ export const createAsyncClientStore = <T extends CreateState>(
       throw new Error('transport.onConnect is required');
     }
   } catch (error) {
-    return destroyAfterSetupFailure(store, error);
+    return failStoreSetup(store, error);
   }
 
   const destroyedMarker = Symbol('destroyed client transport');
@@ -127,7 +121,7 @@ export const createAsyncClientStore = <T extends CreateState>(
       try {
         dispose();
       } catch (error) {
-        reportTransportError(error);
+        reportLifecycleError(error);
       }
     }
   };
@@ -254,9 +248,9 @@ export const createAsyncClientStore = <T extends CreateState>(
             try {
               await fullSync();
             } catch (syncError) {
-              reportTransportError(syncError);
+              reportLifecycleError(syncError);
             }
-            reportTransportError(error);
+            reportLifecycleError(error);
           }
         }
       })
@@ -270,12 +264,14 @@ export const createAsyncClientStore = <T extends CreateState>(
           }
         });
         connectSync = pending;
-        void pending.catch(reportTransportError);
+        void pending.catch(reportLifecycleError);
         return pending;
       })
     );
+    markStoreReady(store);
+    internal.assertAlive?.('store initialization');
   } catch (error) {
-    return destroyAfterSetupFailure(store, error);
+    return failStoreSetup(store, error);
   }
 
   return wrapStore(store, () => store.getState());
@@ -301,8 +297,8 @@ export const emit = <T extends CreateState>(
       { name: 'update', respond: false },
       encoded
     );
-    void Promise.resolve(pending).catch(reportTransportError);
+    void Promise.resolve(pending).catch(reportLifecycleError);
   } catch (error) {
-    reportTransportError(error);
+    reportLifecycleError(error);
   }
 };

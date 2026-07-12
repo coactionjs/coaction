@@ -10,6 +10,11 @@ import type {
   StoreOptions
 } from './interface';
 import {
+  failStoreSetup,
+  failTransportInitialization,
+  markStoreReady
+} from './lifecycle';
+import {
   validateSharedActionPaths,
   validateSharedInitialState,
   validateSharedReplacementSource,
@@ -67,16 +72,6 @@ const validateCreateModeOptions = <T extends CreateState>(
   }
 };
 
-const destroyAfterSetupFailure = (store: { destroy: () => void }) => {
-  try {
-    store.destroy();
-  } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error(error);
-    }
-  }
-};
-
 /**
  * Create a local store, the main side of a shared store, or a client mirror of
  * a shared store.
@@ -129,7 +124,13 @@ export const create: Creator = <T extends CreateState>(
     throw new Error('enablePatches: true is required for the transport');
   }
 
-  const { store, internal } = buildStore({ share });
+  let builtStore: ReturnType<typeof buildStore>;
+  try {
+    builtStore = buildStore({ share });
+  } catch (error) {
+    return failTransportInitialization(storeTransport, error);
+  }
+  const { store, internal } = builtStore;
   try {
     handleMainTransport(
       store,
@@ -139,9 +140,10 @@ export const create: Creator = <T extends CreateState>(
       checkEnablePatches,
       (options as StoreOptions<T>).transportPolicy
     );
+    markStoreReady(store);
+    internal.assertAlive?.('store initialization');
   } catch (error) {
-    destroyAfterSetupFailure(store);
-    throw error;
+    return failStoreSetup(store, error);
   }
   return wrapStore(store);
 };
