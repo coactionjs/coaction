@@ -19,6 +19,7 @@
     "apps/*/.next/**",
     "apps/*/.source/**",
     "apps/*/out/**",
+    "apps/website/next-env.d.ts",
     "packages/*/dist/**",
     "packages/*/.turbo/**",
     "examples/*/dist/**",
