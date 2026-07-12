@@ -1224,6 +1224,51 @@ test('shared store rejects runtime symbol valued state before emitting patches',
   expect(transport.emit).not.toHaveBeenCalled();
 });
 
+test('shared store rejects non-JSON patch-hook output before committing', () => {
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      count: 0,
+      increment() {
+        set({ count: 1 });
+      }
+    }),
+    {
+      transport: transport as any,
+      middlewares: [
+        (middlewareStore) => {
+          middlewareStore.patch = ({ patches, inversePatches }) => ({
+            patches: [
+              {
+                op: 'replace',
+                path: ['count'],
+                value: undefined
+              },
+              ...patches
+            ] as any,
+            inversePatches
+          });
+          return middlewareStore;
+        }
+      ]
+    }
+  );
+
+  try {
+    expect(() => store.getState().increment()).toThrow(
+      'Undefined-valued state'
+    );
+    expect(store.getPureState().count).toBe(0);
+    expect(transport.emit).not.toHaveBeenCalled();
+  } finally {
+    store.destroy();
+  }
+});
+
 test('shared store validates state again before fullSync serialization', async () => {
   const handlers = new Map<string, (...args: any[]) => unknown>();
   const transport = {

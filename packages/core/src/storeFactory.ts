@@ -1,4 +1,4 @@
-import { apply as applyWithMutative } from 'mutative';
+import { apply as applyWithMutative, type Patches } from 'mutative';
 import { applyMiddlewares } from './applyMiddlewares';
 import { refreshSignalSlots } from './computed';
 import { defaultName } from './constant';
@@ -33,6 +33,7 @@ type StoreRuntime = {
   collectActionPaths?: (state: unknown, isSliceStore: boolean) => Set<string>;
   share?: 'client' | 'main';
   validateInitialState?: (state: unknown, isSliceStore: boolean) => void;
+  validatePatches?: (patches: Patches) => void;
   validateState?: (state: unknown) => void;
 };
 
@@ -63,7 +64,7 @@ export const createStore = <T extends CreateState>(
   options: Options<T>,
   runtime: StoreRuntime = {}
 ) => {
-  const { share, validateState } = runtime;
+  const { share, validatePatches, validateState } = runtime;
   const store = {} as MiddlewareStore<T>;
   const internal = {
     sequence: 0,
@@ -136,6 +137,9 @@ export const createStore = <T extends CreateState>(
     ) => {
       internal.assertAlive?.('apply');
       internal.assertMutationAllowed?.('apply');
+      if (patches) {
+        validatePatches?.(patches);
+      }
       assertSafePatches(patches, 'store.apply()');
       const safePatches = sanitizePatches(patches);
       const baseState =
@@ -228,6 +232,18 @@ export const createStore = <T extends CreateState>(
       options,
       runtime.clientAction
     ) as T;
+    if (validatePatches && store.apply !== apply) {
+      const applyWithAdapter = store.apply.bind(store);
+      store.apply = (state, patches) => {
+        internal.assertAlive?.('apply');
+        internal.assertMutationAllowed?.('apply');
+        if (patches) {
+          validatePatches(patches);
+          assertSafePatches(patches, 'store.apply()');
+        }
+        applyWithAdapter(state, patches);
+      };
+    }
     internal.stateSchema = createStateSchema(
       internal.rootState,
       store.isSliceStore

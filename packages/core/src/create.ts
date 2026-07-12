@@ -15,6 +15,7 @@ import {
   validateSharedStateSerializable
 } from './sharedState';
 import { createStore } from './storeFactory';
+import { validateUpdatePatches } from './transportProtocol';
 import { wrapStore } from './wrapStore';
 
 const isMainWorkerType = (
@@ -103,6 +104,7 @@ export const create: Creator = <T extends CreateState>(
       collectActionPaths:
         share === 'main' ? validateSharedActionPaths : undefined,
       validateInitialState: share ? validateSharedInitialState : undefined,
+      validatePatches: share === 'main' ? validateUpdatePatches : undefined,
       validateState: share ? validateSharedStateSerializable : undefined
     });
 

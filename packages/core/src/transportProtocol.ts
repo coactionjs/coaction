@@ -1,5 +1,9 @@
 import type { Patches } from 'mutative';
-import { decodeSharedJson, encodeSharedJson } from './sharedState';
+import {
+  assertSharedJsonValue,
+  decodeSharedJson,
+  encodeSharedJson
+} from './sharedState';
 import type { JsonValue } from './jsonTypes';
 import { isUnsafePathSegment } from './utils';
 
@@ -87,7 +91,10 @@ const readAction = (value: JsonValue) => {
   return [...value] as string[];
 };
 
-const readPath = (value: JsonValue) => {
+const readPath = (
+  value: JsonValue,
+  { allowUnsafe = false }: { allowUnsafe?: boolean } = {}
+) => {
   if (!Array.isArray(value)) {
     throw new TypeError('Invalid transport patch path');
   }
@@ -98,7 +105,7 @@ const readPath = (value: JsonValue) => {
         (typeof segment !== 'number' ||
           !Number.isSafeInteger(segment) ||
           segment < 0)) ||
-      isUnsafePathSegment(segment)
+      (!allowUnsafe && isUnsafePathSegment(segment))
     ) {
       throw new TypeError('Invalid transport patch path');
     }
@@ -107,13 +114,18 @@ const readPath = (value: JsonValue) => {
   return path;
 };
 
-const readPatches = (value: JsonValue) => {
+const readPatches = (
+  value: JsonValue,
+  options: { allowUnsafePaths?: boolean } = {}
+) => {
   if (!Array.isArray(value)) {
     throw new TypeError('Invalid transport patches');
   }
   return value.map((candidate): WirePatch => {
     const patch = asRecord(candidate, 'Invalid transport patch');
-    const path = readPath(patch.path);
+    const path = readPath(patch.path, {
+      allowUnsafe: options.allowUnsafePaths
+    });
     if (patch.op === 'remove') {
       if (hasOwn(patch, 'value')) {
         throw new TypeError('Invalid remove patch');
@@ -128,6 +140,11 @@ const readPatches = (value: JsonValue) => {
     }
     return { op: patch.op, path, value: patch.value };
   });
+};
+
+export const validateUpdatePatches = (patches: Patches) => {
+  assertSharedJsonValue(patches);
+  readPatches(patches as JsonValue, { allowUnsafePaths: true });
 };
 
 export const encodeExecuteRequest = (
