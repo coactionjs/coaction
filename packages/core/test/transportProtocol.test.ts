@@ -100,6 +100,24 @@ test('protocol rejects unsafe action and patch paths', () => {
   ).toThrow('Invalid transport patch path');
 });
 
+test('protocol rejects root replacement patch paths', () => {
+  expect(() =>
+    encodeUpdateMessage('epoch-1', 1, [
+      {
+        op: 'replace',
+        path: [],
+        value: []
+      }
+    ])
+  ).toThrow('Invalid transport patch path');
+
+  expect(() =>
+    decodeUpdateMessage(
+      '{"v":1,"type":"update","epoch":"epoch-1","sequence":1,"patches":[{"op":"replace","path":[],"value":[]}]}'
+    )
+  ).toThrow('Invalid transport patch path');
+});
+
 test('protocol rejects invalid epochs and sequences', () => {
   expect(() =>
     decodeExecuteResponse(

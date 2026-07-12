@@ -95,7 +95,7 @@ const readPath = (
   value: JsonValue,
   { allowUnsafe = false }: { allowUnsafe?: boolean } = {}
 ) => {
-  if (!Array.isArray(value)) {
+  if (!Array.isArray(value) || value.length === 0) {
     throw new TypeError('Invalid transport patch path');
   }
   const path: Array<number | string> = [];
