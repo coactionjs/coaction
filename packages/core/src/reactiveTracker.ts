@@ -80,6 +80,12 @@ const purgeDeps = (sub: ReactiveNode) => {
   }
 };
 
+/**
+ * Create a low-level signal dependency tracker for framework adapters.
+ *
+ * @remarks
+ * Adapter and framework authors import this helper from `coaction/adapter`.
+ */
 export const createReactiveTracker = (): ReactiveTracker => {
   let version = 0;
   let disposed = false;

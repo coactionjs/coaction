@@ -126,8 +126,8 @@ the cutover, persist an application-owned JSON snapshot before draining 2.x and
 use it to initialize the new authority; Coaction does not transfer state
 between protocol generations.
 
-The browser matching and lifetime behavior is defined by the
-[HTML SharedWorker specification](https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworker-interface).
+The browser matching and lifetime behavior follows the HTML SharedWorker
+specification listed under Citations.
 
 ### Injected or remote transports
 
@@ -147,6 +147,14 @@ a plain transport snapshot through the adapter boundary. Official MobX, Pinia,
 and Valtio adapters do this without adding their implementation machinery to
 the local or shared core entry.
 
+## Human review
+
+Before release, the application owner MUST confirm the complete
+authority/client cohort inventory, the SharedWorker drain and state-handoff
+plan, and an all-members rollback procedure. The Coaction maintainer MUST also
+confirm that unsupported 2.x message shapes fail closed rather than reaching
+application actions.
+
 ## Verification
 
 - Core behavior: `pnpm --filter coaction test`
@@ -156,3 +164,7 @@ the local or shared core entry.
 - Package and consumer sizes: `pnpm package:size`
 - Package exports: `pnpm package:quality`
 - Major metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`
+
+# Citations
+
+- [HTML Standard — Shared workers and the SharedWorker interface](https://html.spec.whatwg.org/multipage/workers.html#shared-workers-and-the-sharedworker-interface)

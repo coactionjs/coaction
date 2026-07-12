@@ -9,6 +9,11 @@ test('re-exports runtime APIs from package entry', () => {
   expect(core.create).toBe(create);
   expect(shared.create).toBeInstanceOf(Function);
   expect(local.create).not.toBe(create);
+  expect('createLocal' in core).toBe(false);
+  expect('createBinder' in core).toBe(false);
+  expect('defineExternalStoreAdapter' in core).toBe(false);
+  expect('createReactiveTracker' in core).toBe(false);
+  expect('wrapStore' in core).toBe(false);
   expect(adapter.createBinder).toBeInstanceOf(Function);
   expect(adapter.defineExternalStoreAdapter).toBeInstanceOf(Function);
   expect(adapter.createReactiveTracker).toBeInstanceOf(Function);

@@ -32,21 +32,21 @@ branch and MUST NOT be merged wholesale into the new main line.
    injected transports.
 8. Run the complete package, peer, integration, browser, release, and size gates.
 
-Current progress:
+Implementation progress:
 
 | Stage                                      | Status   | Evidence                                                                     |
 | ------------------------------------------ | -------- | ---------------------------------------------------------------------------- |
 | JSON codec and protocol                    | Complete | Focused codec/protocol tests in `packages/core/test`                         |
 | Authority, convergence, reconnect, cleanup | Complete | Core fake-transport and worker tests                                         |
 | Static entries and consumer budgets        | Complete | `coaction/local`, `coaction/shared`, `coaction/adapter`; `pnpm package:size` |
-| Official package migration                 | Complete | Adapter sources import `coaction/adapter`; 17-package test matrix passes     |
-| Migration and major release metadata       | Complete | Migration guide and 17-package major changeset validate successfully         |
+| Official package migration                 | Complete | Adapter sources import `coaction/adapter`; workspace tests verify consumers  |
+| Migration and major release metadata       | Complete | Migration guide and major changesets are checked by `pnpm changeset:check`   |
 | Coordinated protocol deployment            | Complete | Migration guide covers Worker, SharedWorker, custom transport, and rollback  |
-| Final release gates                        | Complete | Full check, coverage, browser matrix, package quality, and size gates pass   |
+| Release approval                           | Pending  | Requires final-candidate automated gates and critical-risk human review      |
 
 ## Release gates
 
-- No known authorization, convergence, lifecycle, or package-entry defect.
+- No unresolved authorization, convergence, lifecycle, or package-entry defect.
 - Every contract rule in the test plan has direct evidence.
 - Local and shared production consumer bundles meet separately reviewed budgets.
 - Non-JSON behavior is either explicitly local/opt-in or documented as removed.
@@ -55,6 +55,16 @@ Current progress:
   unit; mixed 2.x/next-major traffic is prohibited.
 - Human review approves the trust boundary, sequence state machine, and size
   trade-offs.
+
+## Human review
+
+Because this is a critical core-protocol change, a human reviewer MUST approve:
+
+- the JSON validation and remote-action authorization boundary;
+- epoch, sequence-gap, reconnect, and teardown race behavior;
+- atomic rollback for official mutable adapters;
+- the coordinated 2.x/next-major deployment and rollback procedure; and
+- the measured local/shared/adapter bundle trade-off.
 
 ## Rollback
 
@@ -67,13 +77,11 @@ not published as an emergency replacement.
 
 ## Verification
 
-- Archive branch existence is verified with `git branch --list`.
+- Archive branch: `git branch --list archive/full-hardening-before-json-main-20260712`.
 - Runtime and package matrix: `pnpm exec turbo run test --force`.
 - Static bundle isolation and budgets: `pnpm package:size`.
 - Package export validity: `pnpm package:quality`.
 - Full release matrix: `pnpm check`.
-- Coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35% statements and
-  88.37% branches).
-- Browser workers: `pnpm test:e2e:browser` (27 tests across Chromium, Firefox,
-  and WebKit).
+- Instrumented coverage report: `pnpm test:coverage`.
+- Browser Worker and SharedWorker matrix: `pnpm test:e2e:browser`.
 - Release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

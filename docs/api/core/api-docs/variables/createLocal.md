@@ -8,6 +8,12 @@
 
 > `const` **createLocal**: [`LocalCreator`](../type-aliases/LocalCreator.md)
 
-Defined in: [packages/core/src/createLocal.ts:11](https://github.com/coactionjs/coaction/blob/main/packages/core/src/createLocal.ts#L11)
+Defined in: [packages/core/src/createLocal.ts:18](https://github.com/coactionjs/coaction/blob/main/packages/core/src/createLocal.ts#L18)
 
 Create a store without linking the shared transport runtime.
+
+## Remarks
+
+The public `coaction/local` entry exports this implementation as `create`.
+`createLocal` is only its internal and documentation name; it is not
+exported by the root `coaction` entry.

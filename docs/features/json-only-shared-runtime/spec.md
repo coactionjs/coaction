@@ -149,13 +149,10 @@ service dashboards.
 
 - Contract rules: [test-plan.md](test-plan.md).
 - Architecture decision: [ADR-0001](../../adr/0001-json-only-shared-runtime.md).
-- Core tests: `pnpm --filter coaction test` (18 files, 217 tests).
-- Full release check: `pnpm check` (format, lint, typecheck, 17-package build,
-  package quality, size, package tests, and 68 example tests).
-- Coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35% statements,
-  88.37% branches, 97.06% functions, and 94.40% lines).
-- Real browser transports: `pnpm test:e2e:browser` (27 tests across Chromium,
-  Firefox, and WebKit).
+- Core behavior: `pnpm --filter coaction test`.
+- Full workspace, package, and example release checks: `pnpm check`.
+- Instrumented coverage report: `pnpm test:coverage`.
+- Real Worker and SharedWorker transports: `pnpm test:e2e:browser`.
 - Static consumer gates: `node scripts/check-core-entry-isolation.mjs`.
 - Package artifacts and budgets: `pnpm build && pnpm package:size`.
 - Major release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

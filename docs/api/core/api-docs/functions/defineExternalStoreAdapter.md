@@ -8,7 +8,7 @@
 
 > **defineExternalStoreAdapter**\<`F`\>(`options`): `F`
 
-Defined in: [packages/core/src/binder.ts:111](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L111)
+Defined in: [packages/core/src/binder.ts:113](https://github.com/coactionjs/coaction/blob/main/packages/core/src/binder.ts#L113)
 
 Define a whole-store adapter for integrating an external state runtime with
 Coaction.
@@ -31,5 +31,5 @@ Coaction.
 
 ## Remarks
 
-This is the stable 2.x name for adapter authors. `createBinder()` remains as
-a compatibility alias for existing official and community integrations.
+Import this helper from `coaction/adapter`. `createBinder()` remains as a
+compatibility alias for existing official and community integrations.

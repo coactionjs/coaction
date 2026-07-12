@@ -2,6 +2,9 @@
 
 This guide is for adding or changing an official adapter package.
 
+Adapter implementations import `defineExternalStoreAdapter()` and the
+compatibility alias `createBinder()` from `coaction/adapter`.
+
 ## 1. Choose the Right Integration Shape
 
 Before writing code, decide which family the new integration belongs to.

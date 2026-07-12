@@ -37,6 +37,14 @@ The feature is not complete until all required cases have named tests, the full
 repository gate passes without stale rich-state expectations, and the consumer
 size budgets prove static isolation.
 
+## Human review
+
+Human review MUST confirm that the tests cover the JSON trust boundary,
+authority/client race ordering, adapter rollback behavior, protocol-cohort
+deployment, and the local/shared bundle-size trade-off. Test counts and
+coverage percentages are evidence from a particular run, not durable contract
+values, so they belong in CI output rather than this plan.
+
 ## Verification
 
 - Core codec, protocol, convergence, authorization, and lifecycle tests:
@@ -47,8 +55,6 @@ size budgets prove static isolation.
   `node scripts/check-core-entry-isolation.mjs`.
 - ESM/CJS/declaration exports: `pnpm package:quality`.
 - Full release matrix: `pnpm check`.
-- Instrumented coverage: `pnpm test:coverage` (59 files, 617 tests; 94.35%
-  statements and 88.37% branches).
-- Real worker transports: `pnpm test:e2e:browser` (27 tests in Chromium,
-  Firefox, and WebKit).
+- Instrumented coverage report: `pnpm test:coverage`.
+- Real Worker and SharedWorker transports: `pnpm test:e2e:browser`.
 - Major release metadata: `ALLOW_MAJOR_RELEASE=1 pnpm changeset:check`.

@@ -86,6 +86,8 @@ const createExternalStoreAdapter = <F = (...args: any[]) => any>({
  * Coaction.
  *
  * @remarks
+ * Import this compatibility helper from `coaction/adapter`.
+ *
  * Official bindings use this to integrate stores such as Redux, Jotai, Pinia,
  * Zustand, MobX, and Valtio. Binder-backed integrations are whole-store
  * adapters; they are not compatible with Coaction slices mode.
@@ -105,8 +107,8 @@ export function createBinder<F = (...args: any[]) => any>({
  * Coaction.
  *
  * @remarks
- * This is the stable 2.x name for adapter authors. `createBinder()` remains as
- * a compatibility alias for existing official and community integrations.
+ * Import this helper from `coaction/adapter`. `createBinder()` remains as a
+ * compatibility alias for existing official and community integrations.
  */
 export function defineExternalStoreAdapter<F = (...args: any[]) => any>(
   options: ExternalStoreAdapterOptions<F>

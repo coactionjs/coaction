@@ -77,6 +77,9 @@ increment();
 
 `defineExternalStoreAdapter()` is intended for whole-store adapters that bridge external state systems such as Redux, Zustand, Jotai, Pinia, MobX, or Valtio. `createBinder()` remains available as the compatibility name for existing adapters.
 
+Both helpers are exported from `coaction/adapter`, not from the root
+compatibility entry.
+
 Binder-backed stores are not compatible with Coaction slices mode. If an external integration should live under a slice key, wrap the entire external store instead of mixing it into a slices object.
 
 ## API Evolution Boundary

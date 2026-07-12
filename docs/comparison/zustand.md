@@ -159,10 +159,10 @@ Zustand vanilla stores can be used outside React, including in worker code, but 
 
 ## External Store Integration
 
-Coaction exposes `defineExternalStoreAdapter()` from the core package:
+Coaction exposes `defineExternalStoreAdapter()` from its static adapter entry:
 
 ```ts
-import { defineExternalStoreAdapter } from 'coaction';
+import { defineExternalStoreAdapter } from 'coaction/adapter';
 ```
 
 Official adapters such as `@coaction/zustand`, `@coaction/mobx`, and `@coaction/pinia` use this whole-store adapter contract. This matters when an external runtime needs to remain the underlying store while Coaction provides framework binding, shared mode, subscriptions, and adapter refresh hooks.

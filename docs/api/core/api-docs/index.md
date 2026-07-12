@@ -6,6 +6,15 @@
 
 # api-docs
 
+Documentation-only catalog for the root `coaction` entry and its public
+`local`, `shared`, and `adapter` subpaths.
+
+## Remarks
+
+This file is not a runtime entry point. An export appearing here does not
+imply that it is available from the package root; see the generated import
+map for the owning public subpath.
+
 ## Interfaces
 
 - [MiddlewareStore](interfaces/MiddlewareStore.md)

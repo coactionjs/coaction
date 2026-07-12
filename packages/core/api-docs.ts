@@ -1,3 +1,14 @@
+/**
+ * Documentation-only catalog for the root `coaction` entry and its public
+ * `local`, `shared`, and `adapter` subpaths.
+ *
+ * @remarks
+ * This file is not a runtime entry point. An export appearing here does not
+ * imply that it is available from the package root; see the generated import
+ * map for the owning public subpath.
+ *
+ * @packageDocumentation
+ */
 export { create } from './src/create';
 export { createLocal } from './src/createLocal';
 export { createBinder, defineExternalStoreAdapter } from './src/binder';

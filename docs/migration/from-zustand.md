@@ -215,14 +215,14 @@ function Counter() {
 
 Map common Zustand middleware to Coaction features deliberately:
 
-| Zustand usage            | Coaction path                                                                 |
-| :----------------------- | :---------------------------------------------------------------------------- |
-| `immer`                  | Prefer Coaction draft updates through `set(() => { ... })`                    |
-| `persist`                | Use `@coaction/persist`; install it on the authority store in shared mode     |
-| `subscribeWithSelector`  | Prefer React selectors, auto selectors, or integration-level signal computed  |
-| `devtools`               | Track through project-specific tooling today; see the DevTools roadmap notes  |
-| custom external runtimes | Use `defineExternalStoreAdapter()` for whole-store adapters                   |
-| existing Zustand runtime | Use `@coaction/zustand` when the Zustand store should remain the source store |
+| Zustand usage            | Coaction path                                                                       |
+| :----------------------- | :---------------------------------------------------------------------------------- |
+| `immer`                  | Prefer Coaction draft updates through `set(() => { ... })`                          |
+| `persist`                | Use `@coaction/persist`; install it on the authority store in shared mode           |
+| `subscribeWithSelector`  | Prefer React selectors, auto selectors, or integration-level signal computed        |
+| `devtools`               | Track through project-specific tooling today; see the DevTools roadmap notes        |
+| custom external runtimes | Use `defineExternalStoreAdapter()` from `coaction/adapter` for whole-store adapters |
+| existing Zustand runtime | Use `@coaction/zustand` when the Zustand store should remain the source store       |
 
 Middleware should be moved after the base store behavior is verified. This makes it easier to separate state-shape changes from integration changes.
 

@@ -6,8 +6,9 @@ import type { Store, StoreReturn } from './interface';
  * @remarks
  * Framework bindings use this to attach selector-aware readers while
  * preserving the underlying store API on the returned function object. Most
- * applications should call {@link create} instead of using `wrapStore()`
- * directly.
+ * applications should use a public `create` entry instead of calling
+ * `wrapStore()` directly. Framework authors import this helper from
+ * `coaction/local` or `coaction/adapter`.
  */
 export const wrapStore = <T extends object>(
   store: Store<T>,

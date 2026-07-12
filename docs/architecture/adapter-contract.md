@@ -2,6 +2,9 @@
 
 This document covers official adapter expectations.
 
+The supported adapter-authoring surface is exported from `coaction/adapter`,
+not from the root compatibility entry.
+
 Coaction currently has two adapter families:
 
 - binder-backed state adapters built with `defineExternalStoreAdapter()` or its compatibility alias `createBinder()`

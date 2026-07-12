@@ -8,8 +8,14 @@
 
 > **createReactiveTracker**(): [`ReactiveTracker`](../type-aliases/ReactiveTracker.md)
 
-Defined in: [packages/core/src/reactiveTracker.ts:83](https://github.com/coactionjs/coaction/blob/main/packages/core/src/reactiveTracker.ts#L83)
+Defined in: [packages/core/src/reactiveTracker.ts:89](https://github.com/coactionjs/coaction/blob/main/packages/core/src/reactiveTracker.ts#L89)
+
+Create a low-level signal dependency tracker for framework adapters.
 
 ## Returns
 
 [`ReactiveTracker`](../type-aliases/ReactiveTracker.md)
+
+## Remarks
+
+Adapter and framework authors import this helper from `coaction/adapter`.

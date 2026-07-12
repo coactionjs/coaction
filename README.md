@@ -447,7 +447,7 @@ For collaboration, see [`@coaction/yjs`](./packages/coaction-yjs/README.md).
 > state adapters bind the whole store. Not every feature works in every mode — see the
 > [support matrix](./docs/architecture/support-matrix.md) for the exact, tested combinations.
 
-Custom integrations should use `defineExternalStoreAdapter()` from `coaction`. See the
+Custom integrations should use `defineExternalStoreAdapter()` from `coaction/adapter`. See the
 [adapter contract](./docs/architecture/adapter-contract.md) before writing one.
 
 ## Examples

@@ -7,7 +7,14 @@ import type {
 import { createStore } from './storeFactory';
 import { wrapStore } from './wrapStore';
 
-/** Create a store without linking the shared transport runtime. */
+/**
+ * Create a store without linking the shared transport runtime.
+ *
+ * @remarks
+ * The public `coaction/local` entry exports this implementation as `create`.
+ * `createLocal` is only its internal and documentation name; it is not
+ * exported by the root `coaction` entry.
+ */
 export const createLocal: LocalCreator = <T extends CreateState>(
   createState: Slice<T> | T,
   options: LocalStoreOptions<T> = {}
