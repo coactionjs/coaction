@@ -32,6 +32,7 @@ type StoreRuntime = {
   clientAction?: ClientActionFactory;
   collectActionPaths?: (state: unknown, isSliceStore: boolean) => Set<string>;
   share?: 'client' | 'main';
+  validateInitialState?: (state: unknown, isSliceStore: boolean) => void;
   validateState?: (state: unknown) => void;
 };
 
@@ -216,6 +217,9 @@ export const createStore = <T extends CreateState>(
       initialState,
       store.isSliceStore
     );
+    if (!internal.getTransportState) {
+      runtime.validateInitialState?.(initialState, store.isSliceStore);
+    }
     store.getInitialState = () => initialState;
     internal.rootState = getRawState(
       store,

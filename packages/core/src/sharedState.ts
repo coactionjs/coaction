@@ -1,3 +1,4 @@
+import { Computed } from './computed';
 import { isUnsafeKey } from './utils';
 
 export type JsonPrimitive = null | boolean | number | string;
@@ -10,6 +11,7 @@ export type JsonValue =
 type JsonPath = readonly PropertyKey[];
 
 type JsonWork = {
+  actionRoot?: boolean;
   path: JsonPath;
   value: unknown;
 };
@@ -54,7 +56,8 @@ const pushDataProperty = (
   work: JsonWork[],
   descriptor: PropertyDescriptor | undefined,
   key: PropertyKey,
-  path: JsonPath
+  path: JsonPath,
+  actionRoot = false
 ) => {
   const nextPath = [...path, key];
   if (!descriptor) {
@@ -66,17 +69,14 @@ const pushDataProperty = (
   if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
     return unsupported('Accessor-backed state', nextPath);
   }
-  work.push({ path: nextPath, value: descriptor.value });
+  work.push({ actionRoot, path: nextPath, value: descriptor.value });
 };
 
-export const assertSharedJsonValue: (
-  root: unknown
-) => asserts root is JsonValue = (root) => {
+const assertSharedJsonWork = (work: JsonWork[], isSliceStore = false) => {
   const seen = new WeakSet<object>();
-  const work: JsonWork[] = [{ path: [], value: root }];
 
   while (work.length) {
-    const { path, value } = work.pop()!;
+    const { actionRoot = false, path, value } = work.pop()!;
     if (value === null) {
       continue;
     }
@@ -153,9 +153,41 @@ export const assertSharedJsonValue: (
       if (isUnsafeKey(key)) {
         unsupported('Unsafe-keyed state', [...path, key]);
       }
-      pushDataProperty(work, descriptors[key], key, path);
+      const descriptor = descriptors[key];
+      if (
+        actionRoot &&
+        descriptor &&
+        (!Object.prototype.hasOwnProperty.call(descriptor, 'value') ||
+          typeof descriptor.value === 'function' ||
+          descriptor.value instanceof Computed)
+      ) {
+        continue;
+      }
+      pushDataProperty(
+        work,
+        descriptor,
+        key,
+        path,
+        isSliceStore && path.length === 0
+      );
     }
   }
+};
+
+export const assertSharedJsonValue: (
+  root: unknown
+) => asserts root is JsonValue = (root) => {
+  assertSharedJsonWork([{ path: [], value: root }]);
+};
+
+export const validateSharedInitialState = (
+  root: unknown,
+  isSliceStore = false
+) => {
+  assertSharedJsonWork(
+    [{ actionRoot: !isSliceStore, path: [], value: root }],
+    isSliceStore
+  );
 };
 
 export const encodeSharedJson = (value: unknown) => {

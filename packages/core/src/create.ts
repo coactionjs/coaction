@@ -11,6 +11,7 @@ import type {
 } from './interface';
 import {
   validateSharedActionPaths,
+  validateSharedInitialState,
   validateSharedStateSerializable
 } from './sharedState';
 import { createStore } from './storeFactory';
@@ -101,6 +102,7 @@ export const create: Creator = <T extends CreateState>(
       clientAction: share === 'client' ? createClientAction : undefined,
       collectActionPaths:
         share === 'main' ? validateSharedActionPaths : undefined,
+      validateInitialState: share ? validateSharedInitialState : undefined,
       validateState: share ? validateSharedStateSerializable : undefined
     });
 

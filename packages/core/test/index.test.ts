@@ -611,6 +611,61 @@ test('3rd-party binding marker supports falsy keyed adapter paths', () => {
   expect(Object.getOwnPropertySymbols(zeroKeyedState[0])).toContain(bindSymbol);
 });
 
+describe('shared initial state validation', () => {
+  const transport = {} as any;
+
+  test('rejects unsafe keys before initialization can drop them', () => {
+    const state = JSON.parse('{"count":0,"__proto__":{"polluted":true}}');
+
+    expect(() =>
+      create(state, {
+        transport
+      })
+    ).toThrow('Unsafe-keyed state');
+  });
+
+  test('rejects nested accessors without executing them', () => {
+    let reads = 0;
+    const nested = {};
+    Object.defineProperty(nested, 'value', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return 1;
+      }
+    });
+
+    expect(() =>
+      create(
+        {
+          nested
+        },
+        {
+          transport
+        }
+      )
+    ).toThrow('Accessor-backed state');
+    expect(reads).toBe(0);
+  });
+
+  test('rejects repeated references shared across slice roots', () => {
+    const shared = { value: 1 };
+
+    expect(() =>
+      create(
+        {
+          left: () => ({ shared }),
+          right: () => ({ shared })
+        },
+        {
+          sliceMode: 'slices',
+          transport
+        }
+      )
+    ).toThrow('Repeated state reference');
+  });
+});
+
 describe('Store Name Lifecycle', () => {
   const NODE_ENV = process.env.NODE_ENV;
 
