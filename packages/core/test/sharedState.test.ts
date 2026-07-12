@@ -1,7 +1,8 @@
 import {
   assertSharedJsonValue,
   decodeSharedJson,
-  encodeSharedJson
+  encodeSharedJson,
+  validateSharedReplacementSource
 } from '../src/sharedState';
 
 test('shared JSON values round trip exactly', () => {
@@ -126,5 +127,31 @@ test('shared JSON decoder rejects non-string and invalid payloads', () => {
   );
   expect(() => decodeSharedJson('{')).toThrow(
     'Shared transport payload is not valid JSON.'
+  );
+});
+
+test('shared replacement sources skip actions but reject accessors', () => {
+  expect(() =>
+    validateSharedReplacementSource({
+      count: 0,
+      increment() {}
+    })
+  ).not.toThrow();
+
+  let reads = 0;
+  const source = { count: 0 };
+  Object.defineProperty(source, 'value', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return 1;
+    }
+  });
+  expect(() => validateSharedReplacementSource(source)).toThrow(
+    'Accessor-backed state'
+  );
+  expect(reads).toBe(0);
+  expect(() => validateSharedReplacementSource([])).toThrow(
+    'Non-record replacement state'
   );
 });

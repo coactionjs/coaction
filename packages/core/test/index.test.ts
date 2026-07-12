@@ -690,6 +690,47 @@ test('failed shared adapter initialization runs its installed cleanup', () => {
   expect(cleanup).toHaveBeenCalledTimes(1);
 });
 
+test('shared adapters validate replacement sources before reading them', () => {
+  let reads = 0;
+  const transport = {
+    dispose: jest.fn(),
+    emit: jest.fn(),
+    listen: jest.fn(() => jest.fn())
+  };
+  const bindThirdParty = createBinder({
+    handleState: ((state: { count: number }) => ({
+      copyState: state,
+      bind: (next: { count: number }) => next
+    })) as any,
+    handleStore: (store, _rawState, _state, internal) => {
+      internal.getTransportState = () => store.getPureState();
+      store.apply = (state = store.getPureState()) => {
+        void (state as { count: number }).count;
+      };
+    }
+  });
+  const store = create(
+    () => bindThirdParty({ count: 0 }) as { count: number },
+    {
+      transport: transport as any
+    }
+  );
+  const replacement = {} as { count: number };
+  Object.defineProperty(replacement, 'count', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return 1;
+    }
+  });
+
+  try {
+    expect(() => store.apply(replacement)).toThrow('Accessor-backed state');
+    expect(reads).toBe(0);
+  } finally {
+    store.destroy();
+  }
+});
 describe('Store Name Lifecycle', () => {
   const NODE_ENV = process.env.NODE_ENV;
 

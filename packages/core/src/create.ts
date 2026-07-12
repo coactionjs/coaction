@@ -12,6 +12,7 @@ import type {
 import {
   validateSharedActionPaths,
   validateSharedInitialState,
+  validateSharedReplacementSource,
   validateSharedStateSerializable
 } from './sharedState';
 import { createStore } from './storeFactory';
@@ -105,6 +106,9 @@ export const create: Creator = <T extends CreateState>(
         share === 'main' ? validateSharedActionPaths : undefined,
       validateInitialState: share ? validateSharedInitialState : undefined,
       validatePatches: share === 'main' ? validateUpdatePatches : undefined,
+      validateReplacementSource: share
+        ? validateSharedReplacementSource
+        : undefined,
       validateState: share ? validateSharedStateSerializable : undefined
     });
 

@@ -34,6 +34,7 @@ type StoreRuntime = {
   share?: 'client' | 'main';
   validateInitialState?: (state: unknown, isSliceStore: boolean) => void;
   validatePatches?: (patches: Patches) => void;
+  validateReplacementSource?: (state: unknown) => void;
   validateState?: (state: unknown) => void;
 };
 
@@ -64,13 +65,16 @@ export const createStore = <T extends CreateState>(
   options: Options<T>,
   runtime: StoreRuntime = {}
 ) => {
-  const { share, validatePatches, validateState } = runtime;
+  const { share, validatePatches, validateReplacementSource, validateState } =
+    runtime;
   const store = {} as MiddlewareStore<T>;
   const internal = {
     sequence: 0,
     isBatching: false,
     listeners: new Set<Listener>(),
     destroyCallbacks: new Set<() => void>(),
+    validatePatches,
+    validateReplacementSource,
     validateState
   } as Internal<T>;
   internal.notifyStateChange = () => {
@@ -144,6 +148,9 @@ export const createStore = <T extends CreateState>(
       const safePatches = sanitizePatches(patches);
       const baseState =
         state === (internal.module as unknown) ? internal.rootState : state;
+      if (baseState !== internal.rootState) {
+        validateReplacementSource?.(baseState);
+      }
       const nextState = sanitizeReplacementState(
         safePatches
           ? (applyWithMutative(baseState, safePatches) as T)
@@ -216,6 +223,14 @@ export const createStore = <T extends CreateState>(
     if (middlewareStore !== store) {
       Object.assign(store, middlewareStore);
     }
+    if (validatePatches && store.patch) {
+      const patch = store.patch.bind(store);
+      store.patch = (options) => {
+        const result = patch(options);
+        validatePatches(result.patches);
+        return result;
+      };
+    }
     const initialState = getInitialState(store, createState, internal) as T;
     internal.sharedActionPaths = runtime.collectActionPaths?.(
       initialState,
@@ -237,6 +252,13 @@ export const createStore = <T extends CreateState>(
       store.apply = (state, patches) => {
         internal.assertAlive?.('apply');
         internal.assertMutationAllowed?.('apply');
+        if (
+          typeof state !== 'undefined' &&
+          state !== internal.rootState &&
+          state !== internal.module
+        ) {
+          validateReplacementSource?.(state);
+        }
         if (patches) {
           validatePatches(patches);
           assertSafePatches(patches, 'store.apply()');

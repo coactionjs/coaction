@@ -1269,6 +1269,108 @@ test('shared store rejects non-JSON patch-hook output before committing', () => 
   }
 });
 
+test('shared store rejects runtime accessors before normalization', () => {
+  let reads = 0;
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      nested: { value: 0 },
+      replaceNested() {
+        const nested = {} as { value: number };
+        Object.defineProperty(nested, 'value', {
+          enumerable: true,
+          get() {
+            reads += 1;
+            return 1;
+          }
+        });
+        set({ nested });
+      }
+    }),
+    { transport: transport as any }
+  );
+
+  try {
+    expect(() => store.getState().replaceNested()).toThrow(
+      'Accessor-backed state'
+    );
+    expect(reads).toBe(0);
+    expect(store.getPureState().nested).toEqual({ value: 0 });
+    expect(transport.emit).not.toHaveBeenCalled();
+  } finally {
+    store.destroy();
+  }
+});
+
+test('shared store rejects nested runtime functions before normalization', () => {
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(
+    (set) => ({
+      nested: { value: 0 },
+      replaceNested() {
+        set({
+          nested: {
+            value: 1,
+            ignored() {}
+          } as any
+        });
+      }
+    }),
+    { transport: transport as any }
+  );
+
+  try {
+    expect(() => store.getState().replaceNested()).toThrow(
+      'Function-valued state'
+    );
+    expect(store.getPureState().nested).toEqual({ value: 0 });
+    expect(transport.emit).not.toHaveBeenCalled();
+  } finally {
+    store.destroy();
+  }
+});
+
+test('shared store validates replacement state before normalization', () => {
+  let reads = 0;
+  const transport = {
+    emit: vi.fn(),
+    listen: vi.fn(),
+    dispose: vi.fn()
+  };
+  const store = create(() => ({ count: 0 }), {
+    transport: transport as any
+  });
+  const replacement = {} as { count: number };
+  Object.defineProperty(replacement, 'count', {
+    enumerable: true,
+    get() {
+      reads += 1;
+      return 1;
+    }
+  });
+
+  try {
+    expect(() => store.apply(replacement)).toThrow('Accessor-backed state');
+    expect(reads).toBe(0);
+    expect(store.getPureState().count).toBe(0);
+    expect(() => store.apply([] as any)).toThrow(
+      'Non-record replacement state'
+    );
+    expect(store.getPureState().count).toBe(0);
+    expect(transport.emit).not.toHaveBeenCalled();
+  } finally {
+    store.destroy();
+  }
+});
+
 test('shared store validates state again before fullSync serialization', async () => {
   const handlers = new Map<string, (...args: any[]) => unknown>();
   const transport = {

@@ -102,6 +102,10 @@ export interface Internal<T extends CreateState = CreateState> {
   awaitClientTransport?: <R>(value: PromiseLike<R> | R) => Promise<R>;
   /** Validate committed state when a runtime capability requires it. */
   validateState?: (state: unknown) => void;
+  /** Validate outbound patches before normalization or commit. */
+  validatePatches?: (patches: Patches) => void;
+  /** Validate an adapter replacement source before reading its values. */
+  validateReplacementSource?: (state: unknown) => void;
   /** Publish patches when a shared authority transport is attached. */
   emitPatches?: (patches: Patches) => void;
   /** Return the plain state exposed at the JSON transport boundary. */

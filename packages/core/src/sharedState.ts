@@ -6,8 +6,10 @@ export type { JsonPrimitive, JsonValue } from './jsonTypes';
 
 type JsonPath = readonly PropertyKey[];
 
+type ActionRootMode = false | 'initial' | 'replacement';
+
 type JsonWork = {
-  actionRoot?: boolean;
+  actionRoot?: ActionRootMode;
   path: JsonPath;
   value: unknown;
 };
@@ -75,7 +77,7 @@ const pushDataProperty = (
   descriptor: PropertyDescriptor | undefined,
   key: PropertyKey,
   path: JsonPath,
-  actionRoot = false
+  actionRoot: ActionRootMode = false
 ) => {
   const nextPath = [...path, key];
   if (!descriptor) {
@@ -175,21 +177,27 @@ const assertSharedJsonWork = (work: JsonWork[], isSliceStore = false) => {
         unsupported('Unsafe-keyed state', [...path, key]);
       }
       const descriptor = descriptors[key];
-      if (
-        actionRoot &&
-        descriptor &&
-        (!Object.prototype.hasOwnProperty.call(descriptor, 'value') ||
-          typeof descriptor.value === 'function' ||
-          descriptor.value instanceof Computed)
-      ) {
-        continue;
+      if (actionRoot && descriptor) {
+        const isDataProperty = Object.prototype.hasOwnProperty.call(
+          descriptor,
+          'value'
+        );
+        if (isDataProperty && typeof descriptor.value === 'function') {
+          continue;
+        }
+        if (
+          actionRoot === 'initial' &&
+          (!isDataProperty || descriptor.value instanceof Computed)
+        ) {
+          continue;
+        }
       }
       pushDataProperty(
         work,
         descriptor,
         key,
         path,
-        isSliceStore && path.length === 0
+        isSliceStore && path.length === 0 ? 'initial' : false
       );
     }
   }
@@ -206,9 +214,16 @@ export const validateSharedInitialState = (
   isSliceStore = false
 ) => {
   assertSharedJsonWork(
-    [{ actionRoot: !isSliceStore, path: [], value: root }],
+    [{ actionRoot: isSliceStore ? false : 'initial', path: [], value: root }],
     isSliceStore
   );
+};
+
+export const validateSharedReplacementSource = (root: unknown) => {
+  if (typeof root !== 'object' || root === null || Array.isArray(root)) {
+    unsupported('Non-record replacement state', []);
+  }
+  assertSharedJsonWork([{ actionRoot: 'replacement', path: [], value: root }]);
 };
 
 export const encodeSharedJson = (value: unknown) => {

@@ -35,6 +35,9 @@ export const handleState = <T extends CreateState>(
     next
   ) => {
     const merge = (_next = next) => {
+      if (_next !== next) {
+        internal.validateState?.(_next);
+      }
       assertKnownStateShape(
         _next,
         internal.rootState,
@@ -128,6 +131,7 @@ export const handleState = <T extends CreateState>(
       return [];
     }
     if (typeof next === 'object') {
+      internal.validateState?.(next);
       assertKnownStateShape(
         next,
         internal.rootState,
@@ -270,6 +274,7 @@ export const handleState = <T extends CreateState>(
       internal.isBatching = false;
     }
     if (result?.length) {
+      internal.validatePatches?.(result[1]);
       result = [
         result[0],
         sanitizeCheckedPatches(result[1], 'setState updater result'),

@@ -13,6 +13,7 @@ export const replaceExternalStoreState = <T extends CreateState>(
   source: Record<PropertyKey, unknown>,
   { syncImmutable = true }: ReplaceExternalStoreStateOptions = {}
 ) => {
+  internal.validateReplacementSource?.(source);
   const [nextState, patches, inversePatches] = createWithMutative(
     internal.rootState,
     (draft) => {
