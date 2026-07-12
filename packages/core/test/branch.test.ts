@@ -172,26 +172,33 @@ test('applyMiddlewares validates each required store-like method in development'
 });
 
 test('createAsyncClientStore requires transport.onConnect', () => {
+  const dispose = vi.fn();
+  const store = {
+    name: 'client',
+    apply: vi.fn(),
+    getState: vi.fn(() => ({})),
+    destroy: vi.fn(() => store.transport?.dispose()),
+    transport: undefined as any
+  };
   expect(() => {
     createAsyncClientStore(
       () => ({
-        store: {
-          name: 'client',
-          apply: vi.fn(),
-          getState: vi.fn(() => ({}))
-        } as any,
+        store: store as any,
         internal: {
           sequence: 0
         } as any
       }),
       {
         clientTransport: {
+          dispose,
           emit: vi.fn(),
           listen: vi.fn()
         } as any
       } as any
     );
   }).toThrow('transport.onConnect is required');
+  expect(store.destroy).toHaveBeenCalledTimes(1);
+  expect(dispose).toHaveBeenCalledTimes(1);
 });
 
 test('createAsyncClientStore applies a JSON full sync on connect', async () => {
@@ -1748,15 +1755,23 @@ test('createAsyncClientStore cleans partial listener setup failures', () => {
     destroyCallbacks: new Set<() => void>(),
     sequence: 0
   } as any;
+  const store = {
+    apply: vi.fn(),
+    getState: () => ({}),
+    name: 'client',
+    transport: undefined as any,
+    destroy: vi.fn(() => {
+      const callbacks = [...internal.destroyCallbacks] as Array<() => void>;
+      internal.destroyCallbacks.clear();
+      callbacks.forEach((callback) => callback());
+      store.transport?.dispose();
+    })
+  };
 
   expect(() =>
     createAsyncClientStore(
       () => ({
-        store: {
-          apply: vi.fn(),
-          getState: () => ({}),
-          name: 'client'
-        } as any,
+        store: store as any,
         internal
       }),
       {
@@ -1774,5 +1789,6 @@ test('createAsyncClientStore cleans partial listener setup failures', () => {
 
   expect(disposeUpdate).toHaveBeenCalledTimes(1);
   expect(disposeTransport).toHaveBeenCalledTimes(1);
+  expect(store.destroy).toHaveBeenCalledTimes(1);
   expect(internal.destroyCallbacks).toHaveLength(0);
 });

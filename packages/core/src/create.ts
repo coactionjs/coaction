@@ -64,6 +64,16 @@ const validateCreateModeOptions = <T extends CreateState>(
   }
 };
 
+const destroyAfterSetupFailure = (store: { destroy: () => void }) => {
+  try {
+    store.destroy();
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error(error);
+    }
+  }
+};
+
 /**
  * Create a local store, the main side of a shared store, or a client mirror of
  * a shared store.
@@ -107,14 +117,23 @@ export const create: Creator = <T extends CreateState>(
     );
   }
 
+  if (share === 'main' && checkEnablePatches) {
+    throw new Error('enablePatches: true is required for the transport');
+  }
+
   const { store, internal } = buildStore({ share });
-  handleMainTransport(
-    store,
-    internal,
-    storeTransport,
-    workerType,
-    checkEnablePatches,
-    (options as StoreOptions<T>).transportPolicy
-  );
+  try {
+    handleMainTransport(
+      store,
+      internal,
+      storeTransport,
+      workerType,
+      checkEnablePatches,
+      (options as StoreOptions<T>).transportPolicy
+    );
+  } catch (error) {
+    destroyAfterSetupFailure(store);
+    throw error;
+  }
   return wrapStore(store);
 };

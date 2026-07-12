@@ -25,6 +25,18 @@ const reportTransportError = (error: unknown) => {
   }
 };
 
+const destroyAfterSetupFailure = <T extends CreateState>(
+  store: MiddlewareStore<T>,
+  error: unknown
+): never => {
+  try {
+    store.destroy();
+  } catch (destroyError) {
+    reportTransportError(destroyError);
+  }
+  throw error;
+};
+
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
     store: MiddlewareStore<T>;
@@ -60,22 +72,31 @@ export const createAsyncClientStore = <T extends CreateState>(
   const isSharedWorker =
     typeof SharedWorker !== 'undefined' &&
     options.worker instanceof SharedWorker;
-  const transport: ClientTransport = options.worker
-    ? createTransport(
-        isSharedWorker ? 'SharedWorkerClient' : 'WebWorkerClient',
-        {
-          worker: options.worker as SharedWorker,
-          prefix: store.name
-        }
-      )
-    : options.clientTransport;
+  let transport: ClientTransport;
+  try {
+    transport = options.worker
+      ? createTransport(
+          isSharedWorker ? 'SharedWorkerClient' : 'WebWorkerClient',
+          {
+            worker: options.worker as SharedWorker,
+            prefix: store.name
+          }
+        )
+      : options.clientTransport;
+  } catch (error) {
+    return destroyAfterSetupFailure(store, error);
+  }
   if (!transport) {
-    throw new Error('transport is required');
+    return destroyAfterSetupFailure(store, new Error('transport is required'));
   }
-  if (typeof transport.onConnect !== 'function') {
-    throw new Error('transport.onConnect is required');
+  try {
+    store.transport = transport;
+    if (typeof transport.onConnect !== 'function') {
+      throw new Error('transport.onConnect is required');
+    }
+  } catch (error) {
+    return destroyAfterSetupFailure(store, error);
   }
-  store.transport = transport;
 
   const destroyedMarker = Symbol('destroyed client transport');
   let resolveDestroyed!: () => void;
@@ -254,14 +275,7 @@ export const createAsyncClientStore = <T extends CreateState>(
       })
     );
   } catch (error) {
-    internal.destroyCallbacks?.delete(cleanup);
-    cleanup();
-    try {
-      transport.dispose?.();
-    } catch (disposeError) {
-      reportTransportError(disposeError);
-    }
-    throw error;
+    return destroyAfterSetupFailure(store, error);
   }
 
   return wrapStore(store, () => store.getState());

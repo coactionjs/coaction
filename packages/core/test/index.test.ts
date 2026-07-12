@@ -668,6 +668,40 @@ describe('Store Name Lifecycle', () => {
     useStore!.destroy();
   });
 
+  test('name is released when main transport listener setup fails', () => {
+    const disposeExecute = jest.fn();
+    const disposeTransport = jest.fn();
+    const listen = jest
+      .fn()
+      .mockReturnValueOnce(disposeExecute)
+      .mockImplementationOnce(() => {
+        throw new Error('fullSync listener failed');
+      });
+
+    expect(() =>
+      create(
+        {
+          count: 0
+        },
+        {
+          name: 'name-released-after-transport-failure',
+          transport: {
+            dispose: disposeTransport,
+            listen
+          } as any
+        }
+      )
+    ).toThrow('fullSync listener failed');
+
+    expect(disposeExecute).toHaveBeenCalledTimes(1);
+    expect(disposeTransport).toHaveBeenCalledTimes(1);
+    let recreatedStore: any;
+    expect(() => {
+      recreatedStore = createMainStore('name-released-after-transport-failure');
+    }).not.toThrow();
+    recreatedStore!.destroy();
+  });
+
   test('destroy is idempotent in main share mode', () => {
     const useStore = createMainStore('destroy-idempotent');
     expect(() => {
