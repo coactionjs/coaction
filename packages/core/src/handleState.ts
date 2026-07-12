@@ -1,4 +1,5 @@
 import {
+  apply as applyWithMutative,
   type Draft,
   create as createWithMutative,
   isDraft,
@@ -12,6 +13,10 @@ import type {
   StoreOptions
 } from './interface';
 import type { Internal } from './internal';
+import {
+  createImmutableSnapshotPatches,
+  finalizeImmutableStateSnapshot
+} from './immutableState';
 import {
   assertKnownStateShape,
   cloneOwnEnumerable,
@@ -150,7 +155,15 @@ export const handleState = <T extends CreateState>(
         if (typeof next === 'function') {
           try {
             internal.backupState = internal.rootState;
-            const nextState = createWithMutative(
+            const snapshotCache = internal.computedSnapshotCache;
+            const snapshotSources = internal.computedIdentityRequired
+              ? internal.computedSnapshotSources
+              : undefined;
+            const snapshot = snapshotCache?.get(
+              internal.rootState as unknown as object
+            );
+            const updateSnapshot = Boolean(snapshot && snapshotCache);
+            const produced = createWithMutative(
               internal.rootState,
               (draft) => {
                 internal.rootState = draft as Draft<T>;
@@ -174,8 +187,14 @@ export const handleState = <T extends CreateState>(
                     store.isSliceStore
                   );
                 }
+              },
+              {
+                enablePatches: updateSnapshot
               }
             );
+            const nextState = updateSnapshot
+              ? (produced as [T, Patches, Patches])[0]
+              : (produced as T);
             assertKnownStateShape(
               nextState,
               internal.backupState,
@@ -185,6 +204,24 @@ export const handleState = <T extends CreateState>(
                 requireSliceRoots: true
               }
             );
+            if (updateSnapshot) {
+              const patches = (produced as [T, Patches, Patches])[1];
+              const snapshotPatches = createImmutableSnapshotPatches(
+                patches,
+                snapshotCache!
+              );
+              const nextSnapshot = applyWithMutative(
+                snapshot as T,
+                snapshotPatches
+              );
+              finalizeImmutableStateSnapshot(
+                nextState,
+                nextSnapshot,
+                patches,
+                snapshotCache!,
+                snapshotSources
+              );
+            }
             internal.rootState = nextState;
           } catch (error) {
             internal.rootState = internal.backupState;

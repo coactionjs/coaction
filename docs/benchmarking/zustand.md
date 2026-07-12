@@ -41,13 +41,21 @@ The comparison includes:
 
 The maintained Zustand field is included intentionally. It is the fastest way to read a derived value in Zustand, but it shifts consistency work into actions. Coaction's value proposition is that cached derived state is part of the store runtime instead of a field that application code must keep synchronized.
 
-The update-plus-read cases also traverse Coaction's protected immutable public
-state. Nested objects and arrays remain behind readonly proxies so an action
-cannot mutate them outside `set()`. Those cases therefore measure both the
-update and the enforced public-state boundary; they are not equivalent to
-traversing an unprotected raw array. Stable cached reads and large Mutative
-updates remain separate cases so regressions in those paths are visible
-independently.
+The update-plus-read cases also enforce Coaction's immutable public-state
+boundary. External reads remain behind readonly proxies so actions cannot
+mutate nested values outside `set()`. Cached getter evaluation uses a separate
+frozen snapshot: its first evaluation snapshots the immutable state and later
+updates apply only the paths reported by Mutative. This keeps computed traversal
+safe without paying one proxy trap per array element and field. Stable cached
+reads and large Mutative updates remain separate cases so regressions in those
+paths are visible independently.
+
+The protected-read implementation was measured before and after the snapshot
+change on the same machine. The two update-plus-read cases moved from roughly
+5,900 ops/sec to about 50,000–65,000 ops/sec, while the large update case
+remained independently gated. The cached snapshot adds about 0.9 KiB gzip to
+the local entry. These numbers document the reviewed performance/size tradeoff;
+they are not cross-machine performance claims.
 
 The blocking regression check uses the transport-free `coaction/local` entry:
 

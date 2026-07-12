@@ -17,6 +17,18 @@ type GetterContext<T extends CreateState> = {
 const isObjectLike = (value: unknown) =>
   typeof value === 'object' && value !== null;
 
+const runComputedRead = <T extends CreateState, R>(
+  internal: Internal<T>,
+  read: () => R
+) => {
+  internal.computedReadDepth = (internal.computedReadDepth ?? 0) + 1;
+  try {
+    return read();
+  } finally {
+    internal.computedReadDepth -= 1;
+  }
+};
+
 export class Computed {
   constructor(
     public deps: (state: Store['getState']) => any[],
@@ -47,7 +59,9 @@ export class Computed {
       }
       let accessor = memoByReceiver.get(receiver);
       if (!accessor) {
-        accessor = createComputed(() => evaluate(receiver));
+        accessor = createComputed(() =>
+          runComputedRead(internal, () => evaluate(receiver))
+        );
         memoByReceiver.set(receiver, accessor);
       }
       return accessor();
@@ -69,7 +83,9 @@ export const createCachedGetter = <T extends CreateState>(
     }
     let accessor = accessors.get(receiver);
     if (!accessor) {
-      accessor = createComputed(() => getter.call(receiver));
+      accessor = createComputed(() =>
+        runComputedRead(internal, () => getter.call(receiver))
+      );
       accessors.set(receiver, accessor);
     }
     return accessor();

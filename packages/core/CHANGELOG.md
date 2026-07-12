@@ -16,6 +16,11 @@
   `coaction/adapter`; official adapters now expose plain JSON transport snapshots
   without linking adapter internals into the core runtime.
 
+  Preserve deep public-state mutation guards while evaluating cached derived
+  values against an incrementally updated frozen snapshot. This removes the
+  per-field readonly-proxy cost from invalidated computed reads and restores the
+  maintained update-plus-read performance gate.
+
   Read the [Coaction 3.0 migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
   before upgrading any Worker, SharedWorker, injected-transport, or custom-adapter
   deployment.

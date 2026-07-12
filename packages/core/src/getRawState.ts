@@ -70,7 +70,8 @@ export const getRawState = <T extends CreateState>(
       if (!Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
         prepareAccessorDescriptor({
           descriptor,
-          internal
+          internal,
+          sliceKey
         });
         return;
       }

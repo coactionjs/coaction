@@ -51,6 +51,14 @@ export interface Internal<T extends CreateState = CreateState> {
    * Whether the batch is running.
    */
   isBatching: boolean;
+  /** Depth of a cached getter/computed evaluation over immutable state. */
+  computedReadDepth?: number;
+  /** Frozen snapshots keyed by immutable state object identity. */
+  computedSnapshotCache?: WeakMap<object, unknown>;
+  /** Immutable state sources keyed by frozen computed snapshot identity. */
+  computedSnapshotSources?: WeakMap<object, object>;
+  /** Whether a computed getter has returned a state snapshot object. */
+  computedIdentityRequired?: boolean;
   /**
    * The listeners.
    */

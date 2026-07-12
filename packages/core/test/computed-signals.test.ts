@@ -31,6 +31,95 @@ test('accessor getters are cached computed values', () => {
   expect(getterCalls).toBe(2);
 });
 
+test('accessor getters read frozen raw state without weakening public guards', () => {
+  let sawFrozenItems = false;
+  const store = create<{
+    items: Array<{ value: number }>;
+    readonly total: number;
+    increment: () => void;
+    replace: () => void;
+  }>((set) => ({
+    items: [{ value: 1 }],
+    get total() {
+      sawFrozenItems =
+        Object.isFrozen(this.items) && Object.isFrozen(this.items[0]);
+      return this.items.reduce((sum, item) => sum + item.value, 0);
+    },
+    increment() {
+      set((draft) => {
+        draft.items[0].value += 1;
+      });
+    },
+    replace() {
+      set((draft) => {
+        draft.items[0] = { value: 4 };
+      });
+    }
+  }));
+
+  expect(store.getState().total).toBe(1);
+  expect(sawFrozenItems).toBe(true);
+
+  store.getState().increment();
+
+  sawFrozenItems = false;
+  expect(store.getState().total).toBe(2);
+  expect(sawFrozenItems).toBe(true);
+  store.getState().replace();
+  sawFrozenItems = false;
+  expect(store.getState().total).toBe(4);
+  expect(sawFrozenItems).toBe(true);
+  expect(() => {
+    store.getState().items[0].value = 5;
+  }).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores.'
+  );
+});
+
+test('accessor getters cannot mutate the frozen state used for computation', () => {
+  const store = create<{
+    nested: { count: number };
+    readonly invalid: number;
+  }>(() => ({
+    nested: { count: 1 },
+    get invalid() {
+      this.nested.count += 1;
+      return this.nested.count;
+    }
+  }));
+
+  expect(() => store.getState().invalid).toThrow(TypeError);
+  expect(store.getPureState().nested.count).toBe(1);
+});
+
+test('object-valued computed results retain public state identity', () => {
+  const store = create<{
+    items: Array<{ value: number }>;
+    readonly first: { value: number };
+    replace: () => void;
+  }>((set) => ({
+    items: [{ value: 1 }],
+    get first() {
+      return this.items[0];
+    },
+    replace() {
+      set((draft) => {
+        draft.items[0] = { value: 2 };
+      });
+    }
+  }));
+
+  expect(store.getState().first).toBe(store.getState().items[0]);
+  store.getState().replace();
+  expect(store.getState().first).toBe(store.getState().items[0]);
+  expect(store.getState().first.value).toBe(2);
+  expect(() => {
+    store.getState().first.value = 2;
+  }).toThrow(
+    'Direct state mutation is not allowed in immutable Coaction stores.'
+  );
+});
+
 test('accessor getters read fresh draft values during mutation', () => {
   const seen: number[] = [];
   const store = create<{

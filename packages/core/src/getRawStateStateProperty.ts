@@ -5,6 +5,11 @@ import {
 } from './computed';
 import type { CreateState } from './interface';
 import type { Internal } from './internal';
+import {
+  getImmutableStateSnapshot,
+  indexImmutableStateSnapshot,
+  isImmutableStateObject
+} from './immutableState';
 import { sanitizeInitialStateValue } from './utils';
 
 type PrepareStateDescriptorOptions<T extends CreateState> = {
@@ -31,17 +36,6 @@ const readonlyProxyCache = new WeakMap<
   Internal<any>,
   WeakMap<object, unknown>
 >();
-
-const isReadonlyProxyable = (value: unknown): value is object => {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (Array.isArray(value)) {
-    return true;
-  }
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-};
 
 const getReadonlyProxyCache = <T extends CreateState>(
   internal: Internal<T>
@@ -87,9 +81,19 @@ const toReadonlyStateValue = <T extends CreateState>(
   if (
     internal.mutableInstance ||
     internal.isBatching ||
-    !isReadonlyProxyable(value)
+    !isImmutableStateObject(value)
   ) {
     return value;
+  }
+  if (internal.computedReadDepth) {
+    const cache = (internal.computedSnapshotCache ??= new WeakMap());
+    if (
+      isImmutableStateObject(internal.rootState) &&
+      !cache.has(internal.rootState)
+    ) {
+      getImmutableStateSnapshot(internal.rootState, cache);
+    }
+    return getImmutableStateSnapshot(value, cache);
   }
   const publicValue = getPublicStateObject(internal, value, sliceKey);
   if (publicValue) {
@@ -127,6 +131,28 @@ const toReadonlyStateValue = <T extends CreateState>(
   });
   cache.set(value, proxy);
   return proxy;
+};
+
+const toPublicComputedValue = <T extends CreateState>(
+  internal: Internal<T>,
+  value: unknown,
+  sliceKey?: PropertyKey
+) => {
+  if (!isImmutableStateObject(value)) {
+    return value;
+  }
+  const cache = internal.computedSnapshotCache;
+  const rootSnapshot = cache?.get(internal.rootState as unknown as object);
+  const sources = (internal.computedSnapshotSources ??= new WeakMap());
+  let source = sources.get(value);
+  if (!source && Object.isFrozen(value) && rootSnapshot) {
+    indexImmutableStateSnapshot(internal.rootState, rootSnapshot, sources);
+    source = sources.get(value);
+  }
+  if (source) {
+    internal.computedIdentityRequired = true;
+  }
+  return source ? toReadonlyStateValue(internal, source, sliceKey) : value;
 };
 
 export const prepareStateDescriptor = <T extends CreateState>({
@@ -167,9 +193,12 @@ export const prepareStateDescriptor = <T extends CreateState>({
     if (internal.mutableInstance) {
       throw new Error('Computed is not supported with mutable instance');
     }
-    descriptor.get = (descriptor.value as Computed).createGetter({
+    const getComputed = (descriptor.value as Computed).createGetter({
       internal
     });
+    descriptor.get = function () {
+      return toPublicComputedValue(internal, getComputed.call(this), sliceKey);
+    };
   } else if (typeof sliceKey !== 'undefined') {
     const read = createTrackedStateReader(
       internal,
@@ -201,10 +230,17 @@ export const prepareStateDescriptor = <T extends CreateState>({
 
 export const prepareAccessorDescriptor = <T extends CreateState>({
   descriptor,
-  internal
-}: Pick<PrepareStateDescriptorOptions<T>, 'descriptor' | 'internal'>) => {
+  internal,
+  sliceKey
+}: Pick<
+  PrepareStateDescriptorOptions<T>,
+  'descriptor' | 'internal' | 'sliceKey'
+>) => {
   if (internal.mutableInstance || typeof descriptor.get !== 'function') {
     return;
   }
-  descriptor.get = createCachedGetter(internal, descriptor.get);
+  const getComputed = createCachedGetter(internal, descriptor.get);
+  descriptor.get = function () {
+    return toPublicComputedValue(internal, getComputed.call(this), sliceKey);
+  };
 };

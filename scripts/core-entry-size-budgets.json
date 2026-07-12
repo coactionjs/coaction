@@ -4,11 +4,11 @@
     "maxGzipBytes": 1600
   },
   "local": {
-    "baselineGzipBytes": 5911,
-    "maxGzipBytes": 6300
+    "baselineGzipBytes": 6700,
+    "maxGzipBytes": 7000
   },
   "shared": {
-    "baselineGzipBytes": 9485,
-    "maxGzipBytes": 10300
+    "baselineGzipBytes": 10601,
+    "maxGzipBytes": 11100
   }
 }
