@@ -28,7 +28,9 @@ branch and MUST NOT be merged wholesale into the new main line.
 5. Remove legacy rich-state and dynamic-mode dependencies from the default
    runtime.
 6. Add major changesets and user migration documentation.
-7. Run the complete package, peer, integration, browser, release, and size gates.
+7. Document a coordinated protocol cutover for Worker, SharedWorker, and
+   injected transports.
+8. Run the complete package, peer, integration, browser, release, and size gates.
 
 Current progress:
 
@@ -39,6 +41,7 @@ Current progress:
 | Static entries and consumer budgets        | Complete | `coaction/local`, `coaction/shared`, `coaction/adapter`; `pnpm package:size` |
 | Official package migration                 | Complete | Adapter sources import `coaction/adapter`; 17-package test matrix passes     |
 | Migration and major release metadata       | Complete | Migration guide and 17-package major changeset validate successfully         |
+| Coordinated protocol deployment            | Complete | Migration guide covers Worker, SharedWorker, custom transport, and rollback  |
 | Final release gates                        | Complete | Full check, coverage, browser matrix, package quality, and size gates pass   |
 
 ## Release gates
@@ -48,6 +51,8 @@ Current progress:
 - Local and shared production consumer bundles meet separately reviewed budgets.
 - Non-JSON behavior is either explicitly local/opt-in or documented as removed.
 - Major-version migration guidance is complete.
+- The release runbook upgrades or rolls back each authority/client cohort as a
+  unit; mixed 2.x/next-major traffic is prohibited.
 - Human review approves the trust boundary, sequence state machine, and size
   trade-offs.
 
@@ -55,9 +60,10 @@ Current progress:
 
 Before publication, rollback means resetting the candidate branch to the last
 known-good new-main commit; the archive remains untouched. After publication,
-rollback means deprecating the affected major version and directing users to the
-last supported 2.x release while a corrected major is prepared. The archived
-branch is not published as an emergency replacement.
+rollback means deprecating the affected major version and moving the authority
+and all clients in each live transport cohort back to the last supported 2.x
+release together while a corrected major is prepared. The archived branch is
+not published as an emergency replacement.
 
 ## Verification
 

@@ -99,6 +99,20 @@ Officially unsupported:
 
 For package-level combinations such as adapters and middlewares, use the [support matrix](./support-matrix.md) as the source of truth.
 
+## Protocol-Version Cohorts
+
+A shared main store and every client connected to it form one protocol cohort.
+All members of that cohort must use the same Coaction wire protocol and package
+major. Coaction does not negotiate protocol versions across a transport.
+
+This matters especially for SharedWorker deployments because an existing worker
+can remain alive while tabs still hold ports to it. A major upgrade must drain
+the old ports and authority before the new cohort takes ownership of the same
+logical state. Versioned worker URLs and names isolate deployments, but they do
+not coordinate state between two concurrent authorities. See the
+[JSON-only migration guide](../features/json-only-shared-runtime/migration.md#coordinate-the-2x-to-next-major-deployment)
+for the cutover and rollback procedure.
+
 ## Guarantee Levels
 
 The runtime makes three distinct guarantee levels:
