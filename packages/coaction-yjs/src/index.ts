@@ -4,7 +4,7 @@ import {
   onStoreReady,
   type Middleware,
   type Store
-} from 'coaction';
+} from 'coaction/adapter';
 import * as Y from 'yjs';
 import {
   collectRemoteOperations,

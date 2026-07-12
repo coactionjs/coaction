@@ -3,7 +3,7 @@ import {
   onStoreReady,
   type Middleware,
   type Store
-} from 'coaction';
+} from 'coaction/adapter';
 
 type Snapshot = Record<PropertyKey, unknown>;
 

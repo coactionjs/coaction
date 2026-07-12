@@ -1,4 +1,4 @@
-import { StateSchemaError } from 'coaction';
+import { StateSchemaError } from 'coaction/adapter';
 import * as Y from 'yjs';
 import { isUnsafePathSegment, sanitizePlainValue } from './shared';
 import { toPlainValue } from './yjsValue';

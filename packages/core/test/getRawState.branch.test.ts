@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { Computed } from '../src/computed';
 import { getRawState } from '../src/getRawState';
+import { createClientAction } from '../src/getRawStateClientAction';
 import {
   decodeExecuteRequest,
   encodeExecuteResponse
@@ -48,7 +49,8 @@ const createClientStoreContext = (
         return step + 1;
       }
     },
-    options
+    options,
+    createClientAction
   );
   return {
     internal,

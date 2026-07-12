@@ -6,7 +6,8 @@
     "module": "esnext",
     "baseUrl": ".",
     "paths": {
-      "coaction": ["packages/core/index.ts"]
+      "coaction": ["packages/core/index.ts"],
+      "coaction/*": ["packages/core/*.ts"]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true,

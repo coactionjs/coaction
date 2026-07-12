@@ -3,7 +3,7 @@ import {
   createBinder,
   replaceExternalStoreState,
   replaceOwnEnumerable
-} from 'coaction';
+} from 'coaction/adapter';
 import type { StateCreator, StoreApi } from 'zustand';
 
 type BindZustand = <T>(

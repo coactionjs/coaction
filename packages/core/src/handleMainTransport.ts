@@ -9,6 +9,7 @@ import type {
   TransportPolicyRequest
 } from './interface';
 import type { Internal } from './internal';
+import { emit } from './asyncClientStore';
 import { validateSharedStateSerializable } from './sharedState';
 import {
   decodeExecuteRequest,
@@ -87,6 +88,7 @@ export const handleMainTransport = <T extends CreateState>(
   };
 
   store.transport = transport;
+  internal.emitPatches = (patches) => emit(store, internal, patches);
   internal.destroyCallbacks?.add(cleanup);
   try {
     registerDisposer(
@@ -171,8 +173,8 @@ export const handleMainTransport = <T extends CreateState>(
           throw new Error('Transport request is not authorized');
         }
         assertActive();
-        validateSharedStateSerializable(internal.rootState);
-        const state = internal.rootState;
+        const state = internal.getTransportState?.() ?? internal.rootState;
+        validateSharedStateSerializable(state);
         if (
           typeof state !== 'object' ||
           state === null ||

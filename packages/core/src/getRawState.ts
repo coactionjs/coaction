@@ -5,7 +5,7 @@ import type {
   StoreOptions
 } from './interface';
 import type { Internal } from './internal';
-import { createClientAction } from './getRawStateClientAction';
+import type { ClientActionFactory } from './getRawStateClientAction';
 import { createLocalAction } from './getRawStateLocalAction';
 import {
   prepareAccessorDescriptor,
@@ -39,7 +39,8 @@ export const getRawState = <T extends CreateState>(
   store: MiddlewareStore<T>,
   internal: Internal<T>,
   initialState: any,
-  options: StoreOptions<T> | ClientStoreOptions<T>
+  options: StoreOptions<T> | ClientStoreOptions<T>,
+  createClientAction?: ClientActionFactory
 ) => {
   const clientExecuteSyncTimeoutMs = getClientExecuteSyncTimeoutMs(options);
   const rawState = {} as Record<PropertyKey, any>;
@@ -88,6 +89,9 @@ export const getRawState = <T extends CreateState>(
         if (store.share === 'client') {
           if (typeof key !== 'string') {
             return;
+          }
+          if (!createClientAction) {
+            throw new Error('Client action runtime is not configured');
           }
           descriptor.value = createClientAction({
             clientExecuteSyncTimeoutMs,

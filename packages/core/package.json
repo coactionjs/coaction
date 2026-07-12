@@ -17,7 +17,13 @@
     "directory": "packages/core"
   },
   "files": [
-    "dist"
+    "dist",
+    "adapter.d.ts",
+    "adapter.js",
+    "local.d.ts",
+    "local.js",
+    "shared.d.ts",
+    "shared.js"
   ],
   "sideEffects": false,
   "main": "dist/index.js",
@@ -34,6 +40,39 @@
         "default": "./dist/index.js"
       },
       "default": "./dist/index.mjs"
+    },
+    "./local": {
+      "import": {
+        "types": "./dist/local.d.mts",
+        "default": "./dist/local.mjs"
+      },
+      "require": {
+        "types": "./dist/local.d.ts",
+        "default": "./dist/local.js"
+      },
+      "default": "./dist/local.mjs"
+    },
+    "./shared": {
+      "import": {
+        "types": "./dist/shared.d.mts",
+        "default": "./dist/shared.mjs"
+      },
+      "require": {
+        "types": "./dist/shared.d.ts",
+        "default": "./dist/shared.js"
+      },
+      "default": "./dist/shared.mjs"
+    },
+    "./adapter": {
+      "import": {
+        "types": "./dist/adapter.d.mts",
+        "default": "./dist/adapter.mjs"
+      },
+      "require": {
+        "types": "./dist/adapter.d.ts",
+        "default": "./dist/adapter.js"
+      },
+      "default": "./dist/adapter.mjs"
     },
     "./package.json": "./package.json"
   },

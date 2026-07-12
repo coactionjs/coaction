@@ -1,4 +1,5 @@
-import { createReactiveTracker, signal } from '../src';
+import { signal } from '../src';
+import { createReactiveTracker } from '../src/reactiveTracker';
 
 test('reactive tracker notifies only tracked signal dependencies', () => {
   const count = signal(0);

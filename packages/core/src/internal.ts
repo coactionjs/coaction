@@ -100,4 +100,10 @@ export interface Internal<T extends CreateState = CreateState> {
   ) => Promise<void>;
   /** Cancel a transport promise when the client mirror is destroyed. */
   awaitClientTransport?: <R>(value: PromiseLike<R> | R) => Promise<R>;
+  /** Validate committed state when a runtime capability requires it. */
+  validateState?: (state: unknown) => void;
+  /** Publish patches when a shared authority transport is attached. */
+  emitPatches?: (patches: Patches) => void;
+  /** Return the plain state exposed at the JSON transport boundary. */
+  getTransportState?: () => unknown;
 }

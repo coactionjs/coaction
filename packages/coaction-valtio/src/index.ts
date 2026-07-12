@@ -7,8 +7,9 @@ import {
   replaceMutableAdapterState as replaceMutableState,
   sanitizeInitialStateValue,
   snapshotMutableAdapterPureState as snapshotPureState,
+  toMutableAdapterSnapshot as toTransportState,
   type Store
-} from 'coaction';
+} from 'coaction/adapter';
 import { proxy, subscribe } from 'valtio/vanilla';
 
 export * from 'valtio/vanilla';
@@ -16,6 +17,7 @@ export * from 'valtio/vanilla';
 const instancesMap = new WeakMap<object, object>();
 
 type ValtioInternal = {
+  getTransportState?: () => unknown;
   rootState?: object;
   toMutableRaw?: (key: object) => object | undefined;
   notifyStateChange?: () => void;
@@ -35,6 +37,8 @@ const handleStore = (
 ) => {
   if (!internal.toMutableRaw) {
     internal.toMutableRaw = (key: object) => instancesMap.get(key);
+    internal.getTransportState = () =>
+      toTransportState(internal.toMutableRaw?.(rawState) ?? rawState);
     const getMutableState = () => internal.toMutableRaw?.(rawState) ?? rawState;
     let isApplyingCoactionState = false;
     let lastSnapshot: Record<PropertyKey, unknown> | undefined;

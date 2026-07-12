@@ -20,9 +20,8 @@ import {
   sanitizeCheckedPatches,
   setOwnEnumerable
 } from './utils';
-import { emit, handleDraft } from './asyncClientStore';
+import { handleDraft } from './handleDraft';
 import { Computed, refreshSignalSlots } from './computed';
-import { validateSharedStateSerializable } from './sharedState';
 
 export const handleState = <T extends CreateState>(
   store: MiddlewareStore<T>,
@@ -92,9 +91,7 @@ export const handleState = <T extends CreateState>(
           requireSliceRoots: true
         }
       );
-      if (store.share === 'main') {
-        validateSharedStateSerializable(result[0]);
-      }
+      internal.validateState?.(internal.getTransportState?.() ?? result[0]);
       patches = result[1];
       inversePatches = result[2];
     } finally {
@@ -255,9 +252,9 @@ export const handleState = <T extends CreateState>(
           }
         );
       }
-      if (store.share === 'main') {
-        validateSharedStateSerializable(internal.rootState);
-      }
+      internal.validateState?.(
+        internal.getTransportState?.() ?? internal.rootState
+      );
       if (isDrafted) {
         internal.backupState = internal.rootState;
         const [draft, finalize] = createWithMutative(
@@ -279,7 +276,9 @@ export const handleState = <T extends CreateState>(
         sanitizeCheckedPatches(result[2], 'setState updater inverse result')
       ];
     }
-    emit(store, internal, result?.[1]);
+    if (result?.[1]) {
+      internal.emitPatches?.(result[1]);
+    }
     return result;
   };
   const getState = (

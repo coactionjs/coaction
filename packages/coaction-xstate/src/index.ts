@@ -2,7 +2,7 @@ import {
   createBinder,
   onStoreReady,
   replaceExternalStoreState
-} from 'coaction';
+} from 'coaction/adapter';
 
 export * from 'xstate';
 

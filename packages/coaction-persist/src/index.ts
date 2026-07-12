@@ -4,7 +4,7 @@ import {
   sanitizeReplacementState,
   type Middleware,
   type Store
-} from 'coaction';
+} from 'coaction/adapter';
 
 export type PersistStorage = {
   getItem: (name: string) => string | null | Promise<string | null>;

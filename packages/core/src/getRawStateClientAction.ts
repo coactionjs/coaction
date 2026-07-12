@@ -136,3 +136,5 @@ export const createClientAction = <T extends CreateState>({
     });
   };
 };
+
+export type ClientActionFactory = typeof createClientAction;

@@ -1,9 +1,10 @@
 import * as React from 'react';
+import { create as createVanilla } from 'coaction';
 import {
-  create as createVanilla,
   createReactiveTracker,
+  type ReactiveTracker,
   wrapStore
-} from 'coaction';
+} from 'coaction/adapter';
 import type {
   Slice,
   Store,
@@ -11,8 +12,7 @@ import type {
   ClientStoreOptions,
   SliceState,
   ISlices,
-  Asyncify,
-  ReactiveTracker
+  Asyncify
 } from 'coaction';
 // Keep the shim so one published build works across React 17/18/19.
 // Switching to `react` directly would be a breaking change for React 17 users.

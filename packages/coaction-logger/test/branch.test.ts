@@ -1,5 +1,6 @@
 import { create } from 'coaction';
 import { vi } from 'vitest';
+import { encodeExecuteResponse } from '../../core/src/transportProtocol';
 import { logger } from '../src/logger';
 
 type FakeStore = {
@@ -309,7 +310,12 @@ test('closes trace group when client fullSync fallback rejects', async () => {
       dispose: vi.fn(),
       emit: vi.fn(async (event: string) => {
         if (event === 'execute') {
-          return ['ok', 2];
+          return encodeExecuteResponse({
+            epoch: 'epoch-1',
+            ok: true,
+            sequence: 2,
+            value: 'ok'
+          });
         }
         if (event === 'fullSync') {
           throw new Error('full sync failed');

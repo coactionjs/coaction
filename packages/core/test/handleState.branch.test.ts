@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { emit } from '../src/asyncClientStore';
 import { handleState } from '../src/handleState';
 import { decodeUpdateMessage } from '../src/transportProtocol';
 
@@ -33,6 +34,7 @@ const createContext = (options?: {
     }),
     patch: options?.patch
   } as any;
+  internal.emitPatches = (patches: any) => emit(store, internal, patches);
 
   const stateOps = handleState(store, internal, {
     enablePatches: options?.enablePatches

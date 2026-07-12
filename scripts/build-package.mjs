@@ -52,24 +52,37 @@ const normalizeDeclarations = () => {
       return;
     }
 
-    const dtsPath = join(distDir, 'index.d.ts');
-    const dmtsPath = join(distDir, 'index.d.mts');
-    const dtsContent = existsSync(dtsPath)
-      ? readFileSync(dtsPath, 'utf8').trim()
-      : '';
-
-    if (dtsContent === 'export { };') {
-      const realDts = readdirSync(distDir)
-        .filter((file) => /^index\d+\.d\.ts$/.test(file))
+    const files = readdirSync(distDir);
+    for (const file of files.filter((name) => name.endsWith('.d.ts'))) {
+      const dtsPath = join(distDir, file);
+      if (!existsSync(dtsPath)) {
+        continue;
+      }
+      if (readFileSync(dtsPath, 'utf8').trim() !== 'export { };') {
+        continue;
+      }
+      const base = file.slice(0, -'.d.ts'.length);
+      const realDts = files
+        .filter((candidate) => {
+          const suffix = candidate.slice(base.length, -'.d.ts'.length);
+          return (
+            candidate.startsWith(base) &&
+            candidate.endsWith('.d.ts') &&
+            /^\d+$/.test(suffix)
+          );
+        })
         .sort()[0];
-
       if (realDts) {
         copyFileSync(join(distDir, realDts), dtsPath);
         rmSync(join(distDir, realDts), { force: true });
       }
     }
 
-    if (existsSync(dtsPath)) {
+    for (const file of readdirSync(distDir).filter((name) =>
+      name.endsWith('.d.ts')
+    )) {
+      const dtsPath = join(distDir, file);
+      const dmtsPath = join(distDir, file.replace(/\.d\.ts$/, '.d.mts'));
       copyFileSync(dtsPath, dmtsPath);
     }
   } catch (error) {

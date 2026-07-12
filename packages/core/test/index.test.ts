@@ -5,12 +5,12 @@ import {
 } from 'data-transport';
 import {
   create,
-  createBinder,
   type Middleware,
   type Slice,
   type Slices,
   type Store
 } from '../src';
+import { createBinder } from '../src/binder';
 import { bindSymbol } from '../src/constant';
 import {
   decodeExecuteResponse,

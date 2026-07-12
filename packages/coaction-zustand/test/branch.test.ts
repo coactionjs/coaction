@@ -9,7 +9,7 @@ test('skips subscription when zustand state is already synced', async () => {
   const setState = vi.fn();
 
   let capturedHandleStore: any;
-  vi.doMock('coaction', () => ({
+  vi.doMock('coaction/adapter', () => ({
     createBinder: ({ handleStore }: { handleStore: any }) => {
       capturedHandleStore = handleStore;
       return (input: unknown) => input;

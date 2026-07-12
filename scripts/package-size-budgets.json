@@ -195,11 +195,35 @@
     "files": {
       "dist/index.mjs": {
         "baselineGzipBytes": 14363,
-        "maxGzipBytes": 16520
+        "maxGzipBytes": 15000
       },
       "dist/index.js": {
         "baselineGzipBytes": 14856,
-        "maxGzipBytes": 17090
+        "maxGzipBytes": 15500
+      },
+      "dist/local.mjs": {
+        "baselineGzipBytes": 8620,
+        "maxGzipBytes": 9200
+      },
+      "dist/local.js": {
+        "baselineGzipBytes": 8689,
+        "maxGzipBytes": 9300
+      },
+      "dist/shared.mjs": {
+        "baselineGzipBytes": 13679,
+        "maxGzipBytes": 15000
+      },
+      "dist/shared.js": {
+        "baselineGzipBytes": 13778,
+        "maxGzipBytes": 15500
+      },
+      "dist/adapter.mjs": {
+        "baselineGzipBytes": 6229,
+        "maxGzipBytes": 6800
+      },
+      "dist/adapter.js": {
+        "baselineGzipBytes": 6682,
+        "maxGzipBytes": 7300
       }
     }
   }

@@ -1,30 +1,14 @@
 export { create } from './create';
-export { createBinder, defineExternalStoreAdapter } from './binder';
 export { onStoreReady } from './lifecycle';
-export { createReactiveTracker } from './reactiveTracker';
-export { replaceExternalStoreState } from './replaceExternalStoreState';
 export {
-  applyMutableAdapterPatches,
-  getMutableAdapterOwnEnumerableKeys,
-  isEqualMutableAdapterSnapshot,
-  isMutableAdapterUnsafeKey,
-  replaceMutableAdapterState,
-  snapshotMutableAdapterPureState,
-  toMutableAdapterSnapshot
-} from './externalMutableAdapterUtils';
-export {
-  applyRootReplacementWithPatches,
   assertSafePatches,
-  createRootReplacementPatches,
   isStateSchemaError,
-  replaceOwnEnumerable,
   sanitizeInitialStateValue,
   sanitizePatches,
   sanitizeReplacementState,
   StateSchemaError,
   UnsafePatchPathError
 } from './utils';
-export { wrapStore } from './wrapStore';
 export {
   computed,
   effect,
@@ -57,6 +41,4 @@ export type {
   StoreWithAsyncFunction as AsyncStore
 } from './interface';
 
-export type { ExternalStoreAdapterOptions } from './binder';
-export type { ReactiveTracker } from './reactiveTracker';
 export type { JsonPrimitive, JsonValue } from './sharedState';

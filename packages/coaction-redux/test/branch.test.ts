@@ -2,14 +2,14 @@ import { configureStore, createSlice } from '@reduxjs/toolkit';
 import { vi } from 'vitest';
 
 afterEach(() => {
-  vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.resetModules();
 });
 
 test('throws when redux binding is created in client share mode', async () => {
   vi.resetModules();
   let capturedHandleStore: any;
-  vi.doMock('coaction', () => ({
+  vi.doMock('coaction/adapter', () => ({
     createBinder: ({ handleStore }: { handleStore: any }) => {
       capturedHandleStore = handleStore;
       return (input: unknown) => input;
@@ -46,7 +46,7 @@ test('throws when redux binding is created in client share mode', async () => {
 test('redux binding unsubscribes from redux store on destroy', async () => {
   vi.resetModules();
   let capturedHandleStore: any;
-  vi.doMock('coaction', () => ({
+  vi.doMock('coaction/adapter', () => ({
     createBinder: ({ handleStore }: { handleStore: any }) => {
       capturedHandleStore = handleStore;
       return (input: unknown) => input;

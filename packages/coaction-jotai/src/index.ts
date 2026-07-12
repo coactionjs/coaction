@@ -1,4 +1,4 @@
-import { createBinder, type Store } from 'coaction';
+import { createBinder, type Store } from 'coaction/adapter';
 import { createStore, type PrimitiveAtom } from 'jotai/vanilla';
 
 export * from 'jotai/vanilla';

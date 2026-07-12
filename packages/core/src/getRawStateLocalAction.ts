@@ -4,7 +4,7 @@ import {
   isDraft,
   type Patches
 } from 'mutative';
-import { handleDraft } from './asyncClientStore';
+import { handleDraft } from './handleDraft';
 import type {
   ClientStoreOptions,
   CreateState,

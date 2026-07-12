@@ -1,4 +1,5 @@
-import { create as createVanilla, wrapStore } from 'coaction';
+import { create as createVanilla } from 'coaction';
+import { wrapStore } from 'coaction/adapter';
 import type {
   Asyncify,
   ClientStoreOptions,

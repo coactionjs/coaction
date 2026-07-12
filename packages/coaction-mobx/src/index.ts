@@ -8,8 +8,9 @@ import {
   onStoreReady,
   replaceExternalStoreState,
   replaceMutableAdapterState as replaceMutableState,
-  snapshotMutableAdapterPureState as snapshotPureState
-} from 'coaction';
+  snapshotMutableAdapterPureState as snapshotPureState,
+  toMutableAdapterSnapshot as toTransportState
+} from 'coaction/adapter';
 import { autorun, runInAction, untracked } from 'mobx';
 
 const instancesMap = new WeakMap<object, object>();
@@ -19,6 +20,7 @@ type StoreWithSubscriptions = Store<object> & {
 };
 
 type MobxInternal = {
+  getTransportState?: () => unknown;
   rootState?: object;
   toMutableRaw?: (key: object) => object | undefined;
   actMutable?: typeof runInAction;
@@ -82,6 +84,8 @@ const handleStore = (
 ) => {
   if (internal.toMutableRaw) return;
   internal.toMutableRaw = (key: object) => instancesMap.get(key);
+  internal.getTransportState = () =>
+    toTransportState(internal.toMutableRaw!(rawState) ?? rawState);
   store._subscriptions = new Set();
   let isApplyingCoactionState = false;
   let lastSnapshot: Record<PropertyKey, unknown> | undefined;

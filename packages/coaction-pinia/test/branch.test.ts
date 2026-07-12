@@ -5,7 +5,7 @@ const loadBinding = async () => {
   let capturedHandleStore: any;
   let capturedHandleState: any;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,
@@ -38,7 +38,7 @@ const loadBinding = async () => {
 };
 
 afterEach(() => {
-  vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.resetModules();
 });
 

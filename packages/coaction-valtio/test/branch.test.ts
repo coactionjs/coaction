@@ -5,7 +5,7 @@ const loadBinding = async () => {
   vi.resetModules();
   let capturedHandleStore: any;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,
@@ -30,7 +30,7 @@ const loadBinding = async () => {
 };
 
 afterEach(() => {
-  vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.doUnmock('valtio/vanilla');
   vi.resetModules();
 });
@@ -96,7 +96,7 @@ test('destroy unsubscribes valtio listener only once', async () => {
       throw new Error('unsubscribe called twice');
     }
   });
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,
@@ -150,7 +150,7 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   let capturedHandleStore: any;
   let listener: (() => void) | undefined;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,

@@ -1,8 +1,9 @@
-import { createAsyncClientStore, handleDraft } from '../src/asyncClientStore';
+import { createAsyncClientStore } from '../src/asyncClientStore';
 import { applyMiddlewares } from '../src/applyMiddlewares';
 import { create } from '../src/create';
 import { getInitialState } from '../src/getInitialState';
 import { handleMainTransport } from '../src/handleMainTransport';
+import { handleDraft } from '../src/handleDraft';
 import {
   decodeExecuteResponse,
   encodeExecuteRequest,

@@ -5,6 +5,7 @@ afterEach(() => {
   vi.useRealTimers();
   vi.doUnmock('use-sync-external-store/shim');
   vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.resetModules();
 });
 
@@ -298,8 +299,8 @@ test('observer disposes uncommitted render tracker after grace period', async ()
     subscribe: vi.fn(() => () => undefined),
     track: (fn: () => unknown) => fn()
   };
-  vi.doMock('coaction', async () => ({
-    ...(await vi.importActual<object>('coaction')),
+  vi.doMock('coaction/adapter', async () => ({
+    ...(await vi.importActual<object>('coaction/adapter')),
     createReactiveTracker: () => tracker
   }));
   vi.doMock('use-sync-external-store/shim', () => ({
@@ -338,8 +339,8 @@ test('observer committed subscription cancels uncommitted tracker cleanup', asyn
     subscribe: vi.fn(() => () => undefined),
     track: (fn: () => unknown) => fn()
   };
-  vi.doMock('coaction', async () => ({
-    ...(await vi.importActual<object>('coaction')),
+  vi.doMock('coaction/adapter', async () => ({
+    ...(await vi.importActual<object>('coaction/adapter')),
     createReactiveTracker: () => tracker
   }));
   vi.doMock('use-sync-external-store/shim', () => ({
@@ -378,8 +379,8 @@ test('observer disposes tracker after committed subscription is released', async
     subscribe: vi.fn(() => () => undefined),
     track: (fn: () => unknown) => fn()
   };
-  vi.doMock('coaction', async () => ({
-    ...(await vi.importActual<object>('coaction')),
+  vi.doMock('coaction/adapter', async () => ({
+    ...(await vi.importActual<object>('coaction/adapter')),
     createReactiveTracker: () => tracker
   }));
   vi.doMock('use-sync-external-store/shim', () => ({
@@ -432,8 +433,8 @@ test('observer syncs active tracker snapshot when resubscribing after missed upd
     }),
     track: (fn: () => unknown) => fn()
   };
-  vi.doMock('coaction', async () => ({
-    ...(await vi.importActual<object>('coaction')),
+  vi.doMock('coaction/adapter', async () => ({
+    ...(await vi.importActual<object>('coaction/adapter')),
     createReactiveTracker: () => tracker
   }));
   vi.doMock('use-sync-external-store/shim', () => ({
@@ -485,7 +486,9 @@ test('handles non-object slice state defensively', async () => {
     getInitialState: () => null
   };
   vi.doMock('coaction', () => ({
-    create: () => mockStore,
+    create: () => mockStore
+  }));
+  vi.doMock('coaction/adapter', () => ({
     createReactiveTracker: () => ({
       dispose: () => undefined,
       getSnapshot: () => 0,

@@ -6,7 +6,7 @@ const loadBinding = async () => {
   let capturedHandleState: any;
   const replaceExternalStoreState = vi.fn();
   const cancelReadySubscription = vi.fn();
-  vi.doMock('coaction', () => ({
+  vi.doMock('coaction/adapter', () => ({
     createBinder: ({
       handleStore,
       handleState
@@ -34,7 +34,7 @@ const loadBinding = async () => {
 };
 
 afterEach(() => {
-  vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.resetModules();
 });
 

@@ -1,45 +1,26 @@
-import { apply as applyWithMutative } from 'mutative';
-import type {
-  Listener,
-  Slice,
-  Store,
-  MiddlewareStore,
-  StoreOptions,
-  CreateState,
-  ClientStoreOptions,
-  Creator
-} from './interface';
-import { defaultName, WorkerType } from './constant';
 import { createAsyncClientStore } from './asyncClientStore';
-import { getInitialState } from './getInitialState';
-import { getRawState } from './getRawState';
-import { handleState } from './handleState';
-import type { Internal } from './internal';
-import { applyMiddlewares } from './applyMiddlewares';
-import { wrapStore } from './wrapStore';
+import { WorkerType } from './constant';
+import { createClientAction } from './getRawStateClientAction';
 import { handleMainTransport } from './handleMainTransport';
-import { refreshSignalSlots } from './computed';
-import {
-  assertSafePatches,
-  getOwnEnumerableKeys,
-  createStateSchema,
-  assertKnownStateShape,
-  sanitizePatches,
-  sanitizeReplacementState
-} from './utils';
+import type {
+  ClientStoreOptions,
+  CreateState,
+  Creator,
+  Slice,
+  StoreOptions
+} from './interface';
 import {
   validateSharedActionPaths,
   validateSharedStateSerializable
 } from './sharedState';
-import { markStoreReady } from './lifecycle';
-
-const namespaceMap = new Map<string, boolean>();
-let hasWarnedAmbiguousFunctionMap = false;
+import { createStore } from './storeFactory';
+import { wrapStore } from './wrapStore';
 
 const isMainWorkerType = (
   workerType:
     | StoreOptions<any>['workerType']
     | ClientStoreOptions<any>['workerType']
+    | null
 ) =>
   workerType === 'SharedWorkerInternal' || workerType === 'WebWorkerInternal';
 
@@ -47,6 +28,7 @@ const isClientWorkerType = (
   workerType:
     | StoreOptions<any>['workerType']
     | ClientStoreOptions<any>['workerType']
+    | null
 ) => workerType === 'SharedWorkerClient' || workerType === 'WebWorkerClient';
 
 const validateCreateModeOptions = <T extends CreateState>(
@@ -82,39 +64,14 @@ const validateCreateModeOptions = <T extends CreateState>(
   }
 };
 
-const warnAmbiguousFunctionMap = () => {
-  if (
-    hasWarnedAmbiguousFunctionMap ||
-    process.env.NODE_ENV === 'production' ||
-    process.env.NODE_ENV === 'test'
-  ) {
-    return;
-  }
-  hasWarnedAmbiguousFunctionMap = true;
-  console.warn(
-    [
-      `sliceMode: 'auto' inferred slices from an object of functions.`,
-      `This shape is ambiguous with a single store that only contains methods.`,
-      `Use create({ ping() {} }, { sliceMode: 'single' }) for a plain method store,`,
-      `or create({ counter: (set) => ({ count: 0 }) }, { sliceMode: 'slices' }) for slices.`
-    ].join(' ')
-  );
-};
-
 /**
  * Create a local store, the main side of a shared store, or a client mirror of
  * a shared store.
  *
  * @remarks
- * - Pass a {@link Slice} function for a single store.
- * - Pass an object of slice factories for a slices store.
- * - When an object input only contains functions, prefer explicit `sliceMode`
- *   to avoid ambiguous inference.
- * - When `clientTransport` or `worker` is provided, returned store methods
- *   become promise-returning methods because execution happens on the main
- *   shared store.
- * - New semantics should prefer explicit helpers or variants over adding more
- *   ambiguous `create()` input forms.
+ * Prefer the static `coaction/local` entry when transport support is not
+ * required. It excludes the JSON protocol and reconnect runtime from the
+ * consumer dependency graph.
  */
 export const create: Creator = <T extends CreateState>(
   createState: Slice<T> | T,
@@ -127,197 +84,30 @@ export const create: Creator = <T extends CreateState>(
   const workerType = options.workerType ?? WorkerType;
   const storeTransport = (options as StoreOptions<T>).transport;
   const share =
-    workerType === 'WebWorkerInternal' ||
-    workerType === 'SharedWorkerInternal' ||
-    storeTransport
-      ? 'main'
-      : undefined;
-  const createStore = ({ share }: { share?: 'client' | 'main' }) => {
-    const store = {} as MiddlewareStore<T>;
-    const internal = {
-      sequence: 0,
-      isBatching: false,
-      listeners: new Set<Listener>(),
-      destroyCallbacks: new Set<() => void>()
-    } as Internal<T>;
-    internal.notifyStateChange = () => {
-      refreshSignalSlots(internal);
-      internal.listeners.forEach((listener) => listener());
-    };
-    const name = options.name ?? defaultName;
-    const shouldTrackName = share === 'main' && process.env.NODE_ENV !== 'test';
-    const releaseStoreName = () => {
-      if (shouldTrackName) {
-        namespaceMap.delete(name);
-      }
-    };
-    // check if the store name is unique in main share mode
-    if (shouldTrackName) {
-      if (namespaceMap.get(name)) {
-        throw new Error(`Store name '${name}' is not unique.`);
-      }
-      namespaceMap.set(name, true);
-    }
-    try {
-      const { setState, getState } = handleState(store, internal, options);
-      const subscribe: Store<T>['subscribe'] = (listener) => {
-        internal.assertAlive?.('subscribe');
-        internal.listeners.add(listener);
-        return () => internal.listeners.delete(listener);
-      };
-      let isDestroyed = false;
-      internal.assertAlive = (operation) => {
-        if (isDestroyed) {
-          throw new Error(
-            `${operation} cannot be called after store.destroy().`
-          );
-        }
-      };
-      const destroy: Store<T>['destroy'] = () => {
-        if (isDestroyed) {
-          return;
-        }
-        isDestroyed = true;
-        const destroyCallbacks = [...(internal.destroyCallbacks ?? [])];
-        internal.destroyCallbacks?.clear();
-        destroyCallbacks.forEach((callback) => callback());
-        internal.listeners.clear();
-        store.transport?.dispose();
-        releaseStoreName();
-      };
-      const apply: Store<T>['apply'] = (
-        state = internal.rootState as T,
-        patches
-      ) => {
-        internal.assertAlive?.('apply');
-        internal.assertMutationAllowed?.('apply');
-        assertSafePatches(patches, 'store.apply()');
-        const safePatches = sanitizePatches(patches);
-        const baseState =
-          state === (internal.module as unknown) ? internal.rootState : state;
-        const nextState = sanitizeReplacementState(
-          safePatches
-            ? (applyWithMutative(baseState, safePatches) as T)
-            : baseState
-        );
-        assertKnownStateShape(
-          nextState,
-          internal.rootState,
-          internal.stateSchema,
-          store.isSliceStore,
-          {
-            requireSliceRoots: true
-          }
-        );
-        if (store.share === 'main') {
-          validateSharedStateSerializable(nextState);
-        }
-        internal.rootState = nextState;
-        refreshSignalSlots(internal);
-        if (internal.updateImmutable) {
-          internal.updateImmutable(internal.rootState as T);
-        } else {
-          internal.listeners.forEach((listener) => listener());
-        }
-      };
-      const getPureState: Store<T>['getPureState'] = () =>
-        internal.rootState as T;
-      const isFunctionMapObject = () => {
-        if (typeof createState === 'object' && createState !== null) {
-          const values = getOwnEnumerableKeys(createState).map(
-            (key) => (createState as Record<PropertyKey, unknown>)[key]
-          );
-          return (
-            values.length > 0 &&
-            values.every((value) => typeof value === 'function')
-          );
-        }
-        return false;
-      };
-      const getIsSliceStore = () => {
-        const sliceMode = options.sliceMode ?? 'auto';
-        if (sliceMode === 'single') {
-          return false;
-        }
-        if (sliceMode === 'slices') {
-          if (!isFunctionMapObject()) {
-            throw new Error(
-              `sliceMode: 'slices' requires createState to be an object of slice functions.`
-            );
-          }
-          return true;
-        }
-        if (isFunctionMapObject()) {
-          warnAmbiguousFunctionMap();
-          return true;
-        }
-        return false;
-      };
-      const isSliceStore = getIsSliceStore();
-      Object.assign(store, {
-        name,
-        share: share ?? false,
-        setState,
-        getState,
-        subscribe,
-        destroy,
-        apply,
-        isSliceStore,
-        getPureState
-      } as Store<T>);
-      const middlewareStore = applyMiddlewares(
-        store,
-        options.middlewares ?? []
-      );
-      if (middlewareStore !== store) {
-        Object.assign(store, middlewareStore);
-      }
-      const initialState = getInitialState(store, createState, internal) as T;
-      if (share) {
-        internal.sharedActionPaths = validateSharedActionPaths(
-          initialState,
-          store.isSliceStore
-        );
-      }
-      store.getInitialState = () => initialState;
-      internal.rootState = getRawState(
-        store,
-        internal,
-        initialState,
-        options
-      ) as T;
-      internal.stateSchema = createStateSchema(
-        internal.rootState,
-        store.isSliceStore
-      );
-      if (share) {
-        validateSharedStateSerializable(internal.rootState);
-      }
-      markStoreReady(store);
-      return { store, internal };
-    } catch (error) {
-      releaseStoreName();
-      throw error;
-    }
-  };
+    isMainWorkerType(workerType) || storeTransport ? 'main' : undefined;
+  const buildStore = ({ share }: { share?: 'client' | 'main' }) =>
+    createStore(createState, options, {
+      share,
+      clientAction: share === 'client' ? createClientAction : undefined,
+      collectActionPaths:
+        share === 'main' ? validateSharedActionPaths : undefined,
+      validateState: share ? validateSharedStateSerializable : undefined
+    });
+
   if (
     (options as ClientStoreOptions<T>).clientTransport ||
     (options as ClientStoreOptions<T>).worker ||
-    options.workerType === 'WebWorkerClient' ||
-    options.workerType === 'SharedWorkerClient'
+    isClientWorkerType(options.workerType)
   ) {
     if (checkEnablePatches) {
-      throw new Error(`enablePatches: true is required for the async store`);
+      throw new Error('enablePatches: true is required for the async store');
     }
-    const store = createAsyncClientStore(
-      createStore,
-      options as ClientStoreOptions<T>
+    return wrapStore(
+      createAsyncClientStore(buildStore, options as ClientStoreOptions<T>)
     );
-    return wrapStore(store);
   }
-  const { store, internal } = createStore({
-    share
-  });
+
+  const { store, internal } = buildStore({ share });
   handleMainTransport(
     store,
     internal,

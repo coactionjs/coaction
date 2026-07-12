@@ -1,4 +1,4 @@
-import { createBinder, replaceExternalStoreState } from 'coaction';
+import { createBinder, replaceExternalStoreState } from 'coaction/adapter';
 import type { AnyAction, Reducer, Store as ReduxStore } from '@reduxjs/toolkit';
 
 export * from '@reduxjs/toolkit';

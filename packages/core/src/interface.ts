@@ -322,6 +322,12 @@ export type StoreOptions<T extends CreateState> = {
   sliceMode?: 'auto' | 'slices' | 'single';
 };
 
+/** Options accepted by the statically isolated local-store entry point. */
+export type LocalStoreOptions<T extends CreateState> = Omit<
+  StoreOptions<T>,
+  'transport' | 'transportPolicy' | 'workerType'
+>;
+
 /**
  * Options for creating a client mirror of a shared store.
  *
@@ -426,6 +432,10 @@ type SingleStoreOptions<T extends CreateState> = StoreOptions<T> & {
   sliceMode: 'single';
 };
 
+type SingleLocalStoreOptions<T extends CreateState> = LocalStoreOptions<T> & {
+  sliceMode: 'single';
+};
+
 type SingleClientStoreOptions<T extends CreateState> = ClientStoreOptions<T> & {
   sliceMode: 'single';
 };
@@ -467,6 +477,22 @@ export type Creator = {
     createState: Slice<T> | T,
     options?: ClientStoreOptions<T>
   ): StoreWithAsyncFunction<T>;
+};
+
+/** Overload set for the transport-free `coaction/local` create function. */
+export type LocalCreator = {
+  <T extends ISlices>(
+    createState: T,
+    options: SingleLocalStoreOptions<T>
+  ): StoreReturn<T>;
+  <T extends Record<PropertyKey, Slice<any>>>(
+    createState: T,
+    options?: LocalStoreOptions<T>
+  ): StoreReturn<SliceState<T>>;
+  <T extends ISlices>(
+    createState: Slice<T> | T,
+    options?: LocalStoreOptions<T>
+  ): StoreReturn<T>;
 };
 
 export type ClientTransport =

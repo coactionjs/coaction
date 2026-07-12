@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
 afterEach(() => {
-  vi.doUnmock('coaction');
+  vi.doUnmock('coaction/adapter');
   vi.doUnmock('mobx');
   vi.resetModules();
 });
@@ -9,7 +9,7 @@ afterEach(() => {
 test('skips handleStore re-initialization when mutable mapper already exists', async () => {
   vi.resetModules();
   let capturedHandleStore: any;
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,
@@ -56,7 +56,7 @@ test('destroy unsubscribes autorun only once', async () => {
       throw new Error('unsubscribe called twice');
     }
   });
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,
@@ -114,7 +114,7 @@ test('shared sync snapshots preserve sparse array shape', async () => {
   let capturedHandleStore: any;
   let autorunRunner: (() => void) | undefined;
   const replaceExternalStoreState = vi.fn();
-  vi.doMock('coaction', async (importOriginal) => {
+  vi.doMock('coaction/adapter', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
       ...actual,

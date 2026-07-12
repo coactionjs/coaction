@@ -8,7 +8,7 @@ import {
   sanitizeInitialStateValue,
   snapshotMutableAdapterPureState as snapshotPureState,
   type Store
-} from 'coaction';
+} from 'coaction/adapter';
 import { createPinia } from 'pinia';
 import type {
   _GettersTree,
@@ -29,6 +29,7 @@ type PiniaStoreInstance = {
 };
 
 type PiniaInternal = {
+  getTransportState?: () => unknown;
   rootState?: object;
   toMutableRaw?: (key: object) => PiniaStoreInstance | undefined;
   notifyStateChange?: () => void;
@@ -76,6 +77,7 @@ const handleStore = (
   internal: PiniaInternal
 ) => {
   const rawState = state as Record<PropertyKey, unknown>;
+  internal.getTransportState = () => snapshotPureState(store);
   let isApplyingCoactionState = false;
   let lastSnapshot: Record<PropertyKey, unknown> | undefined;
   const restoreClientState = (snapshot: Record<PropertyKey, unknown>) => {
