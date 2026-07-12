@@ -68,6 +68,49 @@ test('shared JSON rejects accessors without executing them', () => {
   expect(reads).toBe(0);
 });
 
+test('shared JSON rejects inherited toJSON functions', () => {
+  const previous = Object.getOwnPropertyDescriptor(Object.prototype, 'toJSON');
+  Object.defineProperty(Object.prototype, 'toJSON', {
+    configurable: true,
+    value: () => ({ changed: true })
+  });
+
+  try {
+    expect(() => encodeSharedJson({ safe: true })).toThrow(
+      'Inherited toJSON state'
+    );
+  } finally {
+    if (previous) {
+      Object.defineProperty(Object.prototype, 'toJSON', previous);
+    } else {
+      delete (Object.prototype as { toJSON?: unknown }).toJSON;
+    }
+  }
+});
+
+test('shared JSON rejects inherited toJSON accessors without executing them', () => {
+  const previous = Object.getOwnPropertyDescriptor(Array.prototype, 'toJSON');
+  let reads = 0;
+  Object.defineProperty(Array.prototype, 'toJSON', {
+    configurable: true,
+    get() {
+      reads += 1;
+      return () => [];
+    }
+  });
+
+  try {
+    expect(() => encodeSharedJson([1])).toThrow('Inherited toJSON state');
+    expect(reads).toBe(0);
+  } finally {
+    if (previous) {
+      Object.defineProperty(Array.prototype, 'toJSON', previous);
+    } else {
+      delete (Array.prototype as unknown as { toJSON?: unknown }).toJSON;
+    }
+  }
+});
+
 test('shared JSON rejects non-enumerable data', () => {
   const value = {};
   Object.defineProperty(value, 'hidden', { value: 1 });

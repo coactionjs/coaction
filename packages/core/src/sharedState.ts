@@ -41,6 +41,28 @@ const getPrototype = (value: object, path: JsonPath) => {
   }
 };
 
+const assertNoInheritedToJson = (prototype: object | null, path: JsonPath) => {
+  let current = prototype;
+  while (current) {
+    let descriptor: PropertyDescriptor | undefined;
+    try {
+      descriptor = Object.getOwnPropertyDescriptor(current, 'toJSON');
+    } catch {
+      unsupported('Uninspectable inherited toJSON state', path);
+    }
+    if (descriptor) {
+      if (
+        !Object.prototype.hasOwnProperty.call(descriptor, 'value') ||
+        typeof descriptor.value === 'function'
+      ) {
+        unsupported('Inherited toJSON state', path);
+      }
+      return;
+    }
+    current = getPrototype(current, path);
+  }
+};
+
 const isArrayIndex = (key: string, length: number) => {
   const index = Number(key);
   return (
@@ -114,9 +136,11 @@ const assertSharedJsonWork = (work: JsonWork[], isSliceStore = false) => {
 
     const descriptors = getDescriptors(object, path);
     if (Array.isArray(object)) {
-      if (getPrototype(object, path) !== Array.prototype) {
+      const prototype = getPrototype(object, path);
+      if (prototype !== Array.prototype) {
         unsupported('Non-plain array state', path);
       }
+      assertNoInheritedToJson(prototype, path);
       const length = descriptors.length?.value;
       if (!Number.isSafeInteger(length) || length < 0) {
         unsupported('Invalid array state', path);
@@ -144,6 +168,7 @@ const assertSharedJsonWork = (work: JsonWork[], isSliceStore = false) => {
     if (prototype !== Object.prototype && prototype !== null) {
       unsupported('Non-plain object state', path);
     }
+    assertNoInheritedToJson(prototype, path);
     for (const key of Reflect.ownKeys(descriptors)) {
       if (typeof key === 'symbol') {
         throw new TypeError(
