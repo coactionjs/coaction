@@ -12,6 +12,10 @@ import {
   type Store
 } from '../src';
 import { bindSymbol } from '../src/constant';
+import {
+  decodeExecuteResponse,
+  encodeExecuteRequest
+} from '../src/transportProtocol';
 
 test('base', () => {
   const stateFn = jest.fn();
@@ -242,6 +246,7 @@ test('worker', async () => {
 `);
     const returnValue1 = increment();
     expect(returnValue1 instanceof Promise).toBeTruthy();
+    await returnValue1;
     expect(useClientStore.getState()).toMatchInlineSnapshot(`
 {
   "count": 4,
@@ -404,7 +409,7 @@ test('worker action rejects direct immutable this mutation without emitting patc
   useClientStore.destroy();
 });
 
-test('worker execute returns $$Error for missing method', async () => {
+test('worker execute returns a tagged JSON error for a missing method', async () => {
   const ports = mockPorts();
   const serverTransport = createTransport('WebWorkerInternal', ports.main);
   const clientTransport = createTransport(
@@ -432,16 +437,20 @@ test('worker execute returns $$Error for missing method', async () => {
     });
   });
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  const [result] = (await clientTransport.emit(
-    'execute',
-    ['missingMethod'],
-    []
-  )) as [any, number];
+  const result = decodeExecuteResponse(
+    await clientTransport.emit(
+      'execute',
+      encodeExecuteRequest(['missingMethod'], [])
+    )
+  );
   errorSpy.mockRestore();
-  expect(result).toEqual({
-    __coactionTransportError__: true,
-    message: 'The function is not found'
-  });
+  expect(result).toEqual(
+    expect.objectContaining({
+      error: 'Remote action is not allowed',
+      ok: false,
+      sequence: 0
+    })
+  );
   useServerStore.destroy();
 });
 

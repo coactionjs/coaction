@@ -137,7 +137,8 @@ export const create: Creator = <T extends CreateState>(
     const internal = {
       sequence: 0,
       isBatching: false,
-      listeners: new Set<Listener>()
+      listeners: new Set<Listener>(),
+      destroyCallbacks: new Set<() => void>()
     } as Internal<T>;
     internal.notifyStateChange = () => {
       refreshSignalSlots(internal);
@@ -177,6 +178,9 @@ export const create: Creator = <T extends CreateState>(
           return;
         }
         isDestroyed = true;
+        const destroyCallbacks = [...(internal.destroyCallbacks ?? [])];
+        internal.destroyCallbacks?.clear();
+        destroyCallbacks.forEach((callback) => callback());
         internal.listeners.clear();
         store.transport?.dispose();
         releaseStoreName();
@@ -270,7 +274,10 @@ export const create: Creator = <T extends CreateState>(
       }
       const initialState = getInitialState(store, createState, internal) as T;
       if (share) {
-        validateSharedActionPaths(initialState);
+        internal.sharedActionPaths = validateSharedActionPaths(
+          initialState,
+          store.isSliceStore
+        );
       }
       store.getInitialState = () => initialState;
       internal.rootState = getRawState(
@@ -316,7 +323,8 @@ export const create: Creator = <T extends CreateState>(
     internal,
     storeTransport,
     workerType,
-    checkEnablePatches
+    checkEnablePatches,
+    (options as StoreOptions<T>).transportPolicy
   );
   return wrapStore(store);
 };

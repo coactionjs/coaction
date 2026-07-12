@@ -181,13 +181,17 @@ export const decodeSharedJson = (encoded: unknown): JsonValue => {
   return value;
 };
 
-export const validateSharedActionPaths = (state: unknown) => {
-  const work: Array<{ path: JsonPath; value: unknown }> = [
-    { path: [], value: state }
+export const validateSharedActionPaths = (
+  state: unknown,
+  isSliceStore = false
+) => {
+  const actions = new Set<string>();
+  const work: Array<{ actionRoot: boolean; path: string[]; value: unknown }> = [
+    { actionRoot: !isSliceStore, path: [], value: state }
   ];
   const seen = new WeakSet<object>();
   while (work.length) {
-    const { path, value } = work.pop()!;
+    const { actionRoot, path, value } = work.pop()!;
     if (typeof value !== 'object' || value === null || seen.has(value)) {
       continue;
     }
@@ -204,10 +208,20 @@ export const validateSharedActionPaths = (state: unknown) => {
         descriptor &&
         Object.prototype.hasOwnProperty.call(descriptor, 'value')
       ) {
-        work.push({ path: [...path, key], value: descriptor.value });
+        const nextPath = [...path, key];
+        if (actionRoot && typeof descriptor.value === 'function') {
+          actions.add(JSON.stringify(nextPath));
+          continue;
+        }
+        work.push({
+          actionRoot: isSliceStore && path.length === 0,
+          path: nextPath,
+          value: descriptor.value
+        });
       }
     }
   }
+  return actions;
 };
 
 export const validateSharedStateSerializable: (

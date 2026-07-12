@@ -1,5 +1,6 @@
 import type { Transport } from 'data-transport';
 import type { Draft, Patches } from 'mutative';
+import type { JsonValue } from './sharedState';
 
 /**
  * Generic object shape used by stores and slices.
@@ -170,27 +171,33 @@ export type InternalEvents = {
   /**
    * Update the state in the worker or shared worker.
    */
-  update(options: {
-    /**
-     * The patches is used to update the state.
-     */
-    patches: Patches;
-    /**
-     * The sequence is used to ensure the sequence of the state.
-     */
-    sequence: number;
-  }): Promise<void>;
+  update(message: string): Promise<void>;
 };
 
 export type ExternalEvents = {
   /**
    * Execute the function in the worker or shared worker.
    */
-  execute(keys: string[], args: any[]): Promise<any>;
+  execute(message: string): Promise<string>;
   /**
    * Full sync the state with the worker or shared worker.
    */
-  fullSync(): Promise<{ state: string; sequence: number }>;
+  fullSync(message: string): Promise<string>;
+};
+
+export type TransportPolicyRequest =
+  | {
+      action: readonly string[];
+      args: readonly JsonValue[];
+      type: 'execute';
+    }
+  | { type: 'fullSync' };
+
+export type TransportPolicy = {
+  /** Further restrict action paths declared by the authoritative store. */
+  allowedActions?: readonly (readonly string[])[];
+  /** Authorize a decoded JSON request before serving it. */
+  authorize?: (request: TransportPolicyRequest) => boolean | Promise<boolean>;
 };
 
 /**
@@ -289,6 +296,8 @@ export type StoreOptions<T extends CreateState> = {
    * Inject a pre-built transport for advanced shared-store setups.
    */
   transport?: Transport;
+  /** Restrict requests accepted by a shared-main store. */
+  transportPolicy?: TransportPolicy;
   /**
    * Middleware chain applied before the initial state is finalized.
    */

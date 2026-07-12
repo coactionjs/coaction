@@ -50,6 +50,8 @@ export type {
   PatchTransform,
   StoreTraceEvent,
   ClientStoreOptions,
+  TransportPolicy,
+  TransportPolicyRequest,
   SliceState,
   Asyncify,
   StoreWithAsyncFunction as AsyncStore
@@ -57,3 +59,4 @@ export type {
 
 export type { ExternalStoreAdapterOptions } from './binder';
 export type { ReactiveTracker } from './reactiveTracker';
+export type { JsonPrimitive, JsonValue } from './sharedState';

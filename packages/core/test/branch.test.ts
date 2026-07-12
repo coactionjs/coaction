@@ -3,6 +3,14 @@ import { applyMiddlewares } from '../src/applyMiddlewares';
 import { create } from '../src/create';
 import { getInitialState } from '../src/getInitialState';
 import { handleMainTransport } from '../src/handleMainTransport';
+import {
+  decodeExecuteResponse,
+  encodeExecuteRequest,
+  encodeExecuteResponse,
+  encodeFullSyncRequest,
+  encodeFullSyncResponse,
+  encodeUpdateMessage
+} from '../src/transportProtocol';
 import { vi } from 'vitest';
 
 const createStoreLike = () => ({
@@ -126,29 +134,32 @@ test('createAsyncClientStore requires transport.onConnect', () => {
   }).toThrow('transport.onConnect is required');
 });
 
-test('createAsyncClientStore performs fullSync on sequence mismatch', async () => {
+test('createAsyncClientStore applies a JSON full sync on connect', async () => {
   let onConnectHandler: (() => Promise<void>) | undefined;
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
   const apply = vi.fn();
+  const internal = {
+    sequence: 0
+  } as any;
   const transport = {
-    emit: vi.fn(async (event: any) => {
+    emit: vi.fn(async (event: string) => {
       if (event === 'fullSync') {
-        return {
-          state:
-            '{"count":1,"__proto__":{"polluted":true},"constructor":{"value":2},"nested":{"value":3,"__proto__":{"nested":true}}}',
-          sequence: 1
-        };
+        return encodeFullSyncResponse({
+          epoch: 'epoch-1',
+          sequence: 1,
+          state: {
+            count: 1,
+            nested: {
+              value: 3
+            }
+          }
+        });
       }
-      return undefined;
+      throw new Error('Unexpected event: ' + event);
     }),
     onConnect: vi.fn((handler: () => Promise<void>) => {
       onConnectHandler = handler;
     }),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
-      }
-    })
+    listen: vi.fn()
   };
 
   createAsyncClientStore(
@@ -156,13 +167,9 @@ test('createAsyncClientStore performs fullSync on sequence mismatch', async () =
       store: {
         name: 'client',
         apply,
-        getState: () => ({
-          count: 0
-        })
+        getState: () => ({ count: 0 })
       } as any,
-      internal: {
-        sequence: 0
-      } as any
+      internal
     }),
     {
       clientTransport: transport as any
@@ -170,48 +177,38 @@ test('createAsyncClientStore performs fullSync on sequence mismatch', async () =
   );
 
   await onConnectHandler?.();
-  await updateHandler?.({
-    sequence: 99,
-    patches: []
-  });
 
-  expect(transport.emit).toHaveBeenCalledWith('fullSync');
-  const applied = apply.mock.calls[0][0];
-  expect(applied).toEqual({
+  expect(transport.emit).toHaveBeenCalledWith(
+    'fullSync',
+    encodeFullSyncRequest()
+  );
+  expect(apply).toHaveBeenCalledWith({
     count: 1,
     nested: {
       value: 3
     }
   });
-  expect(Object.getPrototypeOf(applied)).toBe(Object.prototype);
-  expect(Object.getPrototypeOf(applied.nested)).toBe(Object.prototype);
-  expect(Object.prototype.hasOwnProperty.call(applied, '__proto__')).toBe(
-    false
-  );
-  expect(Object.prototype.hasOwnProperty.call(applied, 'constructor')).toBe(
-    false
-  );
-  expect(
-    Object.prototype.hasOwnProperty.call(applied.nested, '__proto__')
-  ).toBe(false);
+  expect(internal.transportEpoch).toBe('epoch-1');
+  expect(internal.sequence).toBe(1);
 });
 
-test('createAsyncClientStore ignores stale and duplicate update sequences', async () => {
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
+test('createAsyncClientStore ignores stale and duplicate JSON updates', async () => {
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
   const apply = vi.fn();
+  const internal = {
+    sequence: 5,
+    transportEpoch: 'epoch-1'
+  } as any;
   const transport = {
-    emit: vi.fn(async () => ({
-      state: JSON.stringify({
-        count: 1
-      }),
-      sequence: 1
-    })),
+    emit: vi.fn(),
     onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
       }
-    })
+    )
   };
 
   createAsyncClientStore(
@@ -219,34 +216,183 @@ test('createAsyncClientStore ignores stale and duplicate update sequences', asyn
       store: {
         name: 'client',
         apply,
-        getState: () => ({
-          count: 0
-        })
+        getState: () => ({ count: 5 })
       } as any,
-      internal: {
-        sequence: 5
-      } as any
+      internal
     }),
     {
       clientTransport: transport as any
     } as any
   );
 
-  await updateHandler?.({
-    sequence: 4,
-    patches: []
-  });
-  await updateHandler?.({
-    sequence: 5,
-    patches: []
-  });
+  await updateHandler?.(encodeUpdateMessage('epoch-1', 4, []));
+  await updateHandler?.(encodeUpdateMessage('epoch-1', 5, []));
 
-  expect(transport.emit).not.toHaveBeenCalledWith('fullSync');
+  expect(transport.emit).not.toHaveBeenCalled();
   expect(apply).not.toHaveBeenCalled();
 });
 
-test('createAsyncClientStore falls back to fullSync when incremental apply fails', async () => {
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
+test('createAsyncClientStore applies the next incremental JSON update', async () => {
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
+  const apply = vi.fn();
+  const internal = {
+    sequence: 0,
+    transportEpoch: 'epoch-1'
+  } as any;
+  const transport = {
+    emit: vi.fn(),
+    onConnect: vi.fn(),
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
+      }
+    )
+  };
+
+  createAsyncClientStore(
+    () => ({
+      store: {
+        name: 'client',
+        apply,
+        getState: () => ({ count: 0 })
+      } as any,
+      internal
+    }),
+    {
+      clientTransport: transport as any
+    } as any
+  );
+
+  await updateHandler?.(
+    encodeUpdateMessage('epoch-1', 1, [
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 1
+      }
+    ])
+  );
+
+  expect(apply).toHaveBeenCalledWith(undefined, [
+    {
+      op: 'replace',
+      path: ['count'],
+      value: 1
+    }
+  ]);
+  expect(internal.sequence).toBe(1);
+});
+
+test('createAsyncClientStore full-syncs a same-epoch sequence gap', async () => {
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
+  const apply = vi.fn();
+  const internal = {
+    sequence: 1,
+    transportEpoch: 'epoch-1'
+  } as any;
+  const transport = {
+    emit: vi.fn(async (event: string) => {
+      if (event === 'fullSync') {
+        return encodeFullSyncResponse({
+          epoch: 'epoch-1',
+          sequence: 3,
+          state: {
+            count: 3
+          }
+        });
+      }
+      throw new Error('Unexpected event: ' + event);
+    }),
+    onConnect: vi.fn(),
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
+      }
+    )
+  };
+
+  createAsyncClientStore(
+    () => ({
+      store: {
+        name: 'client',
+        apply,
+        getState: () => ({ count: 1 })
+      } as any,
+      internal
+    }),
+    {
+      clientTransport: transport as any
+    } as any
+  );
+
+  await updateHandler?.(encodeUpdateMessage('epoch-1', 3, []));
+
+  expect(transport.emit).toHaveBeenCalledWith(
+    'fullSync',
+    encodeFullSyncRequest()
+  );
+  expect(apply).toHaveBeenCalledWith({ count: 3 });
+  expect(internal.sequence).toBe(3);
+});
+
+test('createAsyncClientStore full-syncs when the authority epoch changes', async () => {
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
+  const apply = vi.fn();
+  const internal = {
+    sequence: 5,
+    transportEpoch: 'epoch-old'
+  } as any;
+  const transport = {
+    emit: vi.fn(async (event: string) => {
+      if (event === 'fullSync') {
+        return encodeFullSyncResponse({
+          epoch: 'epoch-new',
+          sequence: 1,
+          state: {
+            count: 1
+          }
+        });
+      }
+      throw new Error('Unexpected event: ' + event);
+    }),
+    onConnect: vi.fn(),
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
+      }
+    )
+  };
+
+  createAsyncClientStore(
+    () => ({
+      store: {
+        name: 'client',
+        apply,
+        getState: () => ({ count: 5 })
+      } as any,
+      internal
+    }),
+    {
+      clientTransport: transport as any
+    } as any
+  );
+
+  await updateHandler?.(encodeUpdateMessage('epoch-new', 1, []));
+
+  expect(apply).toHaveBeenCalledTimes(1);
+  expect(apply).toHaveBeenCalledWith({ count: 1 });
+  expect(internal.transportEpoch).toBe('epoch-new');
+  expect(internal.sequence).toBe(1);
+});
+
+test('createAsyncClientStore rolls back metadata and full-syncs after apply failure', async () => {
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
   const apply = vi
     .fn()
     .mockImplementationOnce(() => {
@@ -254,26 +400,30 @@ test('createAsyncClientStore falls back to fullSync when incremental apply fails
     })
     .mockImplementation(() => undefined);
   const internal = {
-    sequence: 0
-  };
+    sequence: 0,
+    transportEpoch: 'epoch-1'
+  } as any;
   const transport = {
-    emit: vi.fn(async (event: any) => {
+    emit: vi.fn(async (event: string) => {
       if (event === 'fullSync') {
-        return {
-          state: JSON.stringify({
+        return encodeFullSyncResponse({
+          epoch: 'epoch-1',
+          sequence: 1,
+          state: {
             count: 1
-          }),
-          sequence: 0
-        };
+          }
+        });
       }
-      return undefined;
+      throw new Error('Unexpected event: ' + event);
     }),
     onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
       }
-    })
+    )
   };
 
   createAsyncClientStore(
@@ -281,11 +431,9 @@ test('createAsyncClientStore falls back to fullSync when incremental apply fails
       store: {
         name: 'client',
         apply,
-        getState: () => ({
-          count: 0
-        })
+        getState: () => ({ count: 0 })
       } as any,
-      internal: internal as any
+      internal
     }),
     {
       clientTransport: transport as any
@@ -293,91 +441,43 @@ test('createAsyncClientStore falls back to fullSync when incremental apply fails
   );
 
   await expect(
-    updateHandler?.({
-      sequence: 1,
-      patches: []
-    })
+    updateHandler?.(encodeUpdateMessage('epoch-1', 1, []))
   ).resolves.toBeUndefined();
 
-  expect(transport.emit).toHaveBeenCalledWith('fullSync');
   expect(apply).toHaveBeenNthCalledWith(1, undefined, []);
-  expect(apply).toHaveBeenNthCalledWith(2, {
-    count: 1
-  });
-  expect(internal.sequence).toBe(0);
+  expect(apply).toHaveBeenNthCalledWith(2, { count: 1 });
+  expect(internal.transportEpoch).toBe('epoch-1');
+  expect(internal.sequence).toBe(1);
 });
 
-test('createAsyncClientStore accepts lower fullSync snapshots on reconnect', async () => {
+test('createAsyncClientStore serializes connect sync before queued updates', async () => {
   let onConnectHandler: (() => Promise<void>) | undefined;
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
+  let resolveFullSync: ((value: string) => void) | undefined;
   const apply = vi.fn();
   const internal = {
-    sequence: 5
-  };
+    sequence: 5,
+    transportEpoch: 'epoch-old'
+  } as any;
   const transport = {
-    emit: vi.fn(async () => ({
-      state: JSON.stringify({
-        count: -1
-      }),
-      sequence: 3
-    })),
-    onConnect: vi.fn((handler: () => Promise<void>) => {
-      onConnectHandler = handler;
-    }),
-    listen: vi.fn()
-  };
-
-  createAsyncClientStore(
-    () => ({
-      store: {
-        name: 'client',
-        apply,
-        getState: () => ({
-          count: 5
-        })
-      } as any,
-      internal: internal as any
-    }),
-    {
-      clientTransport: transport as any
-    } as any
-  );
-
-  await onConnectHandler?.();
-
-  expect(transport.emit).toHaveBeenCalledWith('fullSync');
-  expect(apply).toHaveBeenCalledWith({
-    count: -1
-  });
-  expect(internal.sequence).toBe(3);
-});
-
-test('createAsyncClientStore ignores lower reconnect fullSync after newer update', async () => {
-  let onConnectHandler: (() => Promise<void>) | undefined;
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
-  let resolveFullSync:
-    | ((value: { state: string; sequence: number }) => void)
-    | undefined;
-  const apply = vi.fn();
-  const internal = {
-    sequence: 5
-  };
-  const transport = {
-    emit: vi.fn((event: any) => {
+    emit: vi.fn((event: string) => {
       if (event === 'fullSync') {
-        return new Promise<{ state: string; sequence: number }>((resolve) => {
+        return new Promise<string>((resolve) => {
           resolveFullSync = resolve;
         });
       }
-      return Promise.resolve(undefined);
+      throw new Error('Unexpected event: ' + event);
     }),
     onConnect: vi.fn((handler: () => Promise<void>) => {
       onConnectHandler = handler;
     }),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
       }
-    })
+    )
   };
 
   createAsyncClientStore(
@@ -385,154 +485,71 @@ test('createAsyncClientStore ignores lower reconnect fullSync after newer update
       store: {
         name: 'client',
         apply,
-        getState: () => ({
-          count: 5
-        })
+        getState: () => ({ count: 5 })
       } as any,
-      internal: internal as any
+      internal
     }),
     {
       clientTransport: transport as any
     } as any
   );
 
-  onConnectHandler?.();
-  await updateHandler?.({
-    sequence: 6,
-    patches: []
-  });
+  const connecting = onConnectHandler?.();
+  const updating = updateHandler?.(
+    encodeUpdateMessage('epoch-new', 4, [
+      {
+        op: 'replace',
+        path: ['count'],
+        value: 4
+      }
+    ])
+  );
+  await Promise.resolve();
+  expect(apply).not.toHaveBeenCalled();
+
   if (!resolveFullSync) {
     throw new Error('Expected pending fullSync resolver');
   }
-  resolveFullSync({
-    state: JSON.stringify({
-      count: -1
-    }),
-    sequence: 3
-  });
-  await Promise.resolve();
-
-  expect(apply).toHaveBeenCalledTimes(1);
-  expect(apply).toHaveBeenCalledWith(undefined, []);
-  expect(internal.sequence).toBe(6);
-});
-
-test('createAsyncClientStore handles sequence reset without reconnect signal', async () => {
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
-  const apply = vi.fn();
-  const internal = {
-    sequence: 5
-  };
-  const transport = {
-    emit: vi.fn(async (event: any) => {
-      if (event === 'fullSync') {
-        return {
-          state: JSON.stringify({
-            count: 1
-          }),
-          sequence: 0
-        };
-      }
-      return undefined;
-    }),
-    onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
+  resolveFullSync(
+    encodeFullSyncResponse({
+      epoch: 'epoch-new',
+      sequence: 3,
+      state: {
+        count: 3
       }
     })
-  };
-
-  createAsyncClientStore(
-    () => ({
-      store: {
-        name: 'client',
-        apply,
-        getState: () => ({
-          count: 5
-        })
-      } as any,
-      internal: internal as any
-    }),
-    {
-      clientTransport: transport as any
-    } as any
   );
+  await connecting;
+  await updating;
 
-  await updateHandler?.({
-    sequence: 0,
-    patches: []
-  });
-
-  expect(transport.emit).toHaveBeenCalledWith('fullSync');
-  expect(apply).toHaveBeenCalledWith({
-    count: 1
-  });
-  expect(internal.sequence).toBe(0);
+  expect(apply).toHaveBeenNthCalledWith(1, { count: 3 });
+  expect(apply).toHaveBeenNthCalledWith(2, undefined, [
+    {
+      op: 'replace',
+      path: ['count'],
+      value: 4
+    }
+  ]);
+  expect(internal.sequence).toBe(4);
 });
 
-test('createAsyncClientStore catches onConnect fullSync failures', async () => {
-  const prev = process.env.NODE_ENV;
+test('createAsyncClientStore reports invalid connect payloads without applying them', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  let onConnectHandler: (() => void) | undefined;
-  const transport = {
-    emit: vi.fn(async () => {
-      throw new Error('connect sync failed');
-    }),
-    onConnect: vi.fn((handler: () => void) => {
-      onConnectHandler = handler;
-    }),
-    listen: vi.fn()
-  };
-  try {
-    createAsyncClientStore(
-      () => ({
-        store: {
-          name: 'client',
-          apply: vi.fn(),
-          getState: () => ({})
-        } as any,
-        internal: {
-          sequence: 0
-        } as any
-      }),
-      {
-        clientTransport: transport as any
-      } as any
-    );
-    expect(() => onConnectHandler?.()).not.toThrow();
-    await new Promise((resolve) => {
-      setTimeout(resolve);
-    });
-    expect(errorSpy).toHaveBeenCalled();
-  } finally {
-    process.env.NODE_ENV = prev;
-    errorSpy.mockRestore();
-  }
-});
-
-test('createAsyncClientStore catches invalid onConnect fullSync payloads', async () => {
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'development';
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  let onConnectHandler: (() => void) | undefined;
+  let onConnectHandler: (() => Promise<void>) | undefined;
   const apply = vi.fn();
   const internal = {
     sequence: 0
-  };
+  } as any;
   const transport = {
-    emit: vi.fn(async () => ({
-      state: {
-        count: 1
-      },
-      sequence: 1
-    })),
-    onConnect: vi.fn((handler: () => void) => {
+    emit: vi.fn(async () => ({ state: {}, sequence: 1 })),
+    onConnect: vi.fn((handler: () => Promise<void>) => {
       onConnectHandler = handler;
     }),
     listen: vi.fn()
   };
+
   try {
     createAsyncClientStore(
       () => ({
@@ -541,134 +558,44 @@ test('createAsyncClientStore catches invalid onConnect fullSync payloads', async
           apply,
           getState: () => ({})
         } as any,
-        internal: internal as any
+        internal
       }),
       {
         clientTransport: transport as any
       } as any
     );
-    expect(() => onConnectHandler?.()).not.toThrow();
-    await new Promise((resolve) => {
-      setTimeout(resolve);
-    });
+
+    await expect(onConnectHandler?.()).rejects.toThrow(
+      'Shared transport payload must be a JSON string'
+    );
     expect(errorSpy).toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
     expect(internal.sequence).toBe(0);
   } finally {
-    process.env.NODE_ENV = prev;
+    process.env.NODE_ENV = previousNodeEnv;
     errorSpy.mockRestore();
   }
 });
 
-test('createAsyncClientStore reports null fullSync payloads as invalid', async () => {
-  const prev = process.env.NODE_ENV;
+test('createAsyncClientStore reports update-time full-sync failures', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  let onConnectHandler: (() => void) | undefined;
-  const transport = {
-    emit: vi.fn(async () => null),
-    onConnect: vi.fn((handler: () => void) => {
-      onConnectHandler = handler;
-    }),
-    listen: vi.fn()
-  };
-  try {
-    createAsyncClientStore(
-      () => ({
-        store: {
-          name: 'client',
-          apply: vi.fn(),
-          getState: () => ({})
-        } as any,
-        internal: {
-          sequence: 0
-        } as any
-      }),
-      {
-        clientTransport: transport as any
-      } as any
-    );
-    expect(() => onConnectHandler?.()).not.toThrow();
-    await new Promise((resolve) => {
-      setTimeout(resolve);
-    });
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Invalid fullSync payload'
-      })
-    );
-  } finally {
-    process.env.NODE_ENV = prev;
-    errorSpy.mockRestore();
-  }
-});
-
-test('createAsyncClientStore rejects primitive fullSync state values', async () => {
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'development';
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  let onConnectHandler: (() => void) | undefined;
-  const apply = vi.fn();
-  const internal = {
-    sequence: 0
-  };
-  const transport = {
-    emit: vi.fn(async () => ({
-      state: '1',
-      sequence: 1
-    })),
-    onConnect: vi.fn((handler: () => void) => {
-      onConnectHandler = handler;
-    }),
-    listen: vi.fn()
-  };
-  try {
-    createAsyncClientStore(
-      () => ({
-        store: {
-          name: 'client',
-          apply,
-          getState: () => ({})
-        } as any,
-        internal: internal as any
-      }),
-      {
-        clientTransport: transport as any
-      } as any
-    );
-    expect(() => onConnectHandler?.()).not.toThrow();
-    await new Promise((resolve) => {
-      setTimeout(resolve);
-    });
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Invalid fullSync payload'
-      })
-    );
-    expect(apply).not.toHaveBeenCalled();
-    expect(internal.sequence).toBe(0);
-  } finally {
-    process.env.NODE_ENV = prev;
-    errorSpy.mockRestore();
-  }
-});
-
-test('createAsyncClientStore catches update-time fullSync failures', async () => {
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'development';
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-  let updateHandler: ((options: any) => Promise<void>) | undefined;
+  let updateHandler: ((message: string) => Promise<void>) | undefined;
   const transport = {
     emit: vi.fn(async () => {
       throw new Error('update sync failed');
     }),
     onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: (options: any) => Promise<void>) => {
-      if (name === 'update') {
-        updateHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<void>) => {
+        if (name === 'update') {
+          updateHandler = handler;
+        }
       }
-    })
+    )
   };
+
   try {
     createAsyncClientStore(
       () => ({
@@ -678,24 +605,97 @@ test('createAsyncClientStore catches update-time fullSync failures', async () =>
           getState: () => ({})
         } as any,
         internal: {
-          sequence: 0
+          sequence: 0,
+          transportEpoch: 'epoch-1'
         } as any
       }),
       {
         clientTransport: transport as any
       } as any
     );
+
     await expect(
-      updateHandler?.({
-        sequence: 2,
-        patches: []
-      })
+      updateHandler?.(encodeUpdateMessage('epoch-1', 2, []))
     ).resolves.toBeUndefined();
-    expect(errorSpy).toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'update sync failed'
+      })
+    );
   } finally {
-    process.env.NODE_ENV = prev;
+    process.env.NODE_ENV = previousNodeEnv;
     errorSpy.mockRestore();
   }
+});
+
+const createDestroyableClient = async (execute: () => Promise<string>) => {
+  let connect: (() => Promise<void>) | undefined;
+  const transport = {
+    emit: vi.fn((event: string) => {
+      if (event === 'fullSync') {
+        return Promise.resolve(
+          encodeFullSyncResponse({
+            epoch: 'epoch-1',
+            sequence: 0,
+            state: {
+              count: 0
+            }
+          })
+        );
+      }
+      if (event === 'execute') {
+        return execute();
+      }
+      return Promise.reject(new Error('Unexpected event: ' + event));
+    }),
+    onConnect: vi.fn((handler: () => Promise<void>) => {
+      connect = handler;
+      return () => undefined;
+    }),
+    listen: vi.fn(() => () => undefined),
+    dispose: vi.fn()
+  };
+  const store = create(
+    () => ({
+      count: 0,
+      increment() {}
+    }),
+    {
+      clientTransport: transport as any
+    }
+  );
+  await connect?.();
+  return { store, transport };
+};
+
+test('destroy rejects an action waiting for its transport response', async () => {
+  const { store, transport } = await createDestroyableClient(
+    () => new Promise(() => undefined)
+  );
+  const pending = store.getState().increment();
+
+  store.destroy();
+
+  await expect(pending).rejects.toThrow('Client transport was destroyed');
+  expect(transport.dispose).toHaveBeenCalledTimes(1);
+});
+
+test('destroy rejects an action waiting for sequence catch-up', async () => {
+  const { store } = await createDestroyableClient(() =>
+    Promise.resolve(
+      encodeExecuteResponse({
+        epoch: 'epoch-1',
+        ok: true,
+        sequence: 2
+      })
+    )
+  );
+  const pending = store.getState().increment();
+  await new Promise((resolve) => setTimeout(resolve));
+
+  store.destroy();
+
+  await expect(pending).rejects.toThrow('Client transport was destroyed');
 });
 
 test('handleDraft uses patch hook before applying patches', () => {
@@ -1145,7 +1145,9 @@ test('shared store validates state again before fullSync serialization', async (
   );
   store.getPureState().value = Symbol('full-sync');
 
-  await expect(handlers.get('fullSync')!()).rejects.toThrow(
+  await expect(
+    handlers.get('fullSync')!(encodeFullSyncRequest())
+  ).rejects.toThrow(
     'Symbol-valued state is not supported in shared store mode because transport synchronization uses JSON. Found symbol value at value.'
   );
 });
@@ -1170,7 +1172,9 @@ test('shared store validates BigInt again before fullSync serialization', async 
   );
   store.getPureState().value = 1n;
 
-  await expect(handlers.get('fullSync')!()).rejects.toThrow(
+  await expect(
+    handlers.get('fullSync')!(encodeFullSyncRequest())
+  ).rejects.toThrow(
     'BigInt-valued state is not supported in shared store mode because transport synchronization uses JSON. Found unsupported value at value.'
   );
 });
@@ -1301,39 +1305,46 @@ test('getInitialState validates non-object slice factory results with key', () =
   );
 });
 
-test('handleMainTransport validates onConnect and normalizes non-Error throws', async () => {
+test('handleMainTransport accepts server transports without onConnect', () => {
+  const listen = vi.fn();
+
   expect(() => {
     handleMainTransport(
       {
-        name: 'no-on-connect',
+        name: 'server',
         getState: () => ({})
       } as any,
       {
         rootState: {},
-        sequence: 0
+        sequence: 0,
+        sharedActionPaths: new Set()
       } as any,
       {
-        listen: vi.fn()
+        listen
       } as any,
       null,
       false
     );
-  }).toThrow('transport.onConnect is required');
+  }).not.toThrow();
 
-  let executeHandler:
-    | ((keys: string[], args: unknown[]) => Promise<any>)
-    | null = null;
+  expect(listen).toHaveBeenCalledTimes(2);
+});
+
+test('handleMainTransport normalizes non-Error throws in tagged JSON', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
   const transport = {
-    onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: any) => {
-      if (name === 'execute') {
-        executeHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<string>) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
       }
-    })
+    )
   };
-  const prev = process.env.NODE_ENV;
+  const previousNodeEnv = process.env.NODE_ENV;
   process.env.NODE_ENV = 'development';
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
   try {
     handleMainTransport(
       {
@@ -1346,36 +1357,41 @@ test('handleMainTransport validates onConnect and normalizes non-Error throws', 
       } as any,
       {
         rootState: {},
-        sequence: 0
+        sequence: 0,
+        sharedActionPaths: new Set([JSON.stringify(['bad'])])
       } as any,
       transport as any,
       null,
       false
     );
-    expect(executeHandler).not.toBeNull();
-    const [result] = await executeHandler!(['bad'], []);
-    expect(result).toEqual({
-      __coactionTransportError__: true,
-      message: '123'
-    });
+
+    const response = decodeExecuteResponse(
+      await executeHandler!(encodeExecuteRequest(['bad'], []))
+    );
+    expect(response).toEqual(
+      expect.objectContaining({
+        error: '123',
+        ok: false,
+        sequence: 0
+      })
+    );
     expect(errorSpy).toHaveBeenCalled();
   } finally {
-    process.env.NODE_ENV = prev;
+    process.env.NODE_ENV = previousNodeEnv;
     errorSpy.mockRestore();
   }
 });
 
-test('handleMainTransport rejects inherited and unsafe execute paths', async () => {
-  let executeHandler:
-    | ((keys: string[], args: unknown[]) => Promise<any>)
-    | null = null;
+test('handleMainTransport only executes declared own action paths', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
   const transport = {
-    onConnect: vi.fn(),
-    listen: vi.fn((name: string, handler: any) => {
-      if (name === 'execute') {
-        executeHandler = handler;
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<string>) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
       }
-    })
+    )
   };
 
   handleMainTransport(
@@ -1392,29 +1408,123 @@ test('handleMainTransport rejects inherited and unsafe execute paths', async () 
     } as any,
     {
       rootState: {},
-      sequence: 0
+      sequence: 0,
+      sharedActionPaths: new Set([JSON.stringify(['nested', 'read'])])
     } as any,
     transport as any,
     null,
     false
   );
-  expect(executeHandler).not.toBeNull();
 
-  await expect(executeHandler!(['nested', 'read'], [])).resolves.toEqual([
-    3, 0
-  ]);
-  await expect(executeHandler!(['nested', 'toString'], [])).resolves.toEqual([
+  const success = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['nested', 'read'], []))
+  );
+  expect(success).toEqual(
+    expect.objectContaining({
+      ok: true,
+      sequence: 0,
+      value: 3
+    })
+  );
+
+  const undeclared = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['nested', 'missing'], []))
+  );
+  expect(undeclared).toEqual(
+    expect.objectContaining({
+      error: 'Remote action is not allowed',
+      ok: false,
+      sequence: 0
+    })
+  );
+
+  const inherited = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['nested', 'toString'], []))
+  );
+  expect(inherited).toEqual(
+    expect.objectContaining({
+      error: 'Remote action is not allowed',
+      ok: false,
+      sequence: 0
+    })
+  );
+
+  for (const action of [['constructor'], ['__proto__', 'polluted']]) {
+    expect(() => encodeExecuteRequest(action, [])).toThrow(
+      'Invalid transport action'
+    );
+  }
+});
+
+test('handleMainTransport applies action and authorization policy', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
+  let fullSyncHandler: ((message: string) => Promise<string>) | undefined;
+  const authorize = vi.fn(({ type }) => type === 'fullSync');
+  const transport = {
+    listen: vi.fn(
+      (name: string, handler: (message: string) => Promise<string>) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
+        if (name === 'fullSync') {
+          fullSyncHandler = handler;
+        }
+      }
+    )
+  };
+
+  handleMainTransport(
     {
-      __coactionTransportError__: true,
-      message: 'The function is not found'
-    },
-    0
-  ]);
-  await expect(executeHandler!(['constructor'], [])).resolves.toEqual([
+      name: 'main',
+      getState: () => ({
+        read() {
+          return 1;
+        },
+        write() {
+          return 2;
+        }
+      })
+    } as any,
     {
-      __coactionTransportError__: true,
-      message: 'The function is not found'
-    },
-    0
-  ]);
+      rootState: {
+        count: 0
+      },
+      sequence: 0,
+      sharedActionPaths: new Set([
+        JSON.stringify(['read']),
+        JSON.stringify(['write'])
+      ])
+    } as any,
+    transport as any,
+    null,
+    false,
+    {
+      allowedActions: [['read']],
+      authorize
+    }
+  );
+
+  const deniedByAuthorization = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['read'], []))
+  );
+  expect(deniedByAuthorization).toEqual(
+    expect.objectContaining({
+      error: 'Transport request is not authorized',
+      ok: false
+    })
+  );
+
+  const deniedByAllowlist = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['write'], []))
+  );
+  expect(deniedByAllowlist).toEqual(
+    expect.objectContaining({
+      error: 'Remote action is not allowed',
+      ok: false
+    })
+  );
+
+  await expect(fullSyncHandler!(encodeFullSyncRequest())).resolves.toEqual(
+    expect.any(String)
+  );
 });

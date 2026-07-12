@@ -1,6 +1,10 @@
 import { vi } from 'vitest';
 import { Computed } from '../src/computed';
 import { getRawState } from '../src/getRawState';
+import {
+  decodeExecuteRequest,
+  encodeExecuteResponse
+} from '../src/transportProtocol';
 
 type ClientStoreContext = {
   internal: any;
@@ -15,8 +19,10 @@ const createClientStoreContext = (
   const subscriptions = new Set<() => void>();
   const internal = {
     sequence: 0,
+    transportEpoch: 'epoch-1',
     listeners: new Set(),
-    isBatching: false
+    isBatching: false,
+    syncClientState: vi.fn(async () => undefined)
   } as any;
   const store = {
     share: 'client',
@@ -53,182 +59,120 @@ const createClientStoreContext = (
   };
 };
 
-test('client action trace reports transport $$Error results', async () => {
-  const { store, internal } = createClientStoreContext(async () => [
-    {
-      $$Error: 'boom'
-    },
-    0
-  ]);
-  internal.sequence = 0;
+test('client action sends a JSON request and reports tagged transport errors', async () => {
+  const { store } = createClientStoreContext(async () =>
+    encodeExecuteResponse({
+      epoch: 'epoch-1',
+      error: 'boom',
+      ok: false,
+      sequence: 0
+    })
+  );
+
   await expect(store.getState().increment(1)).rejects.toThrow('boom');
   expect(store.trace).toHaveBeenCalledTimes(2);
   expect(store.transport.emit).toHaveBeenCalledWith(
     'execute',
-    ['increment'],
-    [1]
+    expect.any(String)
   );
+  expect(decodeExecuteRequest(store.transport.emit.mock.calls[0][1])).toEqual({
+    action: ['increment'],
+    args: [1]
+  });
 });
 
-test('client action trace reports transport envelope errors', async () => {
-  const { store, internal } = createClientStoreContext(async () => [
-    {
-      __coactionTransportError__: true,
-      message: 'boom-envelope'
-    },
-    0
-  ]);
-  internal.sequence = 0;
-  await expect(store.getState().increment(1)).rejects.toThrow('boom-envelope');
-  expect(store.trace).toHaveBeenCalledTimes(2);
-  expect(store.transport.emit).toHaveBeenCalledWith(
-    'execute',
-    ['increment'],
-    [1]
-  );
-});
-
-test('client action does not treat normal $$Error-shaped objects as transport failures', async () => {
-  const payload = {
+test('client action returns error-shaped JSON objects as normal data', async () => {
+  const value = {
     $$Error: 'domain-value',
+    __coactionTransportError__: true,
     value: 42
   };
-  const { store, internal } = createClientStoreContext(async () => [
-    payload,
-    0
-  ]);
-  internal.sequence = 0;
-  await expect(store.getState().increment(1)).resolves.toEqual(payload);
+  const { store } = createClientStoreContext(async () =>
+    encodeExecuteResponse({
+      epoch: 'epoch-1',
+      ok: true,
+      sequence: 0,
+      value
+    })
+  );
+
+  await expect(store.getState().increment(1)).resolves.toEqual(value);
 });
 
-test('client action supports legacy execute responses without sequence tuple', async () => {
-  const { store, internal } = createClientStoreContext(async () => 'legacy-ok');
-  internal.sequence = 0;
-  await expect(store.getState().increment(1)).resolves.toBe('legacy-ok');
-  expect(store.subscribe).not.toHaveBeenCalled();
+test('client action waits for a same-epoch update to catch up', async () => {
+  const { store, internal, trigger } = createClientStoreContext(async () =>
+    encodeExecuteResponse({
+      epoch: 'epoch-1',
+      ok: true,
+      sequence: 2,
+      value: 'ok'
+    })
+  );
+
+  const pending = store.getState().increment(1);
+  await Promise.resolve();
+  internal.sequence = 2;
+  trigger();
+
+  await expect(pending).resolves.toBe('ok');
+  expect(store.subscribe).toHaveBeenCalledTimes(1);
+  expect(internal.syncClientState).not.toHaveBeenCalled();
 });
 
-test('client action waits for sequence catch-up and warns in development', async () => {
-  const { store, internal, trigger } = createClientStoreContext(async () => [
-    'ok',
-    2
-  ]);
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'development';
-  try {
-    const pending = store.getState().increment(1);
-    await Promise.resolve();
-    internal.sequence = 2;
-    trigger();
-    await expect(pending).resolves.toBe('ok');
-    expect(store.subscribe).toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenCalledWith(
-      'The sequence of the action is not consistent.',
-      2,
-      0
-    );
-  } finally {
-    process.env.NODE_ENV = prev;
-    warnSpy.mockRestore();
-  }
+test('client action requests full sync when the authority epoch changes', async () => {
+  const { store, internal } = createClientStoreContext(async () =>
+    encodeExecuteResponse({
+      epoch: 'epoch-2',
+      ok: true,
+      sequence: 3,
+      value: 'ok'
+    })
+  );
+
+  await expect(store.getState().increment(1)).resolves.toBe('ok');
+  expect(internal.syncClientState).toHaveBeenCalledWith('epoch-2', 3);
 });
 
-test('client action mismatch path works without development warning', async () => {
-  const { store, internal, trigger } = createClientStoreContext(async () => [
-    'ok',
-    2
-  ]);
-  const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  const prev = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'test';
-  try {
-    const pending = store.getState().increment(1);
-    await Promise.resolve();
-    trigger();
-    internal.sequence = 2;
-    trigger();
-    await expect(pending).resolves.toBe('ok');
-    expect(warnSpy).not.toHaveBeenCalled();
-  } finally {
-    process.env.NODE_ENV = prev;
-    warnSpy.mockRestore();
-  }
-});
-
-test('client action performs fullSync when sequence catch-up times out', async () => {
+test('client action falls back to full sync after the catch-up timeout', async () => {
   vi.useFakeTimers();
   try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 2];
-      }
-      if (event === 'fullSync') {
-        return {
-          state:
-            '{"count":9,"__proto__":{"polluted":true},"prototype":{"value":2},"nested":{"value":3,"__proto__":{"nested":true}}}',
-          sequence: 2
-        };
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
+    const { store, internal } = createClientStoreContext(async () =>
+      encodeExecuteResponse({
+        epoch: 'epoch-1',
+        ok: true,
+        sequence: 2,
+        value: 'ok'
+      })
+    );
     const pending = store.getState().increment(1);
     await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
+    await vi.advanceTimersByTimeAsync(1_500);
+
     await expect(pending).resolves.toBe('ok');
-    expect(store.transport.emit).toHaveBeenCalledWith('fullSync');
-    const applied = store.apply.mock.calls[0][0];
-    expect(applied).toEqual({
-      count: 9,
-      nested: {
-        value: 3
-      }
-    });
-    expect(Object.getPrototypeOf(applied)).toBe(Object.prototype);
-    expect(Object.getPrototypeOf(applied.nested)).toBe(Object.prototype);
-    expect(Object.prototype.hasOwnProperty.call(applied, '__proto__')).toBe(
-      false
-    );
-    expect(Object.prototype.hasOwnProperty.call(applied, 'prototype')).toBe(
-      false
-    );
-    expect(
-      Object.prototype.hasOwnProperty.call(applied.nested, '__proto__')
-    ).toBe(false);
-    expect(internal.sequence).toBe(2);
+    expect(internal.syncClientState).toHaveBeenCalledWith('epoch-1', 2);
   } finally {
     vi.useRealTimers();
   }
 });
 
-test('client action uses custom executeSyncTimeoutMs before falling back to fullSync', async () => {
+test('client action honors a custom catch-up timeout', async () => {
   vi.useFakeTimers();
   try {
     const { store, internal, trigger } = createClientStoreContext(
-      async (event) => {
-        if (event === 'execute') {
-          return ['ok', 2];
-        }
-        if (event === 'fullSync') {
-          return {
-            state: JSON.stringify({
-              count: 9
-            }),
-            sequence: 2
-          };
-        }
-        throw new Error(`Unexpected event: ${String(event)}`);
-      },
-      {
-        executeSyncTimeoutMs: 5_000
-      }
+      async () =>
+        encodeExecuteResponse({
+          epoch: 'epoch-1',
+          ok: true,
+          sequence: 2,
+          value: 'ok'
+        }),
+      { executeSyncTimeoutMs: 5_000 }
     );
-    internal.sequence = 0;
     const pending = store.getState().increment(1);
     await Promise.resolve();
     await vi.advanceTimersByTimeAsync(1_600);
-    expect(store.transport.emit).not.toHaveBeenCalledWith('fullSync');
+    expect(internal.syncClientState).not.toHaveBeenCalled();
+
     internal.sequence = 2;
     trigger();
     await expect(pending).resolves.toBe('ok');
@@ -237,170 +181,54 @@ test('client action uses custom executeSyncTimeoutMs before falling back to full
   }
 });
 
-test('client action rejects when fullSync fallback fails', async () => {
+test('client action rejects when its full-sync fallback fails', async () => {
   vi.useFakeTimers();
   try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 2];
-      }
-      if (event === 'fullSync') {
-        throw new Error('sync failed');
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
+    const { store, internal } = createClientStoreContext(async () =>
+      encodeExecuteResponse({
+        epoch: 'epoch-1',
+        ok: true,
+        sequence: 2,
+        value: 'ok'
+      })
+    );
+    internal.syncClientState.mockRejectedValueOnce(new Error('sync failed'));
     const pending = store.getState().increment(1);
     const assertion = expect(pending).rejects.toThrow('sync failed');
     await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
+    await vi.advanceTimersByTimeAsync(1_500);
     await assertion;
   } finally {
     vi.useRealTimers();
   }
 });
 
+test('client action delays a tagged error until state catches up', async () => {
+  const { store, internal, trigger } = createClientStoreContext(async () =>
+    encodeExecuteResponse({
+      epoch: 'epoch-1',
+      error: 'late boom',
+      ok: false,
+      sequence: 2
+    })
+  );
+  const pending = store.getState().increment(1);
+  await Promise.resolve();
+  internal.sequence = 2;
+  trigger();
+
+  await expect(pending).rejects.toThrow('late boom');
+  expect(store.trace).toHaveBeenCalledTimes(2);
+});
+
 test('client action rejects invalid executeSyncTimeoutMs configuration', () => {
   expect(() => {
-    createClientStoreContext(async () => ['ok', 0], {
+    createClientStoreContext(async () => '', {
       executeSyncTimeoutMs: -1
     });
   }).toThrow(
     'executeSyncTimeoutMs must be a finite number greater than or equal to 0'
   );
-});
-
-test('client action rejects when fullSync payload is invalid', async () => {
-  vi.useFakeTimers();
-  try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 2];
-      }
-      if (event === 'fullSync') {
-        return {
-          state: {
-            count: 9
-          },
-          sequence: '2'
-        };
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
-    const pending = store.getState().increment(1);
-    const assertion = expect(pending).rejects.toThrow(
-      'Invalid fullSync payload'
-    );
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
-    await assertion;
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test('client action rejects when fullSync payload is null', async () => {
-  vi.useFakeTimers();
-  try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 2];
-      }
-      if (event === 'fullSync') {
-        return null;
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
-    const pending = store.getState().increment(1);
-    const assertion = expect(pending).rejects.toThrow(
-      'Invalid fullSync payload'
-    );
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
-    await assertion;
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test('client action rejects when fullSync state is primitive', async () => {
-  vi.useFakeTimers();
-  try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 2];
-      }
-      if (event === 'fullSync') {
-        return {
-          state: '1',
-          sequence: 2
-        };
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
-    const pending = store.getState().increment(1);
-    const assertion = expect(pending).rejects.toThrow(
-      'Invalid fullSync payload'
-    );
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
-    await assertion;
-    expect(store.apply).not.toHaveBeenCalled();
-    expect(internal.sequence).toBe(0);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test('client action rejects when fullSync fallback sequence is stale', async () => {
-  vi.useFakeTimers();
-  try {
-    const { store, internal } = createClientStoreContext(async (event) => {
-      if (event === 'execute') {
-        return ['ok', 3];
-      }
-      if (event === 'fullSync') {
-        return {
-          state: JSON.stringify({
-            count: 2
-          }),
-          sequence: 2
-        };
-      }
-      throw new Error(`Unexpected event: ${String(event)}`);
-    });
-    internal.sequence = 0;
-    const pending = store.getState().increment(1);
-    const assertion = expect(pending).rejects.toThrow(
-      'Stale fullSync sequence: expected >= 3, got 2'
-    );
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(1600);
-    await assertion;
-    expect(store.apply).not.toHaveBeenCalled();
-    expect(internal.sequence).toBe(0);
-  } finally {
-    vi.useRealTimers();
-  }
-});
-
-test('client action mismatch path still throws $$Error after sequence catch-up', async () => {
-  const { store, internal, trigger } = createClientStoreContext(async () => [
-    {
-      $$Error: 'late boom'
-    },
-    2
-  ]);
-  internal.sequence = 0;
-  const pending = store.getState().increment(1);
-  await Promise.resolve();
-  internal.sequence = 2;
-  trigger();
-  await expect(pending).rejects.toThrow('late boom');
-  expect(store.trace).toHaveBeenCalledTimes(2);
 });
 
 const createMutableSliceContext = ({

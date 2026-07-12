@@ -1,181 +1,267 @@
 import { createTransport } from 'data-transport';
 import type { Patches } from 'mutative';
 import type {
+  ClientTransport,
   ClientTransportOptions,
   CreateState,
-  ClientTransport,
   MiddlewareStore
 } from './interface';
 import type { Internal } from './internal';
-import { wrapStore } from './wrapStore';
-import { validateSharedStateSerializable } from './sharedState';
 import {
-  assertSafePatches,
-  sanitizeCheckedPatches,
-  sanitizePatches,
-  sanitizeReplacementState
-} from './utils';
-
-const parseFullSyncState = (state: string) => {
-  const parsed = JSON.parse(state);
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('Invalid fullSync payload');
-  }
-  return sanitizeReplacementState(parsed);
-};
+  decodeFullSyncResponse,
+  decodeUpdateMessage,
+  encodeFullSyncRequest,
+  encodeUpdateMessage,
+  type UpdateMessage
+} from './transportProtocol';
+import { sanitizeCheckedPatches } from './utils';
+import { wrapStore } from './wrapStore';
 
 const clientApplyErrorMessage =
   'apply() cannot be called in the client store. Client stores are mirrors; use a store method to update the main store instead.';
+
+const reportTransportError = (error: unknown) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.error(error);
+  }
+};
 
 export const createAsyncClientStore = <T extends CreateState>(
   createStore: (options: { share?: 'client' }) => {
     store: MiddlewareStore<T>;
     internal: Internal<T>;
   },
-  asyncStoreClientOption: ClientTransportOptions
+  options: ClientTransportOptions
 ) => {
-  const { store: asyncClientStore, internal } = createStore({
-    share: 'client'
-  });
-  let isApplyingClientState = false;
+  const { store, internal } = createStore({ share: 'client' });
+  let canApplyClientState = false;
   const previousAssertMutationAllowed = internal.assertMutationAllowed;
   internal.assertMutationAllowed = (operation) => {
-    if (operation === 'apply' && !isApplyingClientState) {
-      throw new Error(clientApplyErrorMessage);
+    if (operation === 'apply') {
+      if (!canApplyClientState) {
+        throw new Error(clientApplyErrorMessage);
+      }
+      canApplyClientState = false;
     }
     previousAssertMutationAllowed?.(operation);
   };
-  const baseApply = asyncClientStore.apply.bind(asyncClientStore);
-  asyncClientStore.apply = (state, patches) => {
-    if (!isApplyingClientState) {
-      throw new Error(clientApplyErrorMessage);
-    }
-    return baseApply(state, patches);
+  const baseApply = store.apply.bind(store);
+  store.apply = () => {
+    throw new Error(clientApplyErrorMessage);
   };
-  internal.applyClientState = (
-    ...args: Parameters<MiddlewareStore<T>['apply']>
-  ) => {
-    isApplyingClientState = true;
+  internal.applyClientState = (...args) => {
+    canApplyClientState = true;
     try {
       baseApply(...args);
     } finally {
-      isApplyingClientState = false;
+      canApplyClientState = false;
     }
   };
-  // the transport is in the worker or shared worker, and the client is in the main thread.
-  // This store can't be directly executed by any of the store's methods
-  // its methods are proxied to the worker or share worker for execution.
-  // and the executed patch is sent to the store to be applied to synchronize the state.
+
   const isSharedWorker =
     typeof SharedWorker !== 'undefined' &&
-    asyncStoreClientOption.worker instanceof SharedWorker;
-  const transport: ClientTransport = asyncStoreClientOption.worker
+    options.worker instanceof SharedWorker;
+  const transport: ClientTransport = options.worker
     ? createTransport(
         isSharedWorker ? 'SharedWorkerClient' : 'WebWorkerClient',
         {
-          worker: asyncStoreClientOption.worker as SharedWorker,
-          prefix: asyncClientStore.name
+          worker: options.worker as SharedWorker,
+          prefix: store.name
         }
       )
-    : asyncStoreClientOption.clientTransport;
+    : options.clientTransport;
   if (!transport) {
     throw new Error('transport is required');
   }
-  asyncClientStore.transport = transport;
-  let syncingPromise: Promise<void> | null = null;
-  let awaitingReconnectSync = false;
-  let reconnectSequenceBaseline: number | null = null;
-  const fullSync = async (allowLowerSequence = false) => {
-    if (!syncingPromise) {
-      syncingPromise = (async () => {
-        const latest = await transport.emit('fullSync');
-        if (
-          typeof latest !== 'object' ||
-          latest === null ||
-          typeof latest.sequence !== 'number' ||
-          typeof latest.state !== 'string'
-        ) {
-          throw new Error('Invalid fullSync payload');
-        }
-        const canApplyLowerSequence =
-          allowLowerSequence &&
-          awaitingReconnectSync &&
-          reconnectSequenceBaseline !== null &&
-          reconnectSequenceBaseline === internal.sequence;
-        if (latest.sequence < internal.sequence && !canApplyLowerSequence) {
-          return;
-        }
-        internal.applyClientState!(parseFullSyncState(latest.state));
-        internal.sequence = latest.sequence;
-        awaitingReconnectSync = false;
-        reconnectSequenceBaseline = null;
-      })().finally(() => {
-        syncingPromise = null;
-      });
-    }
-    return syncingPromise;
-  };
   if (typeof transport.onConnect !== 'function') {
     throw new Error('transport.onConnect is required');
   }
-  transport.onConnect?.(() => {
-    awaitingReconnectSync = true;
-    reconnectSequenceBaseline = internal.sequence;
-    void fullSync(true).catch((error) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(error);
-      }
-    });
-  });
-  transport.listen('update', async (options) => {
-    let shouldFullSync = false;
-    let allowLowerSequence = false;
-    try {
-      if (typeof options.sequence !== 'number') {
-        shouldFullSync = true;
-      } else if (options.sequence <= internal.sequence) {
-        if (awaitingReconnectSync) {
-          shouldFullSync = true;
-          allowLowerSequence = true;
-        } else if (options.sequence === 0 && internal.sequence > 0) {
-          awaitingReconnectSync = true;
-          reconnectSequenceBaseline = internal.sequence;
-          shouldFullSync = true;
-          allowLowerSequence = true;
-        } else {
-          return;
-        }
-      } else if (options.sequence === internal.sequence + 1) {
-        assertSafePatches(options.patches, 'client transport update');
-        internal.applyClientState!(undefined, options.patches);
-        internal.sequence = options.sequence;
-        awaitingReconnectSync = false;
-        reconnectSequenceBaseline = null;
-        return;
-      } else {
-        shouldFullSync = true;
-        allowLowerSequence = awaitingReconnectSync;
-      }
+  store.transport = transport;
 
-      if (shouldFullSync) {
-        await fullSync(allowLowerSequence);
-      }
-    } catch (error) {
-      if (!shouldFullSync) {
-        try {
-          await fullSync(awaitingReconnectSync);
-        } catch (syncError) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error(syncError);
-          }
-        }
-      }
-      if (process.env.NODE_ENV === 'development') {
-        console.error(error);
+  const destroyedMarker = Symbol('destroyed client transport');
+  let resolveDestroyed!: () => void;
+  const destroyedSignal = new Promise<typeof destroyedMarker>((resolve) => {
+    resolveDestroyed = () => resolve(destroyedMarker);
+  });
+  const disposers = new Set<() => void>();
+  let destroyed = false;
+  let connectGeneration = 0;
+  let connectSync: Promise<void> | null = null;
+  let syncTail: Promise<void> = Promise.resolve();
+
+  const registerDisposer = (value: unknown) => {
+    if (typeof value === 'function') {
+      disposers.add(value as () => void);
+    }
+  };
+  const cleanup = () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
+    connectGeneration += 1;
+    resolveDestroyed();
+    const callbacks = [...disposers];
+    disposers.clear();
+    for (const dispose of callbacks) {
+      try {
+        dispose();
+      } catch (error) {
+        reportTransportError(error);
       }
     }
-  });
-  return wrapStore(asyncClientStore, () => asyncClientStore.getState());
+  };
+  const awaitActive = async <R>(value: PromiseLike<R> | R) => {
+    const result = await Promise.race([
+      Promise.resolve(value),
+      destroyedSignal
+    ]);
+    if (result === destroyedMarker) {
+      throw new Error('Client transport was destroyed');
+    }
+    return result as R;
+  };
+  internal.awaitClientTransport = awaitActive;
+
+  const applyFullSync = (state: object, epoch: string, sequence: number) => {
+    const previousEpoch = internal.transportEpoch;
+    const previousSequence = internal.sequence;
+    internal.transportEpoch = epoch;
+    internal.sequence = sequence;
+    try {
+      internal.applyClientState!(state as T);
+    } catch (error) {
+      internal.transportEpoch = previousEpoch;
+      internal.sequence = previousSequence;
+      throw error;
+    }
+  };
+
+  const fullSync = (
+    expectedEpoch?: string,
+    minimumSequence = 0,
+    generation = connectGeneration
+  ) => {
+    const execute = async () => {
+      if (destroyed || generation !== connectGeneration) {
+        return;
+      }
+      const encoded = await awaitActive(
+        transport.emit('fullSync', encodeFullSyncRequest())
+      );
+      if (destroyed || generation !== connectGeneration) {
+        return;
+      }
+      const snapshot = decodeFullSyncResponse(encoded);
+      if (expectedEpoch && snapshot.epoch !== expectedEpoch) {
+        throw new Error('Mismatched fullSync epoch');
+      }
+      if (snapshot.sequence < minimumSequence) {
+        throw new Error('Stale fullSync sequence');
+      }
+      if (
+        snapshot.epoch === internal.transportEpoch &&
+        snapshot.sequence < internal.sequence
+      ) {
+        return;
+      }
+      applyFullSync(snapshot.state, snapshot.epoch, snapshot.sequence);
+    };
+    const run = syncTail.then(execute, execute);
+    syncTail = run.then(
+      () => undefined,
+      () => undefined
+    );
+    return run;
+  };
+  internal.syncClientState = (expectedEpoch, minimumSequence) =>
+    fullSync(expectedEpoch, minimumSequence);
+
+  const applyUpdate = (update: UpdateMessage) => {
+    const previousEpoch = internal.transportEpoch;
+    const previousSequence = internal.sequence;
+    internal.transportEpoch = update.epoch;
+    internal.sequence = update.sequence;
+    try {
+      internal.applyClientState!(undefined, update.patches as Patches);
+    } catch (error) {
+      internal.transportEpoch = previousEpoch;
+      internal.sequence = previousSequence;
+      throw error;
+    }
+  };
+
+  const handleUpdate = async (encoded: string) => {
+    if (destroyed) {
+      return;
+    }
+    const generation = connectGeneration;
+    const update = decodeUpdateMessage(encoded);
+    if (connectSync) {
+      await connectSync;
+    }
+    if (destroyed || generation !== connectGeneration) {
+      return;
+    }
+
+    if (update.epoch !== internal.transportEpoch) {
+      await fullSync(update.epoch, 0, generation);
+    }
+    if (destroyed || generation !== connectGeneration) {
+      return;
+    }
+    if (update.epoch !== internal.transportEpoch) {
+      throw new Error('Mismatched update epoch');
+    }
+    if (update.sequence <= internal.sequence) {
+      return;
+    }
+    if (update.sequence === internal.sequence + 1) {
+      applyUpdate(update);
+      return;
+    }
+    await fullSync(update.epoch, update.sequence, generation);
+  };
+
+  internal.destroyCallbacks?.add(cleanup);
+  try {
+    registerDisposer(
+      transport.listen('update', async (encoded) => {
+        try {
+          await handleUpdate(encoded);
+        } catch (error) {
+          if (!destroyed) {
+            try {
+              await fullSync();
+            } catch (syncError) {
+              reportTransportError(syncError);
+            }
+            reportTransportError(error);
+          }
+        }
+      })
+    );
+    registerDisposer(
+      transport.onConnect(() => {
+        const generation = ++connectGeneration;
+        const pending = fullSync(undefined, 0, generation).finally(() => {
+          if (connectSync === pending) {
+            connectSync = null;
+          }
+        });
+        connectSync = pending;
+        void pending.catch(reportTransportError);
+        return pending;
+      })
+    );
+  } catch (error) {
+    internal.destroyCallbacks?.delete(cleanup);
+    cleanup();
+    transport.dispose?.();
+    throw error;
+  }
+
+  return wrapStore(store, () => store.getState());
 };
 
 export const emit = <T extends CreateState>(
@@ -183,24 +269,24 @@ export const emit = <T extends CreateState>(
   internal: Internal<T>,
   patches?: Patches
 ) => {
-  const safePatches = sanitizePatches(patches, {
-    source: 'transport emit',
-    warnOnDropped: true
-  });
-  if (store.transport && safePatches?.length) {
-    validateSharedStateSerializable(internal.rootState);
-    internal.sequence += 1;
-    // it is not necessary to respond to the update event
-    store.transport.emit(
-      {
-        name: 'update',
-        respond: false
-      },
-      {
-        patches: safePatches,
-        sequence: internal.sequence
-      }
+  if (!store.transport || !patches?.length || !internal.transportEpoch) {
+    return;
+  }
+  const sequence = internal.sequence + 1;
+  const encoded = encodeUpdateMessage(
+    internal.transportEpoch,
+    sequence,
+    patches
+  );
+  internal.sequence = sequence;
+  try {
+    const pending = store.transport.emit(
+      { name: 'update', respond: false },
+      encoded
     );
+    void Promise.resolve(pending).catch(reportTransportError);
+  } catch (error) {
+    reportTransportError(error);
   }
 };
 
@@ -209,10 +295,7 @@ export const handleDraft = <T extends CreateState>(
   internal: Internal<T>
 ) => {
   internal.rootState = internal.backupState;
-  const [nextState, patches, inversePatches] = internal.finalizeDraft();
-  if (store.share === 'main') {
-    validateSharedStateSerializable(nextState);
-  }
+  const [, patches, inversePatches] = internal.finalizeDraft();
   const finalPatches = store.patch
     ? store.patch({ patches, inversePatches })
     : { patches, inversePatches };
@@ -222,7 +305,6 @@ export const handleDraft = <T extends CreateState>(
   );
   if (safePatches.length) {
     store.apply(internal.rootState as T, safePatches);
-    // 3rd party model will send update notifications on its own after `store.apply` in mutableInstance mode
     emit(store, internal, safePatches);
   }
 };

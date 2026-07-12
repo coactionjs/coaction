@@ -42,6 +42,10 @@ export interface Internal<T extends CreateState = CreateState> {
    * The sequence number.
    */
   sequence: number;
+  /** Identifies the lifetime of the current shared authority. */
+  transportEpoch?: string;
+  /** Action paths declared when the authoritative store was initialized. */
+  sharedActionPaths?: Set<string>;
   /**
    * Whether the batch is running.
    */
@@ -50,6 +54,8 @@ export interface Internal<T extends CreateState = CreateState> {
    * The listeners.
    */
   listeners: Set<Listener>;
+  /** Cleanup callbacks owned by transport and integration layers. */
+  destroyCallbacks?: Set<() => void>;
   /**
    * Publish an externally-owned immutable state change to signal slots and
    * store subscribers.
@@ -87,4 +93,11 @@ export interface Internal<T extends CreateState = CreateState> {
    * Authorized client-mirror state application used by transports.
    */
   applyClientState?: (state?: T, patches?: Patches) => void;
+  /** Request an authoritative full sync for a client mirror. */
+  syncClientState?: (
+    expectedEpoch?: string,
+    minimumSequence?: number
+  ) => Promise<void>;
+  /** Cancel a transport promise when the client mirror is destroyed. */
+  awaitClientTransport?: <R>(value: PromiseLike<R> | R) => Promise<R>;
 }

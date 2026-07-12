@@ -1,23 +1,30 @@
 import { createTransport, type Transport } from 'data-transport';
 import type {
+  CreateState,
   ExternalEvents,
   InternalEvents,
   Store,
-  CreateState,
-  StoreTransport
+  StoreTransport,
+  TransportPolicy,
+  TransportPolicyRequest
 } from './interface';
 import type { Internal } from './internal';
 import { validateSharedStateSerializable } from './sharedState';
-import { isUnsafePathSegment } from './utils';
+import {
+  decodeExecuteRequest,
+  decodeFullSyncRequest,
+  encodeExecuteResponse,
+  encodeFullSyncResponse
+} from './transportProtocol';
+import { isUnsafePathSegment, uuid } from './utils';
 
 const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error) {
+  if (error instanceof Error && error.message) {
     return error.message;
   }
-  return String(error);
+  const message = String(error);
+  return message || 'Unknown transport error';
 };
-
-const transportErrorMarker = '__coactionTransportError__';
 
 export const handleMainTransport = <T extends CreateState>(
   store: Store<T>,
@@ -32,66 +39,159 @@ export const handleMainTransport = <T extends CreateState>(
     | 'WebWorkerClient'
     | 'SharedWorkerClient'
     | null,
-  checkEnablePatches?: boolean
+  checkEnablePatches?: boolean,
+  policy?: TransportPolicy
 ) => {
-  // store transport for server port
-  // the store transport is responsible for transmitting the sync state to the client transport.
   const transport: StoreTransport | undefined =
     storeTransport ??
     (workerType === 'SharedWorkerInternal' || workerType === 'WebWorkerInternal'
-      ? createTransport(workerType, {
-          prefix: store.name
-        })
+      ? createTransport(workerType, { prefix: store.name })
       : undefined);
-  if (!transport) return;
-  if (typeof transport.onConnect !== 'function') {
-    throw new Error('transport.onConnect is required');
+  if (!transport) {
+    return;
   }
   if (checkEnablePatches) {
-    throw new Error(`enablePatches: true is required for the transport`);
+    throw new Error('enablePatches: true is required for the transport');
   }
-  transport.listen('execute', async (keys, args) => {
-    let base: unknown = store.getState();
-    try {
-      for (const key of keys) {
-        if (
-          isUnsafePathSegment(key) ||
-          (typeof base !== 'object' && typeof base !== 'function') ||
-          base === null ||
-          !Object.prototype.hasOwnProperty.call(base, key)
-        ) {
-          throw new Error('The function is not found');
-        }
-        const obj = base;
-        base = (base as Record<PropertyKey, unknown>)[key];
-        if (typeof base === 'function') {
-          base = base.bind(obj);
-        }
-      }
-      if (typeof base !== 'function') {
-        throw new Error('The function is not found');
-      }
-      const result = await (base as (...args: unknown[]) => unknown)(...args);
-      return [result, internal.sequence];
-    } catch (error: unknown) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error(error);
-      }
-      return [
-        {
-          [transportErrorMarker]: true,
-          message: getErrorMessage(error)
-        },
-        internal.sequence
-      ];
+
+  const epoch = uuid();
+  internal.transportEpoch = epoch;
+  let destroyed = false;
+  const disposers = new Set<() => void>();
+  const registerDisposer = (value: unknown) => {
+    if (typeof value === 'function') {
+      disposers.add(value as () => void);
     }
-  });
-  transport.listen('fullSync', async () => {
-    validateSharedStateSerializable(internal.rootState);
-    return {
-      state: JSON.stringify(internal.rootState),
-      sequence: internal.sequence
-    };
-  });
+  };
+  const cleanup = () => {
+    if (destroyed) {
+      return;
+    }
+    destroyed = true;
+    const callbacks = [...disposers];
+    disposers.clear();
+    for (const dispose of callbacks) {
+      try {
+        dispose();
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error(error);
+        }
+      }
+    }
+  };
+  const assertActive = () => {
+    if (destroyed) {
+      throw new Error('Transport request was cancelled after store destroy');
+    }
+  };
+
   store.transport = transport;
+  internal.destroyCallbacks?.add(cleanup);
+  try {
+    registerDisposer(
+      transport.listen('execute', async (encoded) => {
+        try {
+          assertActive();
+          const request = decodeExecuteRequest(encoded);
+          if (
+            !internal.sharedActionPaths?.has(JSON.stringify(request.action))
+          ) {
+            throw new Error('Remote action is not allowed');
+          }
+          if (
+            policy?.allowedActions &&
+            !policy.allowedActions.some(
+              (allowed) =>
+                allowed.length === request.action.length &&
+                allowed.every((key, index) => key === request.action[index])
+            )
+          ) {
+            throw new Error('Remote action is not allowed');
+          }
+          const policyRequest: TransportPolicyRequest = {
+            ...request,
+            type: 'execute'
+          };
+          if (
+            policy?.authorize &&
+            (await policy.authorize(policyRequest)) !== true
+          ) {
+            throw new Error('Transport request is not authorized');
+          }
+          assertActive();
+
+          let action: unknown = store.getState();
+          let receiver: unknown;
+          for (const key of request.action) {
+            if (
+              isUnsafePathSegment(key) ||
+              (typeof action !== 'object' && typeof action !== 'function') ||
+              action === null ||
+              !Object.prototype.hasOwnProperty.call(action, key)
+            ) {
+              throw new Error('The function is not found');
+            }
+            receiver = action;
+            action = (action as Record<string, unknown>)[key];
+          }
+          if (typeof action !== 'function') {
+            throw new Error('The function is not found');
+          }
+          const value = await Reflect.apply(action, receiver, request.args);
+          assertActive();
+          return encodeExecuteResponse({
+            epoch,
+            ok: true,
+            sequence: internal.sequence,
+            ...(typeof value === 'undefined' ? {} : { value })
+          });
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error(error);
+          }
+          return encodeExecuteResponse({
+            epoch,
+            error: getErrorMessage(error),
+            ok: false,
+            sequence: internal.sequence
+          });
+        }
+      })
+    );
+
+    registerDisposer(
+      transport.listen('fullSync', async (encoded) => {
+        assertActive();
+        decodeFullSyncRequest(encoded);
+        if (
+          policy?.authorize &&
+          (await policy.authorize({ type: 'fullSync' })) !== true
+        ) {
+          throw new Error('Transport request is not authorized');
+        }
+        assertActive();
+        validateSharedStateSerializable(internal.rootState);
+        const state = internal.rootState;
+        if (
+          typeof state !== 'object' ||
+          state === null ||
+          Array.isArray(state)
+        ) {
+          throw new TypeError('Shared store state must be a JSON object');
+        }
+        return encodeFullSyncResponse({
+          epoch,
+          sequence: internal.sequence,
+          state
+        });
+      })
+    );
+  } catch (error) {
+    internal.destroyCallbacks?.delete(cleanup);
+    cleanup();
+    store.transport = undefined;
+    transport.dispose?.();
+    throw error;
+  }
 };

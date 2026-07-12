@@ -467,6 +467,7 @@ test('worker', async () => {
 `);
     const returnValue1 = increment();
     expect(returnValue1 instanceof Promise).toBeTruthy();
+    await returnValue1;
     expect(useClientStore.getState()).toMatchInlineSnapshot(`
 {
   "count": 4,

@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import { handleState } from '../src/handleState';
+import { decodeUpdateMessage } from '../src/transportProtocol';
 
 const createContext = (options?: {
   share?: 'client' | false;
@@ -19,7 +20,8 @@ const createContext = (options?: {
     listeners: new Set<() => void>(),
     isBatching: false,
     mutableInstance: false,
-    sequence: 0
+    sequence: 0,
+    transportEpoch: 'epoch-1'
   } as any;
 
   const store = {
@@ -100,11 +102,13 @@ test('setState emits patch-hook output instead of raw patches', () => {
       name: 'update',
       respond: false
     },
-    {
-      patches: patched,
-      sequence: 1
-    }
+    expect.any(String)
   );
+  expect(decodeUpdateMessage(store.transport.emit.mock.calls[0][1])).toEqual({
+    epoch: 'epoch-1',
+    patches: patched,
+    sequence: 1
+  });
   expect(internal.sequence).toBe(1);
 });
 
@@ -177,11 +181,13 @@ test('setState sanitizes safe patch-hook values before apply and emit', () => {
       name: 'update',
       respond: false
     },
-    {
-      patches: expectedPatches,
-      sequence: 1
-    }
+    expect.any(String)
   );
+  expect(decodeUpdateMessage(store.transport.emit.mock.calls[0][1])).toEqual({
+    epoch: 'epoch-1',
+    patches: expectedPatches,
+    sequence: 1
+  });
 });
 
 test('setState rejects unsafe custom updater returned patches before emit', () => {
