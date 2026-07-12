@@ -1,153 +1,82 @@
----
-type: architecture
-title: Threading and authority model
-description: Local, shared-main, and client-mirror authority, sequencing, and protocol-cohort rules.
-owner: unadlib
-status: accepted
-risk_level: critical
-tags: [core, threading, authority, transport]
----
+# Threading and Authority Model
 
-# Threading Model
-
-This document explains how Coaction treats local, main, and client runtimes.
+Coaction shared stores use one write authority and any number of client
+mirrors. This model is the same for Worker, SharedWorker, and custom transports.
 
 ## Modes
 
-### Standard Mode
+| Mode          | `store.share` | Mutation authority | Method calls                      |
+| ------------- | ------------- | ------------------ | --------------------------------- |
+| Local         | `false`       | Current runtime    | Synchronous                       |
+| Shared main   | `'main'`      | Main runtime       | Synchronous on the main runtime   |
+| Shared client | `'client'`    | Main runtime       | Promise-returning transport calls |
 
-Standard mode is a local store with no transport.
+A client can read and subscribe to its mirrored state. It cannot call
+`setState()` or `apply()` directly.
 
-Characteristics:
+## Shared data contract
 
-- synchronous methods
-- no cross-thread synchronization
-- patch generation is optional and disabled by default
-- the local runtime owns mutation authority
+Every value crossing the shared boundary is encoded as a JSON string. Shared
+state, action arguments, non-void action results, full snapshots, and patch
+values must form a JSON tree:
 
-### Shared Main Mode
+- `null`, booleans, strings, and finite numbers other than negative zero;
+- dense arrays containing JSON values;
+- plain records with safe string keys and JSON values.
 
-Shared main mode is the authoritative store behind a transport.
+Unsupported values are rejected before serialization. This includes
+`undefined`, `BigInt`, `NaN`, infinities, functions used as data, symbols,
+accessors, sparse arrays, custom platform objects, cycles, and repeated object
+references. Store methods and computed getters are runtime behavior and are not
+part of transported state.
 
-Characteristics:
+The transport protocol accepts only its versioned message shapes. Malformed
+messages, unsafe action paths, unsafe patch paths, invalid epochs, and invalid
+sequence numbers fail closed.
 
-- methods execute locally on the main runtime
-- `internal.sequence` advances when patch updates are emitted
-- clients may request method execution through the transport
-- full state snapshots are served through `fullSync`
+## Updates and recovery
 
-### Shared Client Mode
+Each main-store lifetime owns an epoch. Its sequence starts at zero and advances
+when it emits a patch update. A client:
 
-Shared client mode is a mirror of a main store.
+1. obtains an atomic `{ epoch, sequence, state }` snapshot on connection;
+2. applies only the next sequence for its current epoch;
+3. ignores duplicate or older updates;
+4. requests a full snapshot after a sequence gap or epoch change.
 
-Characteristics:
+State replacement is atomic: if applying a snapshot or update fails, the client
+keeps its previous epoch, sequence, and state.
 
-- methods are async because execution happens on the main store
-- local state is a mirror updated through `update` and `fullSync`
-- direct `setState()` is rejected
-- reconnects and sequence gaps fall back to `fullSync`
+## Remote actions
 
-## Authority Model
+Only method paths discovered from the main store can execute remotely.
+`transportPolicy` can narrow that surface further:
 
-There is exactly one write authority in shared mode: the main store.
+- `allowedActions` is an allowlist of method paths;
+- `authorize` accepts or rejects a decoded execute or full-sync request;
+- `mapError` may convert an action failure into a deliberately public message.
 
-The client store may:
+Unexpected action failures are returned as `Remote action failed`. The original
+error remains on the authority unless `mapError` returns a non-empty safe
+string.
 
-- read mirrored state
-- subscribe to mirrored updates
-- request method execution on the main store
+An action response includes the authority epoch and resulting sequence. The
+client waits for its mirror to reach that point, then falls back to full sync
+after `executeSyncTimeoutMs`.
 
-The client store may not:
+If the authority changes while an action is in flight and the response belongs
+to the old authority, the promise rejects with
+`ActionAuthorityChangedError`. Its `outcome` is `unknown`: the previous
+authority may already have performed the action. Retry only when the action is
+idempotent or protected by application-level deduplication.
 
-- call `setState()` directly
-- assume local mutations are authoritative
-- bypass sequence handling
+## Lifecycle
 
-This model keeps transport semantics simple. Client-side state is eventually consistent with the main store, but write authority never moves to the client.
+Destroying a main or client store removes transport listeners and rejects or
+releases pending work. Reconnect callbacks from an older connection generation
+cannot overwrite state established by a newer connection.
 
-## Execution Flow for Shared Methods
-
-When a client invokes a store method:
-
-1. the client method wrapper emits `execute`
-2. the main store resolves the method path and executes it against the current state object
-3. the main store mutates state and may emit a patch `update`
-4. the main store returns `[result, sequence]`
-5. the client waits until its mirrored sequence catches up
-6. if sequencing is stale or a gap is detected, the client falls back to `fullSync`
-
-Unexpected action failures use a generic client-visible message. Applications
-must opt in through `transportPolicy.mapError` when a domain error is safe to
-cross the transport boundary.
-
-An action response from an epoch that was superseded while the request was in
-flight is not used to pull the mirror back to that authority. The client rejects
-with `ActionAuthorityChangedError` because execution on the previous authority
-may already have happened and blind retry is unsafe for non-idempotent actions.
-
-This means the returned promise represents both remote execution and the local mirror catching up to the corresponding state version.
-
-## External Writes
-
-"External write" means a state change initiated outside a normal Coaction store method, for example:
-
-- a third-party store notifies Coaction about a direct mutation
-- a transport reconnect requires replacing mirrored client state through `fullSync`
-- Yjs replays remote document updates into Coaction
-
-These writes are supported, but they must flow through the owning runtime's contract:
-
-- binder-backed adapters must update Coaction through their store hook
-- clients must accept transport-driven `update` or `fullSync`
-- middleware integrations must avoid re-entrant write loops
-
-## Supported Threading Combinations
-
-Officially supported:
-
-- local store only
-- one main store with one or more clients
-- worker-backed or custom-transport shared stores
-- slices in shared mode, as long as the underlying state is native Coaction
-
-Officially unsupported:
-
-- client-mode Yjs binding
-- binder-backed adapter nested inside slices mode
-- shared stores created with patch generation explicitly disabled
-
-For package-level combinations such as adapters and middlewares, use the [support matrix](./support-matrix.md) as the source of truth.
-
-## Protocol-Version Cohorts
-
-A shared main store and every client connected to it form one protocol cohort.
-All members of that cohort must use the same Coaction wire protocol and package
-major. Coaction does not negotiate protocol versions across a transport.
-
-This matters especially for SharedWorker deployments because an existing worker
-can remain alive while tabs still hold ports to it. A major upgrade must drain
-the old ports and authority before the new cohort takes ownership of the same
-logical state. Versioned worker URLs and names isolate deployments, but they do
-not coordinate state between two concurrent authorities. See the
-[JSON-only migration guide](../features/json-only-shared-runtime/migration.md#coordinate-the-2x-to-3x-deployment)
-for the cutover and rollback procedure.
-
-## Guarantee Levels
-
-The runtime makes three distinct guarantee levels:
-
-- Strong contract
-  - local/main authority, client `setState()` rejection, sequence-based catch-up
-- Best-effort synchronization
-  - client reconnect recovery through `fullSync`
-- Integration-defined behavior
-  - external state libraries, persistence backends, CRDT providers, framework lifecycles
-
-When documenting package-level features, maintainers should say which level a feature belongs to. If a guarantee is integration-defined, the docs should not present it as a core invariant.
-
-## Verification
-
-- Authority, execution, epoch, sequence, reconnect, and teardown behavior:
-  `packages/core/test`.
-- Real Worker and SharedWorker behavior: `pnpm test:e2e:browser`.
-- Supported combinations: [support-matrix.md](./support-matrix.md).
+An authority and all clients connected to it must use the same Coaction major
+and wire protocol. See the
+[2.x to 3.x migration guide](../features/json-only-shared-runtime/migration.md)
+for coordinated Worker and SharedWorker upgrades.

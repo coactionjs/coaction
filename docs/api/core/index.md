@@ -49,7 +49,3 @@ from `coaction`.
 - Getter accessors and `get(deps, selector)` computed values are cached through the built-in alien-signals runtime.
 - Binder-backed integrations are whole-store adapters; slices mode is not supported for them.
 - `create()` should not gain more ambiguous option combinations; prefer explicit helpers or variants for future expansion.
-
-## Regenerating
-
-Run `pnpm docs:api` from the repository root.

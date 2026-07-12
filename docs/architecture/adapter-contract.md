@@ -1,185 +1,64 @@
----
-type: contract
-title: External store adapter contract
-description: Lifecycle, authority, replacement-state, and compatibility requirements for official Coaction adapters.
-owner: unadlib
-status: accepted
-risk_level: critical
-tags: [adapter, lifecycle, shared-state, contract]
----
+# External Store Adapter Contract
 
-# Adapter Contract
+This contract applies to whole-store adapters created with
+`defineExternalStoreAdapter()` from `coaction/adapter`. `createBinder()` is the
+compatibility alias. Binder-backed adapters cannot be nested inside Coaction
+slices.
 
-This document covers official adapter expectations.
+Framework wrappers and middleware that leave Coaction in ownership of state are
+not binder-backed adapters.
 
-The supported adapter-authoring surface is exported from `coaction/adapter`,
-not from the root compatibility entry.
+## Adapter hooks
 
-Coaction currently has two adapter families:
+`defineExternalStoreAdapter()` accepts two hooks:
 
-- binder-backed state adapters built with `defineExternalStoreAdapter()` or its compatibility alias `createBinder()`
-- non-binder integrations such as Yjs or framework wrappers
+### `handleState(state)`
 
-The most rigid contract applies to binder-backed state adapters.
+Return:
 
-## Binder Adapter Scope
+- `copyState`: the state object Coaction will inspect during initialization;
+- `bind(state)`: a function that produces the raw state used by Coaction;
+- optional `key`: a child key when the external runtime wraps its real state.
 
-`defineExternalStoreAdapter()` exists to bridge an external whole-store implementation into Coaction. Existing integrations may still call `createBinder()`, which is kept as a compatibility alias.
+Do not mutate caller-owned input while preparing `copyState`.
 
-Examples:
+### `handleStore(store, rawState, state, internal, key)`
 
-- Zustand
-- Redux
-- Jotai
-- Pinia
-- MobX
-- Valtio
-- XState
+Connect the external runtime to the initialized Coaction store. This is where
+an adapter installs subscriptions, overrides supported store methods, and
+registers cleanup.
 
-Non-goals:
+## Required behavior
 
-- slice-level binding
-- mixing a binder-backed adapter into Coaction slices mode
-- defining transport authority rules different from the core authority model
+An official adapter must:
 
-## Required Runtime Behavior
+- preserve `getState()`, `setState()`, `subscribe()`, `apply()`,
+  `getPureState()`, and `destroy()` semantics;
+- notify Coaction subscribers after an external write;
+- call `internal.notifyStateChange()` when it assigns
+  `internal.rootState` without going through `setState()` or `apply()`;
+- release external subscriptions and observers from `destroy()`;
+- keep cleanup idempotent;
+- document whether out-of-band external writes are rejected, restored, or
+  ignored when they introduce unknown root keys.
 
-An official binder-backed adapter must satisfy all of the following:
+An adapter may replace store methods, but the resulting object must remain a
+valid Coaction store and compose with middleware.
 
-- `subscribe`
-  - Coaction listeners are notified when the external store changes
-- `update`
-  - Coaction method execution updates the external store and keeps Coaction's view in sync
-- `external write`
-  - direct writes in the external store are observed and reflected back into the Coaction store according to the adapter's contract
-  - immutable adapters that assign `internal.rootState` directly must call `internal.notifyStateChange()` so signal-backed selectors and store subscribers see the change
-- `destroy`
-  - adapter-installed subscriptions or observers are released when `store.destroy()` runs
-- type expectations
-  - the adapter returns a whole-store shape compatible with Coaction's runtime and public TypeScript surface
+## Shared stores
 
-## Adapter Responsibilities
+Shared replacement input is validated before adapter code reads or normalizes
+it. An adapter must not make unsupported input appear valid by invoking
+accessors or dropping fields.
 
-`defineExternalStoreAdapter()` splits adapter work into two hooks.
+An adapter may keep proxies or accessors in its local external instance, but it
+must expose a plain JSON snapshot for transport. Patches and replacement state
+must pass the same schema, JSON, and unsafe-path checks as native stores.
 
-### `handleState`
+The main store remains the only authority. Shared-client support for Coaction
+method calls does not imply that direct writes to the client-side external
+instance are supported. Each adapter must explicitly guard and document such
+writes before they become part of its contract.
 
-The adapter must:
-
-- return a copy of the incoming external store state
-- optionally expose a nested key if the external API wraps its real state
-- return a `bind()` function that converts external state into Coaction raw state
-
-### `handleStore`
-
-The adapter must:
-
-- attach subscriptions or observers so external writes reach Coaction
-- call `internal.notifyStateChange()` after external immutable writes that update `internal.rootState` without going through `store.setState()` or `store.apply()`
-- preserve Coaction store lifecycle semantics
-- clean up external resources from an overridden `destroy()` when needed
-- avoid violating client/main authority rules
-
-## Type and Shape Requirements
-
-Official adapter outputs must preserve the Coaction store contract:
-
-- `setState`
-- `getState`
-- `subscribe`
-- `destroy`
-- `apply`
-- `getPureState`
-
-If an adapter returns a replacement store object or patches runtime methods, the result still has to be store-like and compatible with middleware chaining.
-
-## Supported Combinations
-
-Officially supported:
-
-- binder-backed adapter as a whole store in local mode
-- binder-backed adapter as a whole store in main/shared mode when the adapter itself supports that runtime
-- binder-backed adapter as a whole store in client/shared mode when the adapter explicitly supports Coaction's mirror authority model
-
-Officially unsupported:
-
-- binder-backed adapter inside Coaction slices mode
-- adapter behavior that allows client mode to become an independent write authority
-- adapter-specific transport semantics that bypass the core sequence model
-
-## Shared Replacement Boundary
-
-In shared-main mode, caller-supplied replacement state MUST satisfy the shared
-JSON contract before an adapter reads, clones, normalizes, or applies it. An
-adapter MUST NOT make an unsupported value appear valid by invoking accessors
-or silently dropping fields before validation.
-
-Adapter-owned current state is a distinct boundary. A mutable adapter may keep
-proxy or accessor machinery in its current raw/public objects, but it MUST
-expose a plain JSON transport snapshot and validate that snapshot before it is
-emitted. `apply()` overrides belong in `handleStore()` so the core can install
-its final validation wrapper after adapter initialization; replacing `apply()`
-later from a readiness callback would bypass that maintained contract.
-
-## Client-Bound External Writes
-
-Shared client support is narrower than local whole-store support.
-
-What is part of the maintained contract in shared client mode:
-
-- calling Coaction store methods from the client mirror
-- receiving transport-driven updates from the authority store
-- converging through the core sequence model
-
-What is not automatically part of the contract:
-
-- mutating the underlying third-party store instance attached to the client mirror
-
-That client-bound external-write behavior is adapter-specific unless an adapter explicitly documents and enforces it.
-
-Current status:
-
-- `@coaction/zustand` direct writes to the client-side Zustand store are explicitly rejected
-- `@coaction/mobx` direct writes to the client-side MobX instance are not a maintained contract
-- `@coaction/pinia` direct writes to the client-side Pinia store instance are not a maintained contract
-
-Treat the last two as integration-defined behavior. If strict client-side authority enforcement is required, the adapter must add an explicit runtime guard before this repository can claim that as supported behavior.
-
-## External Unknown Keys
-
-Coaction's fixed schema is enforced at the raw/public state boundary. Official mutable adapters must not promote out-of-band unknown root properties from an external runtime into Coaction raw state or the public module. The external runtime object itself may still accept unrelated direct properties according to its own library semantics unless that adapter explicitly prunes or restores them.
-
-Adapter docs should state the policy for unknown external root keys:
-
-- `throw`: reject the external write.
-- `restore`: remove or roll back the external property.
-- `ignore`: keep the property in the third-party runtime while excluding it from Coaction state.
-
-If no policy is documented, consumers should treat Coaction state as authoritative and avoid relying on unknown properties stored directly on the external runtime.
-
-See [support-matrix.md](./support-matrix.md) for the package-by-package support status of official adapters.
-
-## Contract Tests
-
-Official binder-backed adapters should share one contract suite.
-
-That suite should verify at least:
-
-- subscribe contract
-- update through Coaction methods
-- external write propagation
-- destroy cleanup
-- supported and unsupported mode coverage
-- stable type expectations where TypeScript coverage exists
-
-Package-specific tests should remain for behavior that is unique to the underlying state system, but baseline adapter behavior should not be repeated by copying the same test file across packages.
-
-## Verification
-
-- Shared binder baseline: `packages/core/test/binderAdapterContract.ts` and each
-  supported package's `test/contract.test.ts`.
-- Replacement validation before adapter reads:
-  `packages/core/test/index.test.ts`.
-- Mutable adapter patch atomicity:
-  `packages/core/test/branch.test.ts` and package-specific adapter tests.
-- Full official adapter matrix: `pnpm exec turbo run test --force`.
+See the [support matrix](./support-matrix.md) for the currently maintained modes
+of each official adapter.
