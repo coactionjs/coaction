@@ -8,6 +8,8 @@ import {
   DocsTitle
 } from 'fumadocs-ui/layouts/docs/page';
 import { getMDXComponents } from '@/components/mdx';
+import { isLocale } from '@/lib/i18n';
+import { localizedAlternates, localePath } from '@/lib/site';
 import { source } from '@/lib/source';
 
 type PageParameters = Promise<{ lang: string; slug?: string[] }>;
@@ -47,11 +49,24 @@ export async function generateMetadata({
   params: PageParameters;
 }): Promise<Metadata> {
   const { lang, slug } = await params;
+  if (!isLocale(lang)) notFound();
   const page = source.getPage(slug, lang);
   if (!page) notFound();
+  const path = ['docs', ...(slug ?? [])].join('/');
+  const title = `${page.data.title} — Coaction`;
 
   return {
-    title: `${page.data.title} — Coaction`,
-    description: page.data.description
+    title,
+    description: page.data.description,
+    alternates: localizedAlternates(lang, path),
+    openGraph: {
+      type: 'article',
+      siteName: 'Coaction',
+      title,
+      description: page.data.description,
+      url: localePath(lang, path),
+      locale: lang === 'zh' ? 'zh_CN' : 'en_US',
+      alternateLocale: lang === 'zh' ? ['en_US'] : ['zh_CN']
+    }
   };
 }
