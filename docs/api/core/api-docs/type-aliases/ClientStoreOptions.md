@@ -8,7 +8,7 @@
 
 > **ClientStoreOptions**\<`T`\> = `object` & `ClientTransportOptions`
 
-Defined in: [packages/core/src/interface.ts:338](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L338)
+Defined in: [packages/core/src/interface.ts:346](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L346)
 
 Options for creating a client mirror of a shared store.
 

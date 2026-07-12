@@ -65,6 +65,22 @@ Use `transportPolicy.allowedActions` to expose a smaller subset and
 Action errors now use a tagged JSON result, so domain objects containing legacy
 keys such as `$$Error` remain ordinary data.
 
+Coaction 3.0 redacts unexpected execute errors to `Remote action failed` by
+default. An authority that intentionally exposes domain errors must map them to
+a client-safe string. The mapper runs as trusted authority code; never include
+credentials, internal paths, stack traces, or private user data:
+
+```ts
+transportPolicy: {
+  mapError(error) {
+    return error instanceof PublicOrderError ? error.message : undefined
+  }
+}
+```
+
+Returning `undefined`, returning an empty string, or throwing from `mapError`
+keeps the generic message.
+
 ## Reconnect behavior
 
 Every authority lifetime has an epoch and every committed update has a

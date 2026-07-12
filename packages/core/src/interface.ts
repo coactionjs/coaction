@@ -198,6 +198,14 @@ export type TransportPolicy = {
   allowedActions?: readonly (readonly string[])[];
   /** Authorize a decoded JSON request before serving it. */
   authorize?: (request: TransportPolicyRequest) => boolean | Promise<boolean>;
+  /**
+   * Map a caught execute error to an explicitly client-visible message.
+   * Returning `undefined` keeps the generic redacted message.
+   */
+  mapError?: (
+    error: unknown,
+    request: TransportPolicyRequest
+  ) => string | undefined | Promise<string | undefined>;
 };
 
 /**

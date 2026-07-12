@@ -8,7 +8,7 @@
 
 > **StoreOptions**\<`T`\> = `object`
 
-Defined in: [packages/core/src/interface.ts:285](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L285)
+Defined in: [packages/core/src/interface.ts:293](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L293)
 
 Options for creating a local store or the main side of a shared store.
 
@@ -24,7 +24,7 @@ Options for creating a local store or the main side of a shared store.
 
 > `optional` **enablePatches**: `boolean`
 
-Defined in: [packages/core/src/interface.ts:312](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L312)
+Defined in: [packages/core/src/interface.ts:320](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L320)
 
 Enable patch generation.
 
@@ -39,7 +39,7 @@ integrations that depend on patch streams.
 
 > `optional` **middlewares**: [`Middleware`](Middleware.md)\<`T`\>[]
 
-Defined in: [packages/core/src/interface.ts:304](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L304)
+Defined in: [packages/core/src/interface.ts:312](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L312)
 
 Middleware chain applied before the initial state is finalized.
 
@@ -49,7 +49,7 @@ Middleware chain applied before the initial state is finalized.
 
 > `optional` **name**: `string`
 
-Defined in: [packages/core/src/interface.ts:289](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L289)
+Defined in: [packages/core/src/interface.ts:297](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L297)
 
 The name of the store.
 
@@ -59,7 +59,7 @@ The name of the store.
 
 > `optional` **sliceMode**: `"auto"` \| `"slices"` \| `"single"`
 
-Defined in: [packages/core/src/interface.ts:322](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L322)
+Defined in: [packages/core/src/interface.ts:330](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L330)
 
 Control how `createState` should be interpreted.
 
@@ -76,7 +76,7 @@ Control how `createState` should be interpreted.
 
 > `optional` **transport**: `Transport`
 
-Defined in: [packages/core/src/interface.ts:298](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L298)
+Defined in: [packages/core/src/interface.ts:306](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L306)
 
 Inject a pre-built transport for advanced shared-store setups.
 
@@ -86,7 +86,7 @@ Inject a pre-built transport for advanced shared-store setups.
 
 > `optional` **transportPolicy**: [`TransportPolicy`](TransportPolicy.md)
 
-Defined in: [packages/core/src/interface.ts:300](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L300)
+Defined in: [packages/core/src/interface.ts:308](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L308)
 
 Restrict requests accepted by a shared-main store.
 
@@ -96,7 +96,7 @@ Restrict requests accepted by a shared-main store.
 
 > `optional` **workerType**: `"SharedWorkerInternal"` \| `"WebWorkerInternal"`
 
-Defined in: [packages/core/src/interface.ts:294](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L294)
+Defined in: [packages/core/src/interface.ts:302](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L302)
 
 #### Deprecated
 

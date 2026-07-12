@@ -8,7 +8,7 @@
 
 > **Slice**\<`T`\> = (`set`, `get`, `store`) => `T`
 
-Defined in: [packages/core/src/interface.ts:225](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L225)
+Defined in: [packages/core/src/interface.ts:233](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L233)
 
 Factory for a single store object.
 

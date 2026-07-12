@@ -85,6 +85,9 @@ full sync.
 - Authorization hooks run in the main runtime and are trusted application code.
   Their boolean result controls the request; they are not treated as an object
   sandbox.
+- Caught execute errors are redacted to a generic client message by default.
+  Applications may expose an explicitly safe message through
+  `transportPolicy.mapError`; thrown messages are otherwise authority-local.
 
 ## Technical design
 

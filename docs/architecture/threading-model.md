@@ -76,6 +76,10 @@ When a client invokes a store method:
 5. the client waits until its mirrored sequence catches up
 6. if sequencing is stale or a gap is detected, the client falls back to `fullSync`
 
+Unexpected action failures use a generic client-visible message. Applications
+must opt in through `transportPolicy.mapError` when a domain error is safe to
+cross the transport boundary.
+
 This means the returned promise represents both remote execution and the local mirror catching up to the corresponding state version.
 
 ## External Writes

@@ -163,8 +163,11 @@ test('shared worker syncs across pages and late reconnects', async ({
   await context.close();
 });
 
-test('shared worker propagates async results and errors', async ({ page }) => {
+test('shared worker propagates async results and redacts errors', async ({
+  page
+}) => {
   const name = createScenarioName('shared-async');
+  const secretMessage = 'shared-worker-error';
   await gotoHarness(page);
 
   await connectWorker(page, 'shared', name, 0);
@@ -175,19 +178,16 @@ test('shared worker propagates async results and errors', async ({ page }) => {
     count: 4
   });
 
-  const errorResult = await failInWorker(
-    page,
-    'shared',
-    name,
-    'shared-worker-error'
-  );
-  expect(errorResult.message).toBe('shared-worker-error');
+  const errorResult = await failInWorker(page, 'shared', name, secretMessage);
+  expect(errorResult.message).toBe('Remote action failed');
+  expect(errorResult.message).not.toContain(secretMessage);
 });
 
-test('web worker propagates actions, async results, and errors', async ({
+test('web worker propagates actions and redacts async errors', async ({
   page
 }) => {
   const name = createScenarioName('web-actions');
+  const secretMessage = 'web-worker-error';
   await gotoHarness(page);
 
   await connectWorker(page, 'web', name, 0);
@@ -204,8 +204,9 @@ test('web worker propagates actions, async results, and errors', async ({
     count: 5
   });
 
-  const errorResult = await failInWorker(page, 'web', name, 'web-worker-error');
-  expect(errorResult.message).toBe('web-worker-error');
+  const errorResult = await failInWorker(page, 'web', name, secretMessage);
+  expect(errorResult.message).toBe('Remote action failed');
+  expect(errorResult.message).not.toContain(secretMessage);
 });
 
 test('web worker state stays isolated per page', async ({ browser }) => {

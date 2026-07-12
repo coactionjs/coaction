@@ -8,7 +8,7 @@
 
 > **LocalStoreOptions**\<`T`\> = `Omit`\<[`StoreOptions`](StoreOptions.md)\<`T`\>, `"transport"` \| `"transportPolicy"` \| `"workerType"`\>
 
-Defined in: [packages/core/src/interface.ts:326](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L326)
+Defined in: [packages/core/src/interface.ts:334](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L334)
 
 Options accepted by the statically isolated local-store entry point.
 

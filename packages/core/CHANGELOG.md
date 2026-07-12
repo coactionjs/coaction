@@ -26,6 +26,11 @@
   and scanned. Public `apply()`, custom updaters, patch hooks, middleware, and
   adapter overrides retain their full validation boundaries.
 
+  Redact unexpected remote action failures by default instead of forwarding an
+  arbitrary thrown `Error.message` across the transport boundary. Authorities
+  can explicitly publish application-safe domain messages through
+  `transportPolicy.mapError`.
+
   Read the [Coaction 3.0 migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
   before upgrading any Worker, SharedWorker, injected-transport, or custom-adapter
   deployment.

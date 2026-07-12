@@ -378,7 +378,11 @@ test('worker action rejects direct immutable this mutation without emitting patc
   });
   const useServerStore = create(counter, {
     transport: serverTransport,
-    name: 'worker-direct-mutation'
+    name: 'worker-direct-mutation',
+    transportPolicy: {
+      mapError: (error) =>
+        error instanceof Error ? error.message : 'Remote action failed'
+    }
   });
   const useClientStore = create(counter, {
     name: 'worker-direct-mutation',

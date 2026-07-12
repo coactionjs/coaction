@@ -5,6 +5,7 @@ import { applyMutableAdapterPatches } from '../src/externalMutableAdapterUtils';
 import { getInitialState } from '../src/getInitialState';
 import { handleMainTransport } from '../src/handleMainTransport';
 import { handleDraft } from '../src/handleDraft';
+import type { TransportPolicyRequest } from '../src/interface';
 import { replaceExternalStoreState } from '../src/replaceExternalStoreState';
 import {
   decodeExecuteResponse,
@@ -1576,7 +1577,7 @@ test('handleMainTransport accepts server transports without onConnect', () => {
   expect(listen).toHaveBeenCalledTimes(2);
 });
 
-test('handleMainTransport normalizes non-Error throws in tagged JSON', async () => {
+test('handleMainTransport redacts non-Error throws in tagged JSON', async () => {
   let executeHandler: ((message: string) => Promise<string>) | undefined;
   const transport = {
     listen: vi.fn(
@@ -1616,7 +1617,7 @@ test('handleMainTransport normalizes non-Error throws in tagged JSON', async () 
     );
     expect(response).toEqual(
       expect.objectContaining({
-        error: '123',
+        error: 'Remote action failed',
         ok: false,
         sequence: 0
       })
@@ -1626,6 +1627,71 @@ test('handleMainTransport normalizes non-Error throws in tagged JSON', async () 
     process.env.NODE_ENV = previousNodeEnv;
     errorSpy.mockRestore();
   }
+});
+
+test('handleMainTransport only exposes action errors through mapError', async () => {
+  let executeHandler: ((message: string) => Promise<string>) | undefined;
+  const mapError = vi.fn(
+    async (error: unknown, request: TransportPolicyRequest) => {
+      expect(error).toEqual(new Error('secret token'));
+      expect(request.type).toBe('execute');
+      if (request.type !== 'execute') {
+        return undefined;
+      }
+      expect(request.action).toEqual(['bad']);
+      return 'Public domain failure';
+    }
+  );
+  handleMainTransport(
+    {
+      name: 'main',
+      getState: () => ({
+        bad() {
+          throw new Error('secret token');
+        }
+      })
+    } as any,
+    {
+      rootState: {},
+      sequence: 0,
+      sharedActionPaths: new Set([JSON.stringify(['bad'])])
+    } as any,
+    {
+      listen: vi.fn((name: string, handler: any) => {
+        if (name === 'execute') {
+          executeHandler = handler;
+        }
+      })
+    } as any,
+    null,
+    false,
+    { mapError }
+  );
+
+  const response = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['bad'], []))
+  );
+
+  expect(response).toEqual(
+    expect.objectContaining({
+      error: 'Public domain failure',
+      ok: false
+    })
+  );
+  expect(JSON.stringify(response)).not.toContain('secret token');
+  expect(mapError).toHaveBeenCalledTimes(1);
+
+  mapError.mockRejectedValueOnce(new Error('mapper secret'));
+  const fallback = decodeExecuteResponse(
+    await executeHandler!(encodeExecuteRequest(['bad'], []))
+  );
+  expect(fallback).toEqual(
+    expect.objectContaining({
+      error: 'Remote action failed',
+      ok: false
+    })
+  );
+  expect(JSON.stringify(fallback)).not.toContain('mapper secret');
 });
 
 test('handleMainTransport only executes declared own action paths', async () => {

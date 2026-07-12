@@ -39,3 +39,28 @@ Authorize a decoded JSON request before serving it.
 #### Returns
 
 `boolean` \| `Promise`\<`boolean`\>
+
+---
+
+### mapError()?
+
+> `optional` **mapError**: (`error`, `request`) => `string` \| `undefined` \| `Promise`\<`string` \| `undefined`\>
+
+Defined in: [packages/core/src/interface.ts:205](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L205)
+
+Map a caught execute error to an explicitly client-visible message.
+Returning `undefined` keeps the generic redacted message.
+
+#### Parameters
+
+##### error
+
+`unknown`
+
+##### request
+
+[`TransportPolicyRequest`](TransportPolicyRequest.md)
+
+#### Returns
+
+`string` \| `undefined` \| `Promise`\<`string` \| `undefined`\>

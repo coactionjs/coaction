@@ -19,12 +19,34 @@ import {
 } from './transportProtocol';
 import { isUnsafePathSegment, uuid } from './utils';
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof Error && error.message) {
+const publicErrorMessages = new Set([
+  'Remote action is not allowed',
+  'The function is not found',
+  'Transport request is not authorized',
+  'Transport request was cancelled after store destroy'
+]);
+
+const getErrorMessage = async (
+  error: unknown,
+  request: TransportPolicyRequest | undefined,
+  policy: TransportPolicy | undefined
+) => {
+  if (error instanceof Error && publicErrorMessages.has(error.message)) {
     return error.message;
   }
-  const message = String(error);
-  return message || 'Unknown transport error';
+  if (request && policy?.mapError) {
+    try {
+      const message = await policy.mapError(error, request);
+      if (typeof message === 'string' && message) {
+        return message;
+      }
+    } catch (mapError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error(mapError);
+      }
+    }
+  }
+  return 'Remote action failed';
 };
 
 export const handleMainTransport = <T extends CreateState>(
@@ -93,6 +115,7 @@ export const handleMainTransport = <T extends CreateState>(
   try {
     registerDisposer(
       transport.listen('execute', async (encoded) => {
+        let policyRequest: TransportPolicyRequest | undefined;
         try {
           assertActive();
           const request = decodeExecuteRequest(encoded);
@@ -111,7 +134,7 @@ export const handleMainTransport = <T extends CreateState>(
           ) {
             throw new Error('Remote action is not allowed');
           }
-          const policyRequest: TransportPolicyRequest = {
+          policyRequest = {
             ...request,
             type: 'execute'
           };
@@ -154,7 +177,7 @@ export const handleMainTransport = <T extends CreateState>(
           }
           return encodeExecuteResponse({
             epoch,
-            error: getErrorMessage(error),
+            error: await getErrorMessage(error, policyRequest, policy),
             ok: false,
             sequence: internal.sequence
           });
