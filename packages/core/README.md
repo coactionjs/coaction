@@ -91,10 +91,8 @@ negative zero, functions in data, symbols, accessors, platform objects, sparse
 arrays, circular references, and repeated object references. Local stores do
 not inherit this restriction.
 
-Applications upgrading an existing shared deployment must move the authority
-and every connected client together. See the
-[Coaction 2.x to 3.x migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
-for import changes, JSON data conversion, protocol cutover, and rollback.
+An authority and every connected client must use the same Coaction major and
+wire protocol. Mixed-major shared deployments are unsupported.
 
 Store methods using `this` are rebound to the latest state when invoked from `getState()`, so destructuring remains safe:
 

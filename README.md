@@ -462,7 +462,6 @@ Custom integrations should use `defineExternalStoreAdapter()` from `coaction/ada
 - [Why Coaction Without Multithreading](./docs/comparison/single-thread.md)
 - [Coaction vs Zustand](./docs/comparison/zustand.md)
 - [Migrating from Zustand](./docs/migration/from-zustand.md)
-- [Migrating from Coaction 2.x to 3.x](./docs/features/json-only-shared-runtime/migration.md)
 - [Architecture Overview](./docs/architecture/overview.md)
 - [Threading Model](./docs/architecture/threading-model.md)
 - [Support Matrix](./docs/architecture/support-matrix.md)

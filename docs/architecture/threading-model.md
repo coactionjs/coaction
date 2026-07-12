@@ -77,6 +77,5 @@ releases pending work. Reconnect callbacks from an older connection generation
 cannot overwrite state established by a newer connection.
 
 An authority and all clients connected to it must use the same Coaction major
-and wire protocol. See the
-[2.x to 3.x migration guide](../features/json-only-shared-runtime/migration.md)
-for coordinated Worker and SharedWorker upgrades.
+and wire protocol. Mixed-major Worker, SharedWorker, and custom-transport
+deployments are unsupported.

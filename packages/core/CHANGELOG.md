@@ -37,10 +37,6 @@
   unknown so callers do not blindly retry non-idempotent work. The public error
   and stale-response guard add about 0.3 KiB gzip to the shared entry.
 
-  Read the [Coaction 3.0 migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
-  before upgrading any Worker, SharedWorker, injected-transport, or custom-adapter
-  deployment.
-
 ## 2.1.0
 
 ### Minor Changes
