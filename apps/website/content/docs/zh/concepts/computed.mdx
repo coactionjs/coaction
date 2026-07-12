@@ -1,0 +1,72 @@
+---
+title: 计算状态
+description: 使用访问器 getter 或显式依赖 selector 声明缓存派生状态。
+---
+
+Coaction 的 computed value 与字段追踪共用同一张 signal graph。组件可以读取缓存 getter，getter 再读取 store 字段，失效过程沿依赖图传播，无需手工维护 memo 数组。
+
+## 访问器 getter
+
+普通 getter 是默认的派生状态方式：
+
+```ts
+type Item = { price: number; quantity: number };
+
+const cart = create((set) => ({
+  items: [] as Item[],
+  taxRate: 0.08,
+
+  get subtotal() {
+    return this.items.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+  },
+
+  get total() {
+    return this.subtotal * (1 + this.taxRate);
+  },
+
+  add(item: Item) {
+    set(() => {
+      this.items.push(item);
+    });
+  }
+}));
+```
+
+`subtotal` 在 `items` 变化前保持缓存；`total` 依赖缓存后的 `subtotal` 与 `taxRate`，关系会自动发现。
+
+Getter 应保持纯函数，不应调用 `setState()`、修改外部状态，或依赖隐藏副作用产生不同结果。
+
+## 使用 `get()` 声明显式依赖
+
+store factory 的第二个参数可手工声明依赖：
+
+```ts
+const cart = create((set, get) => ({
+  items: [] as Item[],
+  total: get(
+    (state) => [state.items] as const,
+    (items) => items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  )
+}));
+```
+
+当显式声明让跨 slice 逻辑更清楚，或集成代码不应依赖隐式 getter read 时，使用这种形式。
+
+无参数调用 `get()` 会返回当前根状态。在 slice factory 中，它适合读取另一 namespace，但更新仍必须通过 `set()`。
+
+## 追踪粒度
+
+自动渲染追踪以 store 或 slice 上的每个 own enumerable field 为边界。嵌套对象通过其所在的顶层字段被追踪，因此同一嵌套对象中的 sibling property 变化可能使相同 subscriber 失效。
+
+如果热点组件需要更窄的嵌套行为，请使用返回具体叶子值、依赖 `Object.is` 的显式 selector。
+
+## 外部适配器
+
+原生 getter computed 属于 Coaction 自有状态。可变外部 adapter instance 不会自动获得 Coaction 缓存 getter 或 `get(deps, selector)` 语义；应由其自身运行时（MobX computed、Pinia getter、selector 或 machine state）负责派生状态。
+
+## 性能预期
+
+稳定重复读取是缓存 getter 最强的路径。更新后，Coaction 仍需维护 readonly public-state 边界，并在下一次派生读取前刷新 computed 使用的 snapshot。微基准应被视为回归信号，而非普适结论；维护命令与解释见[性能指南](/zh/docs/guides/performance)。

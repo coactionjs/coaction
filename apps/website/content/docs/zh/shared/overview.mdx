@@ -1,0 +1,83 @@
+---
+title: 共享运行时概览
+description: 通过 Worker、SharedWorker 或自定义 transport 使用单一权威端和任意数量的本地镜像。
+---
+
+Coaction 共享模式保持单一写入权威。Worker、SharedWorker 或自定义 transport 可以承载 main store；页面 runtime 持有 client mirror。
+
+```text
+client mirror ── execute(action, args) ──▶ main authority
+client mirror ◀── ordered patch update ── main authority
+client mirror ◀── full snapshot ───────── main authority（恢复）
+```
+
+Client 不是 peer。它们可以读取本地镜像状态、订阅更新，并调用在权威端执行的方法；不能通过 `setState()` 建立独立写入路径。
+
+## 迁移同一份 source
+
+把 state factory 放在权威端与 client 共用的模块中：
+
+```ts title="counter.ts"
+export const counter = (set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+});
+```
+
+在 Worker 中创建：
+
+```ts title="worker.ts"
+import { create } from 'coaction/shared';
+import { counter } from './counter';
+
+create(counter);
+```
+
+从页面连接：
+
+```ts title="store.ts"
+import { create } from 'coaction/shared';
+import { counter } from './counter';
+
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+export const store = create(counter, { worker });
+```
+
+页面端的 `increment()` 返回 Promise：
+
+```ts
+await store.getState().increment();
+```
+
+TypeScript 通过 `StoreWithAsyncFunction`/`Asyncify` 描述 client shape：方法变为 Promise-returning，数据字段仍可从本地镜像读取。
+
+## 运行时负责什么
+
+- action 发现与远程方法执行；
+- 严格 JSON 编码与 message shape 校验；
+- 同一权威 epoch 内单调有序的 patch update；
+- duplicate 抑制与 gap 检测；
+- 原子 full-snapshot 恢复；
+- reconnect generation 隔离；
+- 拒绝来自已被替代权威端的 response。
+
+## 应用仍负责什么
+
+- 决定 Worker/SharedWorker 生命周期；
+- 设计幂等 action 或应用级去重；
+- 为到达权威端的请求提供授权策略；
+- 保证所有连接的 runtime 使用相同 Coaction major；
+- 确保状态、参数与结果符合 [JSON contract](/zh/docs/shared/json-contract)。
+
+## Middleware 应放在哪里
+
+Persist、history 与 Yjs 应安装在拥有状态的 main store。它们会修改或合并状态，因此在 client mirror 上被拒绝。Logger 可运行在任意一端，但 client logger 看到的是镜像更新和代理调用，而不是隐藏的权威端工作。
+
+参阅 [Worker 与重连](/zh/docs/shared/workers-and-reconnect)，了解多标签页、epoch 与在途 action 行为。

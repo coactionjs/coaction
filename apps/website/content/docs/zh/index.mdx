@@ -1,24 +1,67 @@
 ---
-title: 介绍
-description: Coaction 是内置自动渲染追踪与缓存计算状态的状态管理库。
+title: Coaction 文档
+description: 今天先构建精准的本地 store，需要时再将同一状态模型迁移到 Worker、多标签页或协作场景。
 ---
 
-Coaction 为本地应用提供聚焦的状态模型，并保留一条清晰的扩展路径，可进一步连接
-SharedWorker、多标签页与协作状态。
+Coaction 是一个 Zustand 风格的状态库，它将三项能力设计为一套协同工作的系统：
 
-## 从这里开始
+- 在 store 或 slice 字段边界上的**自动渲染追踪**；
+- 使用普通访问器 getter 声明的**缓存计算状态**；
+- 发布不可变状态的**可变式更新写法**。
+
+默认路径刻意保持本地、同步。只有当架构确实需要时，你才需要启用 SharedWorker、多标签页或协作能力。
 
 <Cards>
   <Card
-    title="安装 Coaction"
-    href="https://www.npmjs.com/package/coaction"
-    description="选择核心包或框架包。"
+    title="安装并选择入口"
+    href="/zh/docs/getting-started/installation"
+    description="从最契合应用、边界最窄的包入口开始。"
   />
   <Card
     title="创建第一个 store"
-    href="https://github.com/coactionjs/coaction#usage"
-    description="创建状态、action 与缓存 getter。"
+    href="/zh/docs/getting-started/quick-start"
+    description="创建状态、缓存 getter、action 与 React 组件。"
+  />
+  <Card
+    title="理解状态模型"
+    href="/zh/docs/concepts/state-and-actions"
+    description="了解不可变边界、固定 schema、订阅与生命周期。"
+  />
+  <Card
+    title="扩展到共享模式"
+    href="/zh/docs/shared/overview"
+    description="将执行迁移到 Worker 或 SharedWorker，同时保持单一权威。"
   />
 </Cards>
 
-完整指南将以运行时的测试契约为依据构建。本站所有示例均面向 Coaction 3.x。
+## 为什么选择 Coaction
+
+当应用拥有大量 selector、重复派生状态，或未来可能使用 Worker 承载状态时，Coaction 最有价值。它不需要你分别拼装追踪、computed、不可变更新和 selector 插件，而是让这些关注点共用同一张响应式依赖图。
+
+这种内聚也有成本。Zustand 更小、更成熟，它的显式 selector 模型对小型 store 往往已经足够。Coaction 的差异主要集中在 `observer()`、缓存 getter、自然的 `this` 绑定 action，以及可选的共享运行时；它并不意味着每个 store 都应该变得更复杂。
+
+## 选择起点
+
+| 目标                                 | 建议从这里开始                                       |
+| ------------------------------------ | ---------------------------------------------------- |
+| Vanilla、本地状态                    | `coaction/local`                                     |
+| React 自动渲染追踪                   | `coaction` + `@coaction/react`                       |
+| Vue、Angular、Svelte 或 Solid        | 对应的 `@coaction/*` 框架包                          |
+| Worker 或 SharedWorker 权威端        | `coaction/shared`，或为框架 `create()` 传入 `worker` |
+| 保留现有 Zustand/MobX/Pinia 等运行时 | 对应的整店适配器                                     |
+| 通过 Yjs 同步 Coaction 自有状态      | 在拥有状态的一端使用 `@coaction/yjs`                 |
+
+<Callout type="info" title="文档版本">
+  本站面向 Coaction 3.x。一个共享权威端及其所有客户端必须使用相同的 Coaction
+  major 与 wire protocol。
+</Callout>
+
+## 建议尽早了解的设计规则
+
+1. 对 Coaction 自有状态的写入必须发生在 `set()` 内。
+2. public 根 schema 在初始化后固定；动态 key 应放在已声明的对象或数组字段中。
+3. 共享 client 是镜像，不是写入权威。调用并等待 action，不要在 client 上调用 `setState()`。
+4. 共享数据必须是严格 JSON tree；本地 store 不受这一限制。
+5. 外部状态适配器绑定整个 store，不能嵌套在原生 slices 中。
+
+继续阅读[安装](/zh/docs/getting-started/installation)，或直接进入[快速开始](/zh/docs/getting-started/quick-start)。

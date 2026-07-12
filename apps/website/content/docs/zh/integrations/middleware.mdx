@@ -1,0 +1,94 @@
+---
+title: Logger、persist 与 history
+description: 通过 middleware 为 Coaction 自有 store 添加诊断、持久化与 undo/redo。
+---
+
+Middleware 在创建期间接收 store，可以装饰方法或附加 API。请通过复数 `middlewares` option 按数组顺序传入。
+
+## Logger
+
+```ts
+import { create } from 'coaction';
+import { logger } from '@coaction/logger';
+
+const store = create(source, {
+  middlewares: [
+    logger({
+      collapsed: true,
+      serialized: false,
+      stackTrace: false,
+      verbose: false
+    })
+  ]
+});
+```
+
+你可以注入兼容 console 的 logger。Serialized mode 能安全处理循环诊断值与 BigInt；日志不会削弱共享 JSON contract。
+
+需要权威端 action 与 patch 诊断时，把 logger 安装在 authority；client logger 只能看到镜像更新与代理调用。
+
+## Persist
+
+```ts
+import { persist } from '@coaction/persist';
+
+const store = create(source, {
+  middlewares: [
+    persist({
+      name: 'counter',
+      version: 2,
+      partialize: (state) => ({ count: state.count }),
+      migrate: (persisted, version) => migrateCounter(persisted, version)
+    })
+  ]
+});
+```
+
+默认 storage 是可用时的 `localStorage`。`createJSONStorage()` 可适配其他 Web Storage instance，自定义 `PersistStorage` 可同步也可异步。
+
+`persist()` 会附加：
+
+```ts
+await store.persist.rehydrate();
+await store.persist.clearStorage();
+store.persist.hasHydrated();
+```
+
+如果 payload 显式包含与当前配置不同的 version，请提供 `migrate`；否则 hydration 会跳过，`onRehydrateStorage` 会收到 error。
+
+`merge` 结果仍必须遵守固定 schema，未知根 key 会被拒绝。
+
+## History
+
+```ts
+import { history } from '@coaction/history';
+
+const store = create(source, {
+  middlewares: [
+    history({
+      limit: 100,
+      partialize: (state) => ({ count: state.count })
+    })
+  ]
+});
+
+store.history.undo();
+store.history.redo();
+store.history.canUndo();
+store.history.canRedo();
+store.history.clear();
+```
+
+`partialize` 限定参与 time travel 的状态，`limit` 必须是非负整数。
+
+## 共享模式放置规则
+
+| Middleware | Local | Shared main | Shared client |
+| ---------- | ----- | ----------- | ------------- |
+| Logger     | 支持  | 支持        | 可见性有限    |
+| Persist    | 支持  | 支持        | 拒绝          |
+| History    | 支持  | 支持        | 拒绝          |
+
+持久化与 time travel 都是写入，应安装在 authority store，让所有 client 观察同一结果。不要把 client-local persist 或 undo 描述为权威状态。
+
+`persist` 与 `history` 会协调，避免 hydration 产生误导性的 undo entry。

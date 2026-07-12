@@ -1,0 +1,108 @@
+---
+title: 从 Zustand 迁移
+description: 渐进迁移已有 store，并有意识地处理 selector、middleware 与 Worker 引入。
+---
+
+Coaction 刻意保留熟悉的 `create()` shape，但迁移不只是替换 import。每次移动一种行为，并在步骤之间保持测试通过。
+
+## 1. 从本地开始
+
+不要以迁移到 Worker 作为第一步，先复现当前本地行为：
+
+```ts
+import { create } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set((draft) => {
+      draft.count += 1;
+    });
+  }
+}));
+```
+
+Zustand updater 通常返回 partial object。Coaction 也接受 object merge，但原生路径是在 `set()` 中编辑 draft。
+
+## 2. 先保留 selector
+
+已有 selector-oriented 组件可继续使用显式写法：
+
+```tsx
+const count = useCounter((state) => state.count);
+```
+
+它采用 version + selector recompute + `Object.is` 比较，是低风险且熟悉的迁移点。
+
+Store 稳定后，再在确实能减少 selector 组合样板的地方使用 `observer()`：
+
+```tsx
+const Counter = observer(() => {
+  const state = useCounter();
+  return <button onClick={state.increment}>{state.count}</button>;
+});
+```
+
+## 3. 把重复派生状态迁移到 getter
+
+```ts
+const useCart = create((set) => ({
+  items: [] as Item[],
+  get total() {
+    return this.items.reduce((sum, item) => sum + item.price, 0);
+  }
+}));
+```
+
+访问器 getter 会被缓存。只有显式依赖能让代码更清楚时才使用 `get(deps, selector)`。
+
+## 4. 判断 namespace slice 是否有帮助
+
+常见 Zustand slice pattern 会把 factory 展开到一个扁平对象，而 Coaction 原生 slices 有 namespace：
+
+```ts
+const store = create({ counter, settings }, { sliceMode: 'slices' });
+```
+
+不要仅为了保留“slice”这个词而转换；扁平 shape 更清楚时就保持单 store。
+
+## 5. 分别替换 middleware
+
+| Zustand 关注点           | Coaction 路径                                        |
+| ------------------------ | ---------------------------------------------------- |
+| Immer update middleware  | 通过 `set()` 内置 draft 更新                         |
+| Persist                  | 在拥有状态的一端使用 `@coaction/persist`             |
+| Selector subscription    | 框架 selector 或自动追踪                             |
+| 已有外部 Zustand runtime | `@coaction/zustand` whole-store adapter              |
+| 自定义外部 runtime       | `coaction/adapter` 的 `defineExternalStoreAdapter()` |
+
+Coaction 当前没有承诺内置 Redux DevTools 兼容体验。在维护的 DevTools surface 出现前，请保留项目诊断或使用 logger。
+
+## 6. 更安全时保留底层 Zustand
+
+当已有 Zustand store 本身是 public API、其他模块直接依赖它，或替换所有权带来的风险大于收益时，使用 `@coaction/zustand`。该 adapter 绑定 whole store，不能嵌套进原生 Coaction slices。
+
+## 7. 最后再加共享模式
+
+本地测试通过后，在 Worker 权威端创建同一 source 并连接 client：
+
+```ts
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+const store = create(source, { worker });
+await store.getState().increment();
+```
+
+按严格 JSON contract 审计状态，并将调用点改为 await action。Client 直接 `setState()` 不是受支持的迁移捷径。
+
+## Checklist
+
+- 第一轮保持显式 selector，只迁移行为；
+- 把写入移入 `set()`，保持根 schema 稳定；
+- 有选择地将重复派生 selector 改为缓存 getter；
+- 只有 namespace 改善所有权时才选择 slices；
+- 逐一替换 persist/history/logger；
+- 合适时通过 adapter 保留原 Zustand runtime；
+- 本地行为与序列化验证后再引入 Worker。

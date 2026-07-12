@@ -1,0 +1,93 @@
+---
+title: Core API 参考
+description: create option、store method、类型、生命周期 helper 与隔离入口的精选参考。
+---
+
+## `create(createState, options?)`
+
+`create()` 接受单 store factory/object，或 slice factory map。
+
+```ts
+const store = create((set, get, store) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+```
+
+Factory 参数：
+
+- `set`：不可变更新边界；
+- `get`：当前状态访问，或显式 computed 声明；
+- `store`：供高级集成使用的 core store shell。
+
+### Store options
+
+| Option                                       | 用途                                               |
+| -------------------------------------------- | -------------------------------------------------- |
+| `name?: string`                              | 诊断与集成默认值使用的 store name                  |
+| `middlewares?: Middleware[]`                 | 在状态 materialization 前按数组顺序应用的 enhancer |
+| `enablePatches?: boolean`                    | 在本地启用 forward/inverse patch 生成              |
+| `sliceMode?: 'auto' \| 'single' \| 'slices'` | 显式解析输入 shape                                 |
+| `transport?: Transport`                      | 通过注入 transport 创建 shared-main authority      |
+| `transportPolicy?: TransportPolicy`          | 限制 action、授权 request、映射公开 error          |
+
+Client options 额外包含：
+
+| Option                            | 用途                                                     |
+| --------------------------------- | -------------------------------------------------------- |
+| `worker?: Worker \| SharedWorker` | 通过 Worker instance 构建 client transport               |
+| `clientTransport?: Transport`     | 注入 client-side transport                               |
+| `executeSyncTimeoutMs?: number`   | action catch-up 回退 full sync 前的等待时间；默认 `1500` |
+
+`coaction/local` 刻意排除所有 transport-only option。
+
+## Store method 与字段
+
+| Member                    | 含义                                                |
+| ------------------------- | --------------------------------------------------- |
+| `name`                    | Store name                                          |
+| `share`                   | `false`、`'main'` 或 `'client'`                     |
+| `isSliceStore`            | 输入是否被 materialize 为 slices                    |
+| `getState()`              | Public 数据、绑定方法与 computed getter             |
+| `getPureState()`          | 仅数据表示                                          |
+| `getInitialState()`       | 初始化阶段生成的状态                                |
+| `setState(next)`          | 合并 deep partial 或运行 draft updater；client 拒绝 |
+| `subscribe(listener)`     | 订阅并返回 unsubscribe function                     |
+| `apply(state?, patches?)` | 底层集成/transport 更新；client 拒绝                |
+| `destroy()`               | 幂等清理订阅、集成与 transport                      |
+
+应用代码应优先使用具名 action，而不是 `apply()`；后者是 transport、middleware 与 adapter 的底层 contract。
+
+## Computed 声明
+
+```ts
+const source = (set, get) => ({
+  items: [] as Item[],
+  total: get(
+    (state) => [state.items] as const,
+    (items) => items.reduce((sum, item) => sum + item.price, 0)
+  )
+});
+```
+
+无参数调用 `get()` 读取当前根状态。
+
+## 生命周期 helper
+
+`onStoreReady(store, callback)` 将工作延迟到状态与集成完整 materialize 之后。callback 可返回在 `destroy()` 时运行的 cleanup。
+
+`wrapStore(store)` 提供给需要 callable store shape 的框架与集成作者。
+
+## Signal primitives
+
+`coaction/local` 与兼容 surface re-export 高级 `alien-signals` primitive，包括 `signal`、`computed`、`effect`、`effectScope`、batch helper 与 type guard。普通应用派生状态仍应使用 getter 或 `get(deps, selector)`。
+
+## Adapter 入口
+
+`coaction/adapter` 暴露 `defineExternalStoreAdapter()`（兼容别名 `createBinder()`）、mutable-adapter snapshot helper、根替换 helper、schema error 与 patch path safety utility。它面向集成作者，不用于普通状态更新。
+
+逐 symbol 生成的 TypeDoc 见[仓库 API 目录](https://github.com/coactionjs/coaction/tree/main/docs/api/core)。

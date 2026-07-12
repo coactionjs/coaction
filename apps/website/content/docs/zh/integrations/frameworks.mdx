@@ -1,0 +1,108 @@
+---
+title: 框架集成
+description: 将同一套 Coaction store 模型连接到 React、Vue、Angular、Svelte 或 Solid。
+---
+
+框架包使用各自生态原生的 reactive primitive 包装 core `Store` contract。状态创建、action、computed getter、slices 与共享模式规则仍由 core 提供。
+
+## React
+
+`@coaction/react` 支持 React 17、18 与 19。
+
+```tsx
+import { create, observer } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+
+const Counter = observer(() => {
+  const state = useCounter();
+  return <button onClick={state.increment}>{state.count}</button>;
+});
+```
+
+在 `observer()` 内，无 selector 的 hook 调用会追踪 render 期间读取的字段；在其外部则订阅整个 store。意图更清楚时可以显式选择：
+
+```tsx
+const count = useCounter((state) => state.count);
+```
+
+`<Observer>` 可创建更小的追踪区域，`useCounter.auto()` 返回缓存字段 selector map。
+
+## Vue
+
+```ts
+import { create } from '@coaction/vue';
+
+const useCounter = create((set) => ({
+  count: 0,
+  increment() {
+    set((draft) => {
+      draft.count += 1;
+    });
+  }
+}));
+
+export default {
+  setup() {
+    const state = useCounter();
+    const count = useCounter((current) => current.count);
+    return { state, count };
+  }
+};
+```
+
+`useCounter({ autoSelector: true })` 为已知字段返回 computed ref。方法可直接调用，数据 ref 通过 `.value` 读取。
+
+## Angular
+
+```ts
+import { create } from '@coaction/ng';
+
+const store = create(source);
+const count = store.select((state) => state.count);
+
+console.log(count());
+```
+
+`select()` 为 selector 结果返回 Angular signal-like accessor。
+
+## Svelte
+
+```ts
+import { create } from '@coaction/svelte';
+
+const store = create(source);
+const count = store((state) => state.count);
+
+const unsubscribe = count.subscribe((value) => {
+  console.log(value);
+});
+```
+
+Selector 调用返回 readable Svelte store。
+
+## Solid
+
+```ts
+import { create } from '@coaction/solid';
+
+const store = create(source);
+const count = store((state) => state.count);
+
+console.log(count());
+```
+
+Selector 结果是 Solid accessor。
+
+## 共享模式说明
+
+框架包可以包装 client mirror。即使同一个方法在 local store 中同步，只要 store 由 Worker 或 SharedWorker 创建，它就会返回 Promise；此时应 await mutation。
+
+生成的 selector map 基于初始化期间已知的 schema。声明 record 内的动态 path 应使用显式 selector，不要期待 auto-selector map 自动增长。

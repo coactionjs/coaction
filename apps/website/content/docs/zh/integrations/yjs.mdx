@@ -1,0 +1,70 @@
+---
+title: Yjs 协作
+description: 将 Coaction 自有 pure state 绑定到 Y.Doc，并由 Yjs provider 负责 peer transport。
+---
+
+`@coaction/yjs` 在 Coaction store pure data 与 Yjs 之间同步。它不提供网络连接；peer transport 应选择 `y-websocket`、`y-webrtc` 或其他 Yjs provider。
+
+## Middleware 设置
+
+```ts
+import { create } from 'coaction';
+import { yjs } from '@coaction/yjs';
+
+const store = create(source, {
+  middlewares: [yjs()]
+});
+```
+
+Middleware 会创建 `Y.Doc`、绑定 store，并把 cleanup 接到 `store.destroy()`。
+
+## 使用已有 Y.Doc
+
+```ts
+import { bindYjs } from '@coaction/yjs';
+import { Doc } from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+const doc = new Doc();
+const provider = new WebsocketProvider(
+  'wss://collaboration.example',
+  'room-id',
+  doc
+);
+
+const binding = bindYjs(store, {
+  doc,
+  key: 'counter'
+});
+
+// 稍后
+binding.destroy();
+provider.destroy();
+store.destroy();
+```
+
+`bindYjs()` 返回 `doc`、根 `map`、`syncNow()` 与 `destroy()`。
+
+## 存储与同步模型
+
+- 状态位于 `doc.getMap(key).get('state')`；
+- 嵌套对象和数组转换为 `Y.Map` 与 `Y.Array`；
+- 本地 Coaction change 与上次同步 snapshot 做 diff；
+- 远端 Yjs update 会 replay 到 Coaction；
+- 方法与 computed getter 不属于同步 payload。
+
+默认 key 为 `coaction:${store.name}`。
+
+## 冲突语义
+
+对不同字段的并发编辑可以通过 Yjs 合并；同一 scalar field 的冲突遵循 Yjs 语义，对该值可近似理解为 last-writer-wins。需要交换律的操作（如分布式 counter）应使用 CRDT-native Yjs structure 或 operation 建模，而不是不断替换 scalar。
+
+## 要求与限制
+
+- 同步状态应保持 plain 且可序列化；
+- Yjs binding 支持 local 与 shared-main，不支持 shared client；
+- 只绑定拥有状态的一端，client mirror 不能建立第二个协作权威；
+- 非常大或频繁变化的 tree 可能产生大量 update traffic；
+- 必须释放旧 binding，避免重复 observer 与 stale write。
+
+远端 snapshot 与 delete 仍遵守 Coaction 固定 schema。未知根 key 被拒绝；exact replacement 缺少已知单 store 字段时，该字段可能变为 `undefined`。

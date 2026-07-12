@@ -1,0 +1,97 @@
+---
+title: 状态与 action
+description: 理解 Coaction 的不可变更新边界、固定 public schema、方法绑定、订阅与生命周期。
+---
+
+## `set()` 外的状态不可变
+
+Coaction 暴露只读 public state。action 可以通过 `this` 读取，但所有 Coaction 自有状态写入必须发生在 `set()` 内：
+
+```ts
+const store = create((set) => ({
+  count: 0,
+  incrementWrong() {
+    this.count += 1; // 抛错：位于更新边界之外
+  },
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  }
+}));
+```
+
+也可以显式使用根 draft：
+
+```ts
+store.setState((draft) => {
+  draft.count += 1;
+});
+
+store.setState({ count: 10 });
+```
+
+deep-partial 对象会合并已知字段；传入 `null` 是 no-op。应用代码通常应把更新放在具名 action 中，直接 `setState()` 更适合集成、测试与受控 imperative 更新。
+
+## 根 schema 固定
+
+Coaction 在初始化期间记录 public shape。单 store 之后不能添加未知顶层 key；slices store 不能增加新 slice，也不能向已有 slice 添加新顶层字段。
+
+请为动态数据预先声明容器：
+
+```ts
+const store = create((set) => ({
+  records: {} as Record<string, { title: string }>,
+  add(id: string, title: string) {
+    set(() => {
+      this.records[id] = { title };
+    });
+  }
+}));
+```
+
+replacement API 可以在单 store 中省略已知根字段，public getter 仍保留并读作 `undefined`。slice 根 key 更严格：slice 不能消失，也不能被非对象值替换。
+
+## Action 保持绑定
+
+从 `getState()` 获取的方法在调用时会重新绑定到最新 public state：
+
+```ts
+const { increment } = store.getState();
+increment();
+```
+
+因此 `this` action 可以安全传给事件处理器或被解构。需要 `this` 的 action 不应写成 arrow function，因为箭头函数捕获 lexical `this`。
+
+## 读取、检查与订阅
+
+```ts
+const state = store.getState(); // 数据 + action + computed getter
+const data = store.getPureState(); // 仅数据
+const initial = store.getInitialState();
+
+const unsubscribe = store.subscribe(() => {
+  console.log(store.getPureState());
+});
+```
+
+状态提交后 subscriber 才会收到通知。各框架包在同一 contract 上构建自己的 reactive primitive。
+
+## 本地 patch 按需开启
+
+本地 store 默认使用最短更新路径。只有集成需要 patch pair 时才设置 `enablePatches: true`：
+
+```ts
+const store = create(source, { enablePatches: true });
+```
+
+共享 store 会启用 patch 行为，因为增量同步依赖它。包含 `__proto__`、`prototype` 或 `constructor` 的不安全 patch path 会被原子性拒绝。
+
+## 所有权结束时销毁 store
+
+```ts
+store.destroy();
+store.destroy(); // 幂等
+```
+
+`destroy()` 清除订阅、运行已注册的集成 cleanup，并释放 transport。销毁后的操作会被拒绝。组件通常由框架 wrapper 管理订阅清理，但动态创建的 store、Yjs binding 和自定义 transport 仍需明确的所有权方案。

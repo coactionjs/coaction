@@ -1,0 +1,61 @@
+---
+title: Store 模式与入口
+description: 理解本地 store、共享权威端、client mirror 与 Coaction 的隔离包边界。
+---
+
+同一套 public store contract 会出现在三种运行模式中。
+
+| 模式          | `store.share` | 写入权威     | 方法结果               |
+| ------------- | ------------- | ------------ | ---------------------- |
+| Local         | `false`       | 当前 runtime | 同步                   |
+| Shared main   | `'main'`      | main runtime | 在权威端同步           |
+| Shared client | `'client'`    | main runtime | 向 client 返回 Promise |
+
+## Local 模式
+
+```ts
+import { create } from 'coaction/local';
+
+const store = create(source);
+```
+
+Local 模式在一个 runtime 内拥有状态与执行权。除非显式启用，否则它不生成 patch，因此是建议的起点。
+
+## Shared main 模式
+
+当 store 拥有 main transport，或运行在被识别的 Worker 权威环境时，它会成为共享权威端：
+
+```ts
+import { create } from 'coaction/shared';
+
+const store = create(source, { transport });
+```
+
+Main store 执行 action、提交状态、发送有序 patch，并提供 full snapshot。
+
+## Shared client 模式
+
+传入 `Worker`、`SharedWorker` 或 client transport 会创建镜像：
+
+```ts
+const store = create(source, { worker });
+
+await store.getState().increment();
+```
+
+Client method 是异步的，因为执行发生在权威端。client 可以读取并订阅本地镜像状态，但直接调用 `setState()` 与 `apply()` 会被拒绝。
+
+## 隔离入口
+
+包提供静态边界，便于 bundler 排除无关运行时代码：
+
+| 入口               | 包含内容                                      |
+| ------------------ | --------------------------------------------- |
+| `coaction/local`   | 本地创建、生命周期 helper、signal primitive   |
+| `coaction/shared`  | 共享创建、JSON protocol、权威/client 同步     |
+| `coaction/adapter` | 外部 store binding 与 state/patch 安全 helper |
+| `coaction`         | 跨越本地与共享选择的兼容 surface              |
+
+框架包暴露自己的 `create()` wrapper，并可能同时支持 local 与 worker option。Vanilla 代码直接选择 `coaction/local` 或 `coaction/shared` 可获得最清楚的 bundle 边界。
+
+继续阅读[共享运行时概览](/zh/docs/shared/overview)，了解权威语义与部署规则。

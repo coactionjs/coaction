@@ -1,0 +1,78 @@
+---
+title: Slices
+description: 通过具名状态 factory 组合原生 Coaction store，并安全地跨 namespace 更新。
+---
+
+Slices 是将 Coaction 自有状态组织为多个 namespace 的原生 store shape。
+
+```ts
+const counter = (set) => ({
+  count: 0,
+  increment() {
+    set(() => {
+      this.count += 1;
+    });
+  },
+  incrementByStep() {
+    set((draft) => {
+      draft.counter.count += draft.settings.step;
+    });
+  }
+});
+
+const settings = (set) => ({
+  step: 1,
+  setStep(step: number) {
+    set(() => {
+      this.step = step;
+    });
+  }
+});
+
+const store = create({ counter, settings }, { sliceMode: 'slices' });
+```
+
+在 `set(() => ...)` 内，`this` 指向当前 slice；显式 `draft` 参数始终代表根 store，适合跨 slice 更新。
+
+## 选择 slice 字段
+
+在 React 中，`observer()` 会追踪 render 期间读取的 slice 字段：
+
+```tsx
+const Counter = observer(() => {
+  const state = store();
+  return (
+    <button onClick={state.counter.increment}>{state.counter.count}</button>
+  );
+});
+```
+
+也可以使用显式 selector：
+
+```tsx
+const count = store((state) => state.counter.count);
+```
+
+## 为歧义对象声明模式
+
+`sliceMode` 有三个值：
+
+- `'single'`：把输入当作单一状态对象；
+- `'slices'`：要求输入是 slice factory map；
+- `'auto'`：根据输入 shape 推断（兼容默认值）。
+
+所有 enumerable value 都是 function 的对象存在歧义：它既可能是只有方法的单 store，也可能是 slice factory map。开发构建会在 `auto` 遇到这种 shape 时警告。请显式表达意图：
+
+```ts
+create({ ping() {} }, { sliceMode: 'single' });
+create({ counter: (set) => ({ count: 0 }) }, { sliceMode: 'slices' });
+```
+
+## 边界
+
+- slice key 与每个 slice 的根字段在初始化后固定。
+- 从 `getState().counter` 解构的方法仍绑定到该 slice。
+- 原生 slices 支持 local、shared-main 与 shared-client 模式。
+- 外部状态适配器仅支持 whole store，不能作为 slice 嵌套。
+
+只有当 namespace 能澄清所有权时才使用 slices；小型 store 不必仅为模仿目录结构而拆分。

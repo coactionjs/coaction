@@ -1,0 +1,59 @@
+---
+title: 支持矩阵
+description: 原生 store、外部 adapter、middleware 与 Yjs 的维护组合。
+---
+
+“支持”表示有测试覆盖，并作为维护 contract；“有限”表示保证比周围功能暗示的范围更窄。未列出的组合不应被推断为可用。
+
+## 原生 store
+
+| 组合                               | 状态   | 说明                 |
+| ---------------------------------- | ------ | -------------------- |
+| 单 store，local                    | 支持   | 默认同步权威         |
+| 原生 slices，local                 | 支持   | namespace 原生状态   |
+| 单 store 或 slices，shared main    | 支持   | 依赖 patch stream    |
+| 单 store 或 slices，shared client  | 支持   | 方法变为 async proxy |
+| Client 直接 `setState()`/`apply()` | 不支持 | Client 是镜像        |
+| 关闭 patch 的共享模式              | 不支持 | 同步依赖 patch       |
+
+## 外部 adapter
+
+所有 adapter 都绑定 whole store，均不支持 slices mode。
+
+| Adapter       | Local | Shared main/client | 说明                                       |
+| ------------- | ----- | ------------------ | ------------------------------------------ |
+| Zustand       | 支持  | 支持               | client Zustand 直接写入被拒绝              |
+| MobX          | 支持  | 支持               | client 外部写入由集成定义                  |
+| Pinia         | 支持  | 支持               | client 外部写入由集成定义                  |
+| Jotai         | 支持  | 支持               | client atom 直接写入被拒绝                 |
+| Redux Toolkit | 支持  | 不支持             | 仅本地 whole-store binding                 |
+| Valtio        | 支持  | 支持               | client proxy 写入恢复为权威 snapshot       |
+| XState        | 支持  | 不支持             | 通过 actor event 更新，`setState()` 被阻止 |
+
+Adapter 的 shared support 只覆盖远程 Coaction method execution，不会让任意 out-of-band external write 自动成为统一跨 adapter contract。
+
+## Middleware 与协作
+
+| 集成    | Local | Shared main | Shared client |
+| ------- | ----- | ----------- | ------------- |
+| Logger  | 支持  | 支持        | 可见性有限    |
+| Persist | 支持  | 支持        | 不支持        |
+| History | 支持  | 支持        | 不支持        |
+| Yjs     | 支持  | 支持        | 不支持        |
+
+修改、rehydrate、time-travel 或 merge 状态的集成应放在 authority。
+
+## 框架 selector 边界
+
+框架生成的 selector map 来自初始化期间已知 descriptor。已知 key 获得稳定 selector；新增动态 path 不会扩展 map。把动态值放在已声明 record 中并使用显式 selector。
+
+React 的 `useStore.auto()` 返回 selector function，而非直接读取字段：
+
+```tsx
+const selectors = useStore.auto();
+const count = useStore(selectors.count);
+```
+
+## 共享部署边界
+
+每个 authority 及其连接的 client 必须使用相同 Coaction major 与兼容 wire protocol。即使 TypeScript surface 看似兼容，混合 major 的 Worker、SharedWorker 与 custom transport 仍不受支持。

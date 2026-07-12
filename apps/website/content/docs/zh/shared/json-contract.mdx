@@ -1,0 +1,98 @@
+---
+title: 共享 JSON contract
+description: 明确哪些值可以跨越 Coaction 的 Worker、标签页与 transport 边界。
+---
+
+共享模式中的每个跨边界值都会编码为 JSON。Coaction 在值进入 wire protocol 前进行校验，而不是依赖 `JSON.stringify()` 静默归一化。
+
+规则适用于：
+
+- 初始共享状态与 full-sync snapshot；
+- action 参数；
+- 非 void action 结果；
+- patch value；
+- transport operation 携带的 replacement state。
+
+## 支持的值
+
+传输值必须是由以下元素组成的 tree：
+
+- `null`；
+- boolean 与 string；
+- 除负零外的 finite number；
+- 仅包含受支持值的 dense array；
+- 使用安全 string key、仅包含受支持值的 plain record。
+
+```ts
+const valid = {
+  user: { id: 'u_123', active: true },
+  scores: [10, 12, 18],
+  cursor: null
+};
+```
+
+## 被拒绝的值
+
+无法被 JSON 无损保留的值会被拒绝：
+
+| 类别                     | 示例                                                           |
+| ------------------------ | -------------------------------------------------------------- |
+| 缺失/非 JSON primitive   | `undefined`、`BigInt`、symbol                                  |
+| 非有限或被归一化的数字   | `NaN`、`Infinity`、`-Infinity`、`-0`                           |
+| 数据中的运行时行为       | function、accessor                                             |
+| 非 plain platform object | `Date`、`URL`、`Map`、`Set`、typed array、DOM object           |
+| 有歧义的 graph           | 循环引用、同一对象的重复引用                                   |
+| 非 dense array           | sparse array 或带额外 enumerable property 的 array             |
+| 不安全 key/path          | 受保护 patch path 中的 `__proto__`、`prototype`、`constructor` |
+
+即使 `JSON.stringify()` 会把重复引用复制为两个对象，Coaction 仍会拒绝。Tree 无法保留 object identity，接受 alias 会让 authority 与 client 的 graph 可观察地不同。
+
+## 方法与 getter 不是数据
+
+Store 方法和 computed accessor 属于运行时行为。Coaction 提取 pure state 进行传输，然后在两端通过各自声明的 source 恢复方法与 getter。
+
+```ts
+const source = (set) => ({
+  count: 0, // 被传输
+  get doubled() {
+    return this.count * 2; // 运行时行为，不传输
+  },
+  increment() {
+    set(() => {
+      this.count += 1; // 可远程调用的方法
+    });
+  }
+});
+```
+
+不要把 function 放进数据对象并期待它像 action 一样工作。
+
+## 显式建模常见值
+
+```ts
+// Date -> ISO string
+{
+  createdAt: new Date().toISOString();
+}
+
+// Map -> record 或 entries
+{
+  usersById: Object.fromEntries(users);
+}
+
+// Set -> array
+{
+  selectedIds: [...selectedIds];
+}
+```
+
+在应用边界完成转换，并为其定义稳定的领域表示。
+
+## Local 模式不同
+
+严格 JSON contract 只在状态跨越共享边界时适用。本地 store 可以保存更丰富的应用值，但仍遵守普通不可变状态模型。如果一个 store 未来可能进入 Worker，从一开始就保持 JSON shape 会让迁移更可预测。
+
+<Callout type="warn" title="不要用逃生舱削弱 wire contract">
+  共享模式刻意 fail closed。如果值不是无损 JSON
+  tree，应显式建模或编码，而不是绕过 transport validation。
+</Callout>

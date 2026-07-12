@@ -1,0 +1,56 @@
+---
+title: 性能与 bundle 边界
+description: 诚实理解 Coaction benchmark，并让本地应用使用无 transport 的入口。
+---
+
+只有当场景、runtime、状态 shape 与包版本都可见时，性能结论才有意义。Coaction 将 benchmark script 保存在仓库中，便于重新生成结果，而不是把数字当成永久事实。
+
+## 选择 local 入口
+
+Vanilla 本地 store 应写为：
+
+```ts
+import { create } from 'coaction/local';
+```
+
+该静态边界排除共享 protocol、epoch、重连与 transport module。兼容入口 `coaction` 刻意更宽。
+
+仓库的 bundle budget 测量发布入口与 tree-shaken consumer fixture。它们是回归门禁，不代表应用 bundle 必然等于预算数字；最终结果还取决于应用 bundler 保留的外部依赖。
+
+## 运行维护的检查
+
+```bash
+pnpm build
+pnpm package:size
+pnpm benchmark
+pnpm benchmark:zustand-positioning
+pnpm benchmark:check
+```
+
+- `package:size` 检查发布入口预算与 core entry 隔离；
+- `benchmark` 对比大型 update path，包括 Coaction draft 与 Zustand + Immer；
+- `benchmark:zustand-positioning` 分离 stable derived read 与 update-then-read；
+- `benchmark:check` 以 CI 浮动余量执行回归下限。
+
+不能仅为让失败结果变绿而降低阈值。阈值变化必须有经过 review 的 runtime semantic 或 benchmark methodology 理由。
+
+## 理解派生状态 tradeoff
+
+缓存 accessor 让稳定重复读取极快。更新后，Coaction 仍需维护 readonly public-state 边界，并更新 computed traversal 使用的 snapshot。因此“更新后读取派生值”与稳定缓存读取是不同路径。
+
+不要把其中一个 case 发布为普适的“快于 Zustand”结论。Zustand 可以通过存储派生值实现常量读取，但应用 action 必须负责一致性。Coaction 的价值是运行时维护的缓存派生，而非赢下每个 mutation microbenchmark。
+
+## 渲染性能
+
+React 中主要的 Coaction 特有优化是 `observer()` 字段追踪。显式 `useStore(selector)` 与 Zustand selector path 大体相当。在真实组件树测量 render count 后，再决定是否转换所有组件。
+
+嵌套对象通过所在的 store/slice 字段被追踪。如果大型嵌套 record 的 sibling change 使过多 UI 失效，请对叶子值使用显式 selector，或在有意义的所有权边界拆分状态。
+
+## 实用 checklist
+
+- Vanilla 本地状态导入 `coaction/local`；
+- 共享模式或集成不需要时保持 patch 关闭；
+- 缓存 getter 用于重复派生读取，不承载副作用；
+- 在确实减少 selector 组合时使用 `observer()`；
+- profile production build 与代表性状态；
+- 把 benchmark floor 当作回归检测，并在目标机器重跑可发布数字。

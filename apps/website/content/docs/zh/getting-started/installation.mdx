@@ -1,0 +1,83 @@
+---
+title: 安装
+description: 为应用选择边界最窄的 Coaction 入口与框架包。
+---
+
+开发 Coaction 仓库需要 Node.js 22 或更高版本。应用运行时包可通过你正在使用的包管理器从 npm 安装。
+
+## Vanilla 应用
+
+本地 store 只需安装 core，并使用不包含传输代码的入口：
+
+```bash
+pnpm add coaction
+```
+
+```ts
+import { create } from 'coaction/local';
+```
+
+`coaction/local` 为 bundler 提供硬边界，排除 JSON protocol、epoch、重连与 transport runtime。新的 vanilla 应用如果不使用 Worker，应优先选择它。
+
+当状态需要跨越 Worker、SharedWorker 或注入的 transport 边界时，使用共享入口：
+
+```ts
+import { create } from 'coaction/shared';
+```
+
+根入口 `coaction` 是兼容入口，保留本地与共享模式选择，但其范围刻意比 `coaction/local` 更宽。
+
+## 框架包
+
+安装 core 和一个框架 binding：
+
+```bash
+pnpm add coaction @coaction/react
+```
+
+| 框架        | 包                 | 主要响应式 API                         |
+| ----------- | ------------------ | -------------------------------------- |
+| React 17–19 | `@coaction/react`  | `create()`、`observer()`、`<Observer>` |
+| Vue         | `@coaction/vue`    | callable store 与 computed selector    |
+| Angular     | `@coaction/ng`     | `store.select()` signal                |
+| Svelte      | `@coaction/svelte` | readable selector store                |
+| Solid       | `@coaction/solid`  | selector accessor                      |
+
+可运行示例见[框架集成](/zh/docs/integrations/frameworks)。
+
+## 可选集成
+
+只安装实际拥有或装饰状态的集成：
+
+```bash
+# 已有外部状态运行时
+pnpm add coaction @coaction/zustand zustand
+pnpm add coaction @coaction/mobx mobx
+pnpm add coaction @coaction/pinia pinia
+
+# Coaction 自有 store middleware
+pnpm add @coaction/logger
+pnpm add @coaction/persist
+pnpm add @coaction/history
+
+# Yjs 协作
+pnpm add @coaction/yjs yjs
+```
+
+外部状态适配器是 whole-store bridge。不要把 Zustand、MobX、Pinia、Jotai、Redux、Valtio 或 XState 适配器放在 Coaction 原生 slice key 下。
+
+## 入口一览
+
+| Import             | 适用对象                                  |
+| ------------------ | ----------------------------------------- |
+| `coaction/local`   | 本地 vanilla store 与 signal primitives   |
+| `coaction/shared`  | 本地 store、共享权威端与 client mirror    |
+| `coaction/adapter` | 外部 store adapter 与底层 middleware 作者 |
+| `coaction`         | 具备共享模式选择能力的兼容入口            |
+
+<Callout type="warn" title="共享代码必须同步升级">
+  不要让新 shared client 连接仍运行不同 Coaction major
+  的权威端。Worker/SharedWorker 权威端与所有客户端应作为一个部署单元升级。
+</Callout>
+
+下一步，[创建一个 store](/zh/docs/getting-started/quick-start)。

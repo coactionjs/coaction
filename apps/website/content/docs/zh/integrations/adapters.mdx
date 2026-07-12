@@ -1,0 +1,92 @@
+---
+title: 外部状态适配器
+description: 将现有 Zustand、MobX、Pinia、Jotai、Redux、Valtio 或 XState 运行时保留为 whole-store 集成。
+---
+
+外部状态 adapter 把完整的第三方 runtime 接入 Coaction。外部 runtime 保留其原生 mutation 与 derived-state 语义；Coaction 提供 store、框架、生命周期，以及对部分 adapter 维护的共享方法执行 surface。
+
+<Callout type="warn" title="只支持 whole store">
+  Binder-backed adapter 不是原生 slice。不要把适配后的外部 store 放在 Coaction
+  slice key 下。
+</Callout>
+
+## 支持矩阵
+
+| Adapter       | 包                  | Local | Shared main/client | Client 直接写入     |
+| ------------- | ------------------- | ----- | ------------------ | ------------------- |
+| Zustand       | `@coaction/zustand` | 支持  | 支持               | 拒绝                |
+| MobX          | `@coaction/mobx`    | 支持  | 支持               | 由集成定义          |
+| Pinia         | `@coaction/pinia`   | 支持  | 支持               | 由集成定义          |
+| Jotai         | `@coaction/jotai`   | 支持  | 支持               | 拒绝                |
+| Redux Toolkit | `@coaction/redux`   | 支持  | 不支持             | N/A                 |
+| Valtio        | `@coaction/valtio`  | 支持  | 支持               | 恢复为权威 snapshot |
+| XState        | `@coaction/xstate`  | 支持  | 不支持             | N/A                 |
+
+共享支持意味着 Coaction 方法执行是维护的 contract；它不保证对任意外部 runtime 的 out-of-band write 都能跨 authority/client 传播。
+
+## Zustand 示例
+
+```ts
+import { create } from 'coaction';
+import { bindZustand } from '@coaction/zustand';
+import { create as createZustand } from 'zustand';
+
+const store = create(() =>
+  createZustand(
+    bindZustand((set) => ({
+      count: 0,
+      increment: () => set((state) => ({ count: state.count + 1 }))
+    }))
+  )
+);
+```
+
+当 Zustand store 本身必须保持 public API，或其他模块仍直接消费它时使用此路径。Coaction 拥有的新 store 应优先采用原生状态模型。
+
+## MobX 示例
+
+```ts
+import { create } from 'coaction';
+import { bindMobx } from '@coaction/mobx';
+import { makeAutoObservable } from 'mobx';
+
+const store = create(() =>
+  makeAutoObservable(
+    bindMobx({
+      count: 0,
+      increment() {
+        this.count += 1;
+      }
+    })
+  )
+);
+```
+
+外部 runtime 拥有其 mutable object。直接写到可变 adapter 的未知根属性不会被提升到 Coaction 固定的 raw/public schema。
+
+## Pinia、Jotai、Redux、Valtio 与 XState
+
+这些包暴露 `bind*` helper，并在需要时提供 `adapt()` wrapper：
+
+```ts
+// Pinia
+create(() => adapt(defineStore('counter', bindPinia(options))));
+
+// Jotai
+create(() => adapt(bindJotai({ store: jotaiStore, atoms, actions })));
+
+// Redux Toolkit
+create(() => adapt(bindRedux(reduxStore)));
+
+// Valtio
+create(() => adapt(proxy(bindValtio(state))));
+
+// XState
+create(() => adapt(bindXState(actor)));
+```
+
+XState 会阻止 `setState()`，应发送 actor event。Redux 与 XState 当前只维护本地 contract。
+
+## 编写 adapter
+
+自定义 adapter 从 `coaction/adapter` 导入 `defineExternalStoreAdapter()`。它必须保留 core `Store` 生命周期，在直接外部不可变写入后通知 Coaction，并通过 contract test 声明支持边界。开始前请阅读[贡献指南](/zh/docs/reference/contributing)。

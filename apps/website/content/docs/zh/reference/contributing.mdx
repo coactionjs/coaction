@@ -1,0 +1,60 @@
+---
+title: 贡献指南
+description: 导航仓库、运行质量门禁，并在不削弱维护 contract 的前提下扩展 adapter。
+---
+
+提交变更前请阅读仓库的 [CONTRIBUTING.md](https://github.com/coactionjs/coaction/blob/main/CONTRIBUTING.md)、[行为准则](https://github.com/coactionjs/coaction/blob/main/CODE_OF_CONDUCT.md) 与[安全策略](https://github.com/coactionjs/coaction/blob/main/SECURITY.md)。漏洞应通过安全流程报告，而不是公开 issue。
+
+## 仓库结构
+
+- `packages/core`：local/shared 创建、状态 materialization、patch flow、transport、adapter hook 与生命周期；
+- `packages/coaction-*`：框架 wrapper、whole-store adapter、middleware 与 Yjs；
+- `examples`：框架、adapter、SharedWorker、middleware 与协作示例；
+- `docs`：架构 contract、生成 API、对比、迁移与 benchmark 说明；
+- `apps/website`：当前 Fumadocs 静态站点。
+
+## 质量命令
+
+```bash
+pnpm typecheck
+pnpm lint
+pnpm format
+pnpm build
+pnpm test
+pnpm package:quality
+pnpm package:size
+```
+
+开发时先运行目标 package test，交付前再运行相关仓库门禁。Core API 生成文档检查：
+
+```bash
+pnpm docs:api:check
+```
+
+## 添加外部 adapter
+
+先判断正确的集成类型：
+
+- framework wrapper：UI 框架 reactive/lifecycle binding；
+- whole-store adapter：外部 runtime 拥有状态；
+- middleware：Coaction 拥有状态，集成负责装饰。
+
+Whole-store adapter 使用 `coaction/adapter` 的 `defineExternalStoreAdapter()`。
+
+1. 在 `handleState` 归一化外部状态；
+2. 在 `handleStore` 接入订阅与生命周期；
+3. 保持 `destroy()` 幂等和 core store contract；
+4. 直接外部不可变写入改变 root state 后通知 Coaction；
+5. 不为 shared client 创造第二个写入权威；
+6. 添加共享 binder contract suite 与 type expectation；
+7. 同一变更更新 support matrix 与 package README。
+
+不要暗示 whole-store adapter 支持 slices。
+
+## 谨慎修改共享行为
+
+共享 protocol 变更需要 message validation、epoch/sequence 推理、重连测试与混合 runtime 部署考量。Authority 与 client 必须对 malformed message 和 unsafe value fail closed。
+
+## Pull request CI
+
+Pull request CI 由 maintainer gate 控制。Maintainer 在 PR 就绪时添加 `run-ci` label；label 存在后，该 PR 的后续 push 会继续运行 CI。

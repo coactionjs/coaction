@@ -1,0 +1,105 @@
+---
+title: Worker、策略与重连
+description: 配置 Worker/SharedWorker client、限制权威 action，并安全处理 epoch 变化。
+---
+
+## Dedicated Worker
+
+Dedicated Worker 为一个页面提供独立的权威生命周期：
+
+```ts
+const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+  type: 'module'
+});
+
+const store = create(source, { worker });
+```
+
+当 client 不再拥有连接时销毁 Coaction store；根据应用所有权模型决定何时终止 Worker。
+
+## 跨标签页 SharedWorker
+
+一个可复用模块可在页面 runtime 中创建 SharedWorker，并在 Worker runtime 内成为权威端：
+
+```ts
+import { create } from 'coaction/shared';
+
+const worker = globalThis.SharedWorker
+  ? new SharedWorker(new URL('./store.ts', import.meta.url), {
+      type: 'module'
+    })
+  : undefined;
+
+export const store = create(source, worker ? { worker } : undefined);
+```
+
+每个标签页得到一个 client mirror，SharedWorker 拥有唯一状态实例。浏览器支持与 Worker 生命周期规则仍然适用；只有当每个标签页拥有独立状态可以接受时，才提供 local fallback。
+
+## 限制权威端 surface
+
+权威端只暴露从 store 中发现的方法路径，`transportPolicy` 可进一步收紧：
+
+```ts
+const authority = create(source, {
+  transport,
+  transportPolicy: {
+    allowedActions: [['counter', 'increment']],
+    authorize(request) {
+      return request.type === 'fullSync' || hasAccess(request);
+    },
+    mapError(error) {
+      return error instanceof DomainError ? error.publicMessage : undefined;
+    }
+  }
+});
+```
+
+- `allowedActions` 是方法路径 allowlist；
+- `authorize` 接收已解码 JSON execute 或 full-sync request；
+- `mapError` 可以返回刻意向 client 公开的消息。
+
+未预期的 action error 会被脱敏为 `Remote action failed`，原始错误留在权威端。Policy code 是可信应用代码，应尽量保持无副作用。
+
+## Epoch 与 sequence 恢复
+
+每个权威生命周期拥有唯一 epoch，sequence 从 0 开始。client 会：
+
+1. 获取原子 `{ epoch, sequence, state }` snapshot；
+2. 只应用该 epoch 的下一条 sequence；
+3. 忽略 duplicate 或更旧的 update；
+4. 发现 sequence gap 或 epoch 变化后请求 full snapshot。
+
+Snapshot replacement 是原子的；validation 或 apply 失败时，client 保留此前的 epoch、sequence 与 state。
+
+## 等待 action 对镜像可见
+
+Action response 包含权威 epoch 与结果 sequence。client 在 resolve Promise 前等待镜像追上该位置；若 incremental update 在 `executeSyncTimeoutMs`（默认 `1500` ms）内未到达，则回退到 full sync。
+
+```ts
+const store = create(source, {
+  worker,
+  executeSyncTimeoutMs: 3000
+});
+```
+
+只有当合法的 Worker 执行和消息调度经常超过默认值时才提高 timeout。它不能替代对损坏 transport 的修复。
+
+## Action 执行期间权威端变化
+
+如果 action 在途时权威端发生变化，来自旧 epoch 的 response 会以 `ActionAuthorityChangedError` 拒绝。
+
+其 `outcome` 为 `unknown`：旧权威端可能已经执行 action。只有 action 幂等或受应用级 idempotency key 保护时才重试。
+
+```ts
+import { ActionAuthorityChangedError } from 'coaction/shared';
+
+try {
+  await store.getState().submitOrder({ idempotencyKey });
+} catch (error) {
+  if (error instanceof ActionAuthorityChangedError) {
+    // 按 key 对账；不要盲目重复非幂等 action。
+  }
+}
+```
+
+Reconnect callback 按 generation 隔离，因此旧连接的迟到 callback 不能覆盖新连接已建立的状态。

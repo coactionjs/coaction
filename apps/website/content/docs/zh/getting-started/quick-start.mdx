@@ -1,0 +1,115 @@
+---
+title: 快速开始
+description: 创建具备不可变更新、缓存派生状态与精准渲染追踪的 React store。
+---
+
+这里使用 React，因为它可以在一个例子中同时展示状态创建与渲染追踪。底层 store 模型在所有框架中相同。
+
+## 1. 创建 store
+
+```tsx
+import { create, observer } from '@coaction/react';
+
+const useCounter = create((set) => ({
+  count: 0,
+  step: 1,
+
+  get doubled() {
+    return this.count * 2;
+  },
+
+  increment() {
+    set(() => {
+      this.count += this.step;
+    });
+  }
+}));
+```
+
+访问器 getter 会被缓存。Coaction 记录它读取的状态字段，仅在其中某项依赖变化后重新计算。
+
+`set()` 打开不可变更新边界。回调内部编辑 Mutative draft，subscriber 接收提交后的新状态。
+
+## 2. 精准渲染
+
+```tsx
+const Counter = observer(() => {
+  const store = useCounter();
+
+  return (
+    <button onClick={store.increment}>
+      {store.count} × 2 = {store.doubled}
+    </button>
+  );
+});
+```
+
+在 `observer()` 内，`useCounter()` 会追踪 render 期间读取的字段。上面的组件依赖 `count`、`doubled` 和 `increment` 方法；无关字段不会让它重新渲染。
+
+不使用 `observer()` 时，`useCounter()` 订阅整个 store。对小型 store 或确实需要观察全部状态的组件，这一行为很实用。
+
+## 3. 在更清晰时使用显式 selector
+
+自动追踪并非强制：
+
+```tsx
+function CountOnly() {
+  const count = useCounter((state) => state.count);
+  return <output>{count}</output>;
+}
+```
+
+显式 selector 路径采用 version + recompute + `Object.is` 模型，与 Zustand 类似。经常重复使用的字段 selector 可以创建一次缓存 map：
+
+```tsx
+const selectors = useCounter.auto();
+
+function CountButton() {
+  const count = useCounter(selectors.count);
+  const increment = useCounter(selectors.increment);
+  return <button onClick={increment}>{count}</button>;
+}
+```
+
+## 4. 在 React 外使用 imperative API
+
+框架 store 仍保留 core store contract：
+
+```ts
+const unsubscribe = useCounter.subscribe(() => {
+  console.log(useCounter.getPureState());
+});
+
+const { increment } = useCounter.getState();
+increment(); // 仍绑定到最新状态
+
+unsubscribe();
+useCounter.destroy();
+```
+
+`getState()` 包含数据、方法与 getter；`getPureState()` 只返回数据，更适合日志、序列化与测试。
+
+## 接下来
+
+<Cards>
+  <Card
+    title="状态与 action"
+    href="/zh/docs/concepts/state-and-actions"
+    description="理解写入、schema、订阅与生命周期。"
+  />
+  <Card
+    title="计算状态"
+    href="/zh/docs/concepts/computed"
+    description="在访问器 getter 与显式依赖间做选择。"
+  />
+  <Card
+    title="Slices"
+    href="/zh/docs/concepts/slices"
+    description="将大型原生 store 组织为多个 namespace。"
+  />
+  <Card
+    title="共享运行时"
+    href="/zh/docs/shared/overview"
+    description="将方法执行迁移到 Worker 权威端。"
+  />
+</Cards>

@@ -1,0 +1,54 @@
+---
+title: 常见问题
+description: 直接回答本地使用、selector、序列化、schema、Worker、adapter 与 DevTools 问题。
+---
+
+## 不使用 Worker 可以用 Coaction 吗？
+
+可以。本地模式是建议起点，提供完整原生状态、action、computed、slices 与框架体验。Vanilla 本地应用应导入 `coaction/local`。
+
+## React 中必须使用 `observer()` 吗？
+
+不必。不使用 `observer()` 时，`useStore()` 订阅整个 store。也可以调用 `useStore(selector)`，或使用 `useStore.auto()` 返回的缓存 map。
+
+`observer()` 才会增加自动 store/slice 字段追踪。
+
+## Getter 每次读取都会重新计算吗？
+
+不会。原生访问器 getter 通过 signal runtime 缓存，并在依赖变化时失效。请保持 getter 纯净。
+
+## 为什么直接 mutation 会抛错？
+
+Coaction public state 不可变。请在 `set()` 内写入，让运行时能够提交状态、使 computed 失效、通知 subscriber，并在需要时生成 patch。
+
+## 可以稍后添加状态 key 吗？
+
+不能添加到 public 根。Coaction 初始化后固定根 schema；请预先声明 record 或 array field，再向其中增加动态 entry。
+
+## 为什么 client action 返回 Promise？
+
+共享 client 不在本地执行方法。它将方法路径和参数发送给 authority，等待结果，再等待镜像到达权威端报告的 sequence。
+
+## 为什么 `JSON.stringify()` 可用的值仍被共享模式拒绝？
+
+`JSON.stringify()` 会静默归一化或丢弃某些值。Coaction 要求无损 JSON tree，因此拒绝 `undefined`、非有限数、`-0`、accessor、platform object、sparse array、cycle 与重复引用。
+
+## 可以在 shared client 上 persist 或 undo 吗？
+
+不能。Persist 与 history 是权威端集成。client-local 写入会创造第二个 authority，并与其他镜像分叉。
+
+## Adapter 可以作为一个 slice 吗？
+
+不能。Zustand、MobX、Pinia、Jotai、Redux、Valtio 与 XState 集成都是 whole-store adapter。一个 store 应在原生 Coaction slices 与外部 adapter 之间选择。
+
+## Coaction 包含 signal primitive 吗？
+
+包含，advanced `alien-signals` primitive 会被 re-export。普通应用派生状态仍应使用 getter 或 `get(deps, selector)`。
+
+## Coaction 有 Redux DevTools 集成吗？
+
+当前没有作为维护的内置 contract。请使用 logger 与项目工具，不要只根据内部 hook 承诺 DevTools surface。
+
+## 什么时候应该选择 Zustand？
+
+当最重要的是极小 hook store、显式 selector、最小 bundle 和生态成熟度时，选择 Zustand。当自动渲染追踪、维护式缓存派生、自然 `this` action，或未来共享运行时能显著降低应用复杂度时，选择 Coaction。
