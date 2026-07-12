@@ -36,9 +36,11 @@ export const handleState = <T extends CreateState>(
   setState: Store['setState'];
   getState: Store['getState'];
 } => {
+  let defaultResultValidated = false;
   const defaultUpdater: NonNullable<Parameters<Store['setState']>[1]> = (
     next
   ) => {
+    defaultResultValidated = false;
     const merge = (_next = next) => {
       if (_next !== next) {
         internal.validateState?.(_next);
@@ -71,9 +73,11 @@ export const handleState = <T extends CreateState>(
         internal.actMutable(() => {
           fn.apply(null);
         });
+        defaultResultValidated = true;
         return [];
       }
       fn.apply(null);
+      defaultResultValidated = true;
       return [];
     }
     internal.backupState = internal.rootState;
@@ -105,9 +109,13 @@ export const handleState = <T extends CreateState>(
     } finally {
       internal.rootState = internal.backupState;
     }
-    const finalPatches = store.patch
-      ? store.patch({ patches, inversePatches })
+    const patch = store.patch;
+    const finalPatches = patch
+      ? patch({ patches, inversePatches })
       : { patches, inversePatches };
+    if (!patch) {
+      internal.validatePatches?.(finalPatches.patches);
+    }
     const safePatches = sanitizeCheckedPatches(
       finalPatches.patches,
       'store.patch()'
@@ -117,7 +125,17 @@ export const handleState = <T extends CreateState>(
       'store.patch() inverse patches'
     );
     if (safePatches.length) {
-      store.apply(internal.rootState as T, safePatches);
+      defaultResultValidated =
+        internal.applyValidatedPatches?.(
+          internal.rootState as T,
+          safePatches,
+          !patch
+        ) ?? false;
+      if (!internal.applyValidatedPatches) {
+        store.apply(internal.rootState as T, safePatches);
+      }
+    } else {
+      defaultResultValidated = true;
     }
     return [internal.rootState as any, safePatches, safeInversePatches];
   };
@@ -293,9 +311,13 @@ export const handleState = <T extends CreateState>(
           }
         );
       }
-      internal.validateState?.(
-        internal.getTransportState?.() ?? internal.rootState
-      );
+      const trustedDefaultResult =
+        updater === defaultUpdater && defaultResultValidated;
+      if (!trustedDefaultResult) {
+        internal.validateState?.(
+          internal.getTransportState?.() ?? internal.rootState
+        );
+      }
       if (isDrafted) {
         internal.backupState = internal.rootState;
         const [draft, finalize] = createWithMutative(
@@ -310,7 +332,9 @@ export const handleState = <T extends CreateState>(
     } finally {
       internal.isBatching = false;
     }
-    if (result?.length) {
+    const trustedDefaultResult =
+      updater === defaultUpdater && defaultResultValidated;
+    if (result?.length && !trustedDefaultResult) {
       internal.validatePatches?.(result[1]);
       result = [
         result[0],

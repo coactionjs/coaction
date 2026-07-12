@@ -134,37 +134,44 @@ export const createStore = <T extends CreateState>(
         throw firstError;
       }
     };
-    const apply: Store<T>['apply'] = (
-      state = internal.rootState as T,
-      patches
+    const applyState = (
+      state: T,
+      patches: Patches | undefined,
+      prepared = false,
+      skipFinalValidation = false
     ) => {
       internal.assertAlive?.('apply');
       internal.assertMutationAllowed?.('apply');
-      if (patches) {
+      if (patches && !prepared) {
         validatePatches?.(patches);
       }
-      assertSafePatches(patches, 'store.apply()');
-      const safePatches = sanitizePatches(patches);
+      if (!prepared) {
+        assertSafePatches(patches, 'store.apply()');
+      }
+      const safePatches = prepared ? patches : sanitizePatches(patches);
       const baseState =
         state === (internal.module as unknown) ? internal.rootState : state;
       if (baseState !== internal.rootState) {
         validateReplacementSource?.(baseState);
       }
-      const nextState = sanitizeReplacementState(
-        safePatches
-          ? (applyWithMutative(baseState, safePatches) as T)
-          : baseState
-      );
-      assertKnownStateShape(
-        nextState,
-        internal.rootState,
-        internal.stateSchema,
-        store.isSliceStore,
-        {
-          requireSliceRoots: true
-        }
-      );
-      validateState?.(internal.getTransportState?.() ?? nextState);
+      const appliedState = safePatches
+        ? (applyWithMutative(baseState, safePatches) as T)
+        : baseState;
+      const nextState = prepared
+        ? appliedState
+        : sanitizeReplacementState(appliedState);
+      if (!skipFinalValidation) {
+        assertKnownStateShape(
+          nextState,
+          internal.rootState,
+          internal.stateSchema,
+          store.isSliceStore,
+          {
+            requireSliceRoots: true
+          }
+        );
+        validateState?.(internal.getTransportState?.() ?? nextState);
+      }
       internal.rootState = nextState;
       refreshSignalSlots(internal);
       if (internal.updateImmutable) {
@@ -172,6 +179,18 @@ export const createStore = <T extends CreateState>(
       } else {
         internal.listeners.forEach((listener) => listener());
       }
+    };
+    const apply: Store<T>['apply'] = (
+      state = internal.rootState as T,
+      patches
+    ) => applyState(state, patches);
+    internal.applyValidatedPatches = (state, patches, skipFinalValidation) => {
+      if (store.apply !== apply) {
+        store.apply(state, patches);
+        return false;
+      }
+      applyState(state, patches, true, skipFinalValidation);
+      return true;
     };
     const getPureState: Store<T>['getPureState'] = () =>
       internal.rootState as T;

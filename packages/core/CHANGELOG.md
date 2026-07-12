@@ -21,6 +21,11 @@
   per-field readonly-proxy cost from invalidated computed reads and restores the
   maintained update-plus-read performance gate.
 
+  Commit native shared-store updates through a private prepared-patch path so
+  already checked patches and final state are not repeatedly cloned, sanitized,
+  and scanned. Public `apply()`, custom updaters, patch hooks, middleware, and
+  adapter overrides retain their full validation boundaries.
+
   Read the [Coaction 3.0 migration guide](https://github.com/coactionjs/coaction/blob/v3.0.0/docs/features/json-only-shared-runtime/migration.md)
   before upgrading any Worker, SharedWorker, injected-transport, or custom-adapter
   deployment.

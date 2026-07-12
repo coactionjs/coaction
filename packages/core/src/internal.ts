@@ -115,6 +115,12 @@ export interface Internal<T extends CreateState = CreateState> {
   validatePatches?: (patches: Patches) => void;
   /** Validate an adapter replacement source before reading its values. */
   validateReplacementSource?: (state: unknown) => void;
+  /** Commit patches already checked by the native updater. */
+  applyValidatedPatches?: (
+    state: T,
+    patches: Patches,
+    skipFinalValidation: boolean
+  ) => boolean;
   /** Publish patches when a shared authority transport is attached. */
   emitPatches?: (patches: Patches) => void;
   /** Return the plain state exposed at the JSON transport boundary. */
