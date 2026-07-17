@@ -27,6 +27,7 @@ import {
   createSvelteWorkerHarness,
   type SvelteWorkerHarness
 } from './svelteWorkerHarness';
+import { createNgWorkerHarness, type NgWorkerHarness } from './ngWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -98,6 +99,7 @@ declare global {
     __vueWorkerHarness: VueWorkerHarness;
     __solidWorkerHarness: SolidWorkerHarness;
     __svelteWorkerHarness: SvelteWorkerHarness;
+    __ngWorkerHarness: NgWorkerHarness;
   }
 }
 
@@ -390,6 +392,7 @@ window.__workerHarness = createWorkerHarness();
 window.__vueWorkerHarness = createVueWorkerHarness();
 window.__solidWorkerHarness = createSolidWorkerHarness();
 window.__svelteWorkerHarness = createSvelteWorkerHarness();
+window.__ngWorkerHarness = createNgWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
