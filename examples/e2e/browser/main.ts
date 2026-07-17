@@ -19,6 +19,10 @@ import {
   createVueWorkerHarness,
   type VueWorkerHarness
 } from './vueWorkerHarness';
+import {
+  createSolidWorkerHarness,
+  type SolidWorkerHarness
+} from './solidWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -88,6 +92,7 @@ declare global {
     __subpackageHarness: SubpackageHarness;
     __workerHarness: WorkerHarness;
     __vueWorkerHarness: VueWorkerHarness;
+    __solidWorkerHarness: SolidWorkerHarness;
   }
 }
 
@@ -378,6 +383,7 @@ window.__middlewareHarness = {
 window.__subpackageHarness = createSubpackageHarness();
 window.__workerHarness = createWorkerHarness();
 window.__vueWorkerHarness = createVueWorkerHarness();
+window.__solidWorkerHarness = createSolidWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
