@@ -40,6 +40,10 @@ import {
   createMobxWorkerHarness,
   type MobxWorkerHarness
 } from './mobxWorkerHarness';
+import {
+  createPiniaWorkerHarness,
+  type PiniaWorkerHarness
+} from './piniaWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -115,6 +119,7 @@ declare global {
     __reactWorkerHarness: ReactWorkerHarness;
     __zustandWorkerHarness: ZustandWorkerHarness;
     __mobxWorkerHarness: MobxWorkerHarness;
+    __piniaWorkerHarness: PiniaWorkerHarness;
   }
 }
 
@@ -411,6 +416,7 @@ window.__ngWorkerHarness = createNgWorkerHarness();
 window.__reactWorkerHarness = createReactWorkerHarness();
 window.__zustandWorkerHarness = createZustandWorkerHarness();
 window.__mobxWorkerHarness = createMobxWorkerHarness();
+window.__piniaWorkerHarness = createPiniaWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
