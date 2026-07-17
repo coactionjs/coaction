@@ -36,6 +36,10 @@ import {
   createZustandWorkerHarness,
   type ZustandWorkerHarness
 } from './zustandWorkerHarness';
+import {
+  createMobxWorkerHarness,
+  type MobxWorkerHarness
+} from './mobxWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -110,6 +114,7 @@ declare global {
     __ngWorkerHarness: NgWorkerHarness;
     __reactWorkerHarness: ReactWorkerHarness;
     __zustandWorkerHarness: ZustandWorkerHarness;
+    __mobxWorkerHarness: MobxWorkerHarness;
   }
 }
 
@@ -405,6 +410,7 @@ window.__svelteWorkerHarness = createSvelteWorkerHarness();
 window.__ngWorkerHarness = createNgWorkerHarness();
 window.__reactWorkerHarness = createReactWorkerHarness();
 window.__zustandWorkerHarness = createZustandWorkerHarness();
+window.__mobxWorkerHarness = createMobxWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
