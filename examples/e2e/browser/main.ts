@@ -32,6 +32,10 @@ import {
   createReactWorkerHarness,
   type ReactWorkerHarness
 } from '../../../packages/coaction-react/e2e/workerBrowserHarness';
+import {
+  createZustandWorkerHarness,
+  type ZustandWorkerHarness
+} from './zustandWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -105,6 +109,7 @@ declare global {
     __svelteWorkerHarness: SvelteWorkerHarness;
     __ngWorkerHarness: NgWorkerHarness;
     __reactWorkerHarness: ReactWorkerHarness;
+    __zustandWorkerHarness: ZustandWorkerHarness;
   }
 }
 
@@ -399,6 +404,7 @@ window.__solidWorkerHarness = createSolidWorkerHarness();
 window.__svelteWorkerHarness = createSvelteWorkerHarness();
 window.__ngWorkerHarness = createNgWorkerHarness();
 window.__reactWorkerHarness = createReactWorkerHarness();
+window.__zustandWorkerHarness = createZustandWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
