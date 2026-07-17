@@ -28,6 +28,10 @@ import {
   type SvelteWorkerHarness
 } from './svelteWorkerHarness';
 import { createNgWorkerHarness, type NgWorkerHarness } from './ngWorkerHarness';
+import {
+  createReactWorkerHarness,
+  type ReactWorkerHarness
+} from '../../../packages/coaction-react/e2e/workerBrowserHarness';
 
 type CounterState = {
   count: number;
@@ -100,6 +104,7 @@ declare global {
     __solidWorkerHarness: SolidWorkerHarness;
     __svelteWorkerHarness: SvelteWorkerHarness;
     __ngWorkerHarness: NgWorkerHarness;
+    __reactWorkerHarness: ReactWorkerHarness;
   }
 }
 
@@ -393,6 +398,7 @@ window.__vueWorkerHarness = createVueWorkerHarness();
 window.__solidWorkerHarness = createSolidWorkerHarness();
 window.__svelteWorkerHarness = createSvelteWorkerHarness();
 window.__ngWorkerHarness = createNgWorkerHarness();
+window.__reactWorkerHarness = createReactWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
