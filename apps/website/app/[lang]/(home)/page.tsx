@@ -37,8 +37,8 @@ const copy = {
     ]
   },
   zh: {
-    eyebrow: '状态随读取而动',
-    title: '自然地写入，精准地渲染，需要时再扩展。',
+    eyebrow: '状态精细化追踪',
+    title: '自然随心编写  精准渲染UI',
     description:
       '一个内置自动渲染追踪与缓存计算状态的 Zustand 风格 store。先从本地模式开始，未来可将同一模型迁移到 Worker 或多标签页。',
     getStarted: '开始使用',
