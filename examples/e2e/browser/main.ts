@@ -48,6 +48,10 @@ import {
   createValtioWorkerHarness,
   type ValtioWorkerHarness
 } from './valtioWorkerHarness';
+import {
+  createJotaiWorkerHarness,
+  type JotaiWorkerHarness
+} from './jotaiWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -125,6 +129,7 @@ declare global {
     __mobxWorkerHarness: MobxWorkerHarness;
     __piniaWorkerHarness: PiniaWorkerHarness;
     __valtioWorkerHarness: ValtioWorkerHarness;
+    __jotaiWorkerHarness: JotaiWorkerHarness;
   }
 }
 
@@ -423,6 +428,7 @@ window.__zustandWorkerHarness = createZustandWorkerHarness();
 window.__mobxWorkerHarness = createMobxWorkerHarness();
 window.__piniaWorkerHarness = createPiniaWorkerHarness();
 window.__valtioWorkerHarness = createValtioWorkerHarness();
+window.__jotaiWorkerHarness = createJotaiWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
