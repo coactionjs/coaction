@@ -15,6 +15,10 @@ import {
   type SubpackageHarness
 } from './subpackageHarness';
 import { createWorkerHarness, type WorkerHarness } from './workerHarness';
+import {
+  createVueWorkerHarness,
+  type VueWorkerHarness
+} from './vueWorkerHarness';
 
 type CounterState = {
   count: number;
@@ -83,6 +87,7 @@ declare global {
     __middlewareHarness: MiddlewareHarness;
     __subpackageHarness: SubpackageHarness;
     __workerHarness: WorkerHarness;
+    __vueWorkerHarness: VueWorkerHarness;
   }
 }
 
@@ -372,6 +377,7 @@ window.__middlewareHarness = {
 
 window.__subpackageHarness = createSubpackageHarness();
 window.__workerHarness = createWorkerHarness();
+window.__vueWorkerHarness = createVueWorkerHarness();
 
 const statusNode = document.querySelector<HTMLParagraphElement>('#status');
 if (statusNode) {
