@@ -13,6 +13,7 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import { uuid } from './utils';
+import { hasStoreCommitListeners } from './storeCommit';
 
 type CreateLocalActionOptions<T extends CreateState> = {
   fn: (...args: unknown[]) => unknown;
@@ -84,7 +85,8 @@ export const createLocalAction = <T extends CreateState>({
       }
     };
     const enablePatches =
-      store.transport ?? (options as StoreOptions<T>).enablePatches;
+      Boolean(store.transport ?? (options as StoreOptions<T>).enablePatches) ||
+      hasStoreCommitListeners(store);
     return traceAction(() => {
       if (internal.mutableInstance && !internal.isBatching && enablePatches) {
         let result: any;

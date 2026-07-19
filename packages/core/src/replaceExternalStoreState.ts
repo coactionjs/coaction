@@ -2,6 +2,7 @@ import { create as createWithMutative, type Patches } from 'mutative';
 import type { CreateState, MiddlewareStore } from './interface';
 import type { Internal } from './internal';
 import { replaceOwnEnumerable, sanitizeCheckedPatches } from './utils';
+import { publishStoreCommit } from './storeCommit';
 
 type ReplaceExternalStoreStateOptions = {
   syncImmutable?: boolean;
@@ -31,6 +32,10 @@ export const replaceExternalStoreState = <T extends CreateState>(
     finalPatches.patches,
     'store.patch()'
   );
+  const safeInversePatches = sanitizeCheckedPatches(
+    finalPatches.inversePatches,
+    'store.patch() inverse patches'
+  );
   if (!safePatches.length) {
     return;
   }
@@ -44,4 +49,10 @@ export const replaceExternalStoreState = <T extends CreateState>(
     internal.updateImmutable = updateImmutable;
   }
   internal.emitPatches?.(safePatches);
+  publishStoreCommit(store, {
+    state: internal.rootState as T,
+    patches: safePatches,
+    inversePatches: safeInversePatches,
+    source: 'external'
+  });
 };

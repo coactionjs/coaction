@@ -27,6 +27,12 @@ import {
 } from './utils';
 import { handleDraft } from './handleDraft';
 import { Computed, refreshSignalSlots } from './computed';
+import {
+  hasStoreCommitListeners,
+  publishStoreCommit,
+  type StoreCommitSource,
+  type StorePatchTransition
+} from './storeCommit';
 
 export const handleState = <T extends CreateState>(
   store: MiddlewareStore<T>,
@@ -35,8 +41,10 @@ export const handleState = <T extends CreateState>(
 ): {
   setState: Store['setState'];
   getState: Store['getState'];
+  replayPatches: (transition: StorePatchTransition) => T;
 } => {
   let defaultResultValidated = false;
+  let pendingCommitSource: StoreCommitSource | undefined;
   const defaultUpdater: NonNullable<Parameters<Store['setState']>[1]> = (
     next
   ) => {
@@ -67,7 +75,8 @@ export const handleState = <T extends CreateState>(
           }
         : merge;
     const enablePatches =
-      store.transport ?? (options as StoreOptions<T>).enablePatches;
+      Boolean(store.transport ?? (options as StoreOptions<T>).enablePatches) ||
+      hasStoreCommitListeners(store);
     if (!enablePatches && internal.mutableInstance) {
       if (internal.actMutable) {
         internal.actMutable(() => {
@@ -140,6 +149,8 @@ export const handleState = <T extends CreateState>(
     return [internal.rootState as any, safePatches, safeInversePatches];
   };
   const setState: Store['setState'] = (next, updater = defaultUpdater) => {
+    const commitSource = pendingCommitSource ?? 'setState';
+    pendingCommitSource = undefined;
     internal.assertAlive?.('setState');
     internal.assertMutationAllowed?.('setState');
     if (store.share === 'client') {
@@ -166,6 +177,7 @@ export const handleState = <T extends CreateState>(
     if (
       !store.share &&
       !(options as StoreOptions<T>).enablePatches &&
+      !hasStoreCommitListeners(store) &&
       !internal.mutableInstance &&
       updater === defaultUpdater
     ) {
@@ -342,14 +354,70 @@ export const handleState = <T extends CreateState>(
         sanitizeCheckedPatches(result[2], 'setState updater inverse result')
       ];
     }
-    if (result?.[1]) {
-      internal.emitPatches?.(result[1]);
+    if (result?.length === 3) {
+      const [, patches, inversePatches] = result;
+      internal.emitPatches?.(patches);
+      if (patches.length || inversePatches.length) {
+        publishStoreCommit(store, {
+          state: internal.rootState as T,
+          patches,
+          inversePatches,
+          source: commitSource
+        });
+      }
     }
     return result;
+  };
+  const replayPatches = ({ patches, inversePatches }: StorePatchTransition) => {
+    const previousSource = pendingCommitSource;
+    pendingCommitSource = 'replay';
+    try {
+      setState(internal.rootState as T, () => {
+        const inputPatches = patches.map((patch) => ({
+          ...patch,
+          path: Array.isArray(patch.path) ? [...patch.path] : patch.path
+        })) as Patches;
+        const inputInversePatches = inversePatches.map((patch) => ({
+          ...patch,
+          path: Array.isArray(patch.path) ? [...patch.path] : patch.path
+        })) as Patches;
+        const finalPatches = store.patch
+          ? store.patch({
+              patches: inputPatches,
+              inversePatches: inputInversePatches
+            })
+          : {
+              patches: inputPatches,
+              inversePatches: inputInversePatches
+            };
+        const safePatches = sanitizeCheckedPatches(
+          finalPatches.patches,
+          'store.patch()'
+        );
+        const safeInversePatches = sanitizeCheckedPatches(
+          finalPatches.inversePatches,
+          'store.patch() inverse patches'
+        );
+        if (safePatches.length) {
+          internal.applyValidatedPatches?.(
+            internal.rootState as T,
+            safePatches,
+            false
+          );
+          if (!internal.applyValidatedPatches) {
+            store.apply(internal.rootState as T, safePatches);
+          }
+        }
+        return [internal.rootState as T, safePatches, safeInversePatches];
+      });
+      return internal.rootState as T;
+    } finally {
+      pendingCommitSource = previousSource;
+    }
   };
   const getState = (
     deps?: (...args: any) => any,
     selector?: (...args: any) => any
   ) => (deps && selector ? new Computed(deps, selector) : internal.module);
-  return { setState, getState };
+  return { setState, getState, replayPatches };
 };

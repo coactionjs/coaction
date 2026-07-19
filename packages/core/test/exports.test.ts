@@ -20,6 +20,8 @@ test('re-exports runtime APIs from package entry', () => {
   expect(adapter.defineExternalStoreAdapter).toBeInstanceOf(Function);
   expect(adapter.createReactiveTracker).toBeInstanceOf(Function);
   expect(adapter.wrapStore).toBeInstanceOf(Function);
+  expect(adapter.onStoreCommit).toBeInstanceOf(Function);
+  expect(adapter.replayStorePatches).toBeInstanceOf(Function);
   expect(core.signal).toBeInstanceOf(Function);
   expect(core.computed).toBeInstanceOf(Function);
   expect(core.effect).toBeInstanceOf(Function);

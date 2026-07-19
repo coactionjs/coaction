@@ -17,6 +17,10 @@ import type {
 } from './interface';
 import type { Internal } from './internal';
 import {
+  disposeStoreCommitRuntime,
+  registerStorePatchReplayer
+} from './storeCommit';
+import {
   assertKnownStateShape,
   assertSafePatches,
   createStateSchema,
@@ -95,7 +99,11 @@ export const createStore = <T extends CreateState>(
   }
 
   try {
-    const { setState, getState } = handleState(store, internal, options);
+    const { setState, getState, replayPatches } = handleState(
+      store,
+      internal,
+      options
+    );
     const subscribe: Store<T>['subscribe'] = (listener) => {
       internal.assertAlive?.('subscribe');
       internal.listeners.add(listener);
@@ -123,6 +131,7 @@ export const createStore = <T extends CreateState>(
         }
       }
       internal.listeners.clear();
+      disposeStoreCommitRuntime(store);
       try {
         store.transport?.dispose();
       } catch (error) {
@@ -241,6 +250,7 @@ export const createStore = <T extends CreateState>(
     if (middlewareStore !== store) {
       Object.assign(store, middlewareStore);
     }
+    registerStorePatchReplayer(store, replayPatches);
     internal.assertAlive?.('store initialization');
     if (validatePatches && store.patch) {
       const patch = store.patch.bind(store);

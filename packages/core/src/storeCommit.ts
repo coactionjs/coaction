@@ -1,0 +1,144 @@
+import type { Patches } from 'mutative';
+import type { CreateState, Store } from './interface';
+
+export type StoreCommitSource =
+  | 'setState'
+  | 'mutableAction'
+  | 'external'
+  | 'replay';
+
+/**
+ * A patch pair emitted after Coaction has committed an authoritative state
+ * transition.
+ */
+export type StoreCommit<T extends CreateState = CreateState> = {
+  readonly state: T;
+  readonly patches: Patches;
+  readonly inversePatches: Patches;
+  readonly source: StoreCommitSource;
+};
+
+/** Patch pair to replay through Coaction's authoritative mutation pipeline. */
+export type StorePatchTransition = {
+  readonly patches: Patches;
+  readonly inversePatches: Patches;
+};
+
+type StoreCommitListener<T extends CreateState> = (
+  commit: StoreCommit<T>
+) => void;
+
+type StorePatchReplayer<T extends CreateState> = (
+  transition: StorePatchTransition
+) => T;
+
+type StoreCommitRuntime = {
+  disposed: boolean;
+  listeners: Set<StoreCommitListener<any>>;
+  replay?: StorePatchReplayer<any>;
+};
+
+const storeCommitRuntimeSymbol = Symbol.for('coaction.storeCommit.runtime');
+
+const getStoreCommitRuntime = (store: object, create = false) => {
+  const target = store as Record<PropertyKey, unknown>;
+  const existing = target[storeCommitRuntimeSymbol] as
+    | StoreCommitRuntime
+    | undefined;
+  if (existing || !create) {
+    return existing;
+  }
+  const runtime: StoreCommitRuntime = {
+    disposed: false,
+    listeners: new Set()
+  };
+  Object.defineProperty(target, storeCommitRuntimeSymbol, {
+    configurable: true,
+    enumerable: true,
+    value: runtime,
+    writable: true
+  });
+  return runtime;
+};
+
+/**
+ * Observe patch pairs after successful Coaction commits.
+ *
+ * @remarks
+ * Registering a listener enables patch generation only while it is needed,
+ * even when the store was created without `enablePatches: true`.
+ */
+export const onStoreCommit = <T extends CreateState>(
+  store: Store<T>,
+  listener: StoreCommitListener<T>
+) => {
+  const runtime = getStoreCommitRuntime(store, true)!;
+  if (runtime.disposed) {
+    throw new Error('onStoreCommit() cannot be called after store.destroy().');
+  }
+  runtime.listeners.add(listener);
+  let active = true;
+  return () => {
+    if (!active) {
+      return;
+    }
+    active = false;
+    runtime.listeners.delete(listener);
+  };
+};
+
+/**
+ * Replay a patch pair through Coaction validation, patch middleware, adapters,
+ * subscriptions, and transports.
+ */
+export const replayStorePatches = <T extends CreateState>(
+  store: Store<T>,
+  transition: StorePatchTransition
+): T => {
+  const runtime = getStoreCommitRuntime(store);
+  const replay = runtime?.disposed ? undefined : runtime?.replay;
+  if (!replay) {
+    throw new Error(
+      'replayStorePatches() requires a store created by Coaction.'
+    );
+  }
+  return replay(transition);
+};
+
+/** @internal */
+export const hasStoreCommitListeners = (store: object) =>
+  Boolean(getStoreCommitRuntime(store)?.listeners.size);
+
+/** @internal */
+export const publishStoreCommit = <T extends CreateState>(
+  store: Store<T>,
+  commit: StoreCommit<T>
+) => {
+  const runtime = getStoreCommitRuntime(store);
+  if (!runtime || runtime.disposed || !runtime.listeners.size) {
+    return;
+  }
+  for (const listener of [...runtime.listeners]) {
+    listener(commit);
+  }
+};
+
+/** @internal */
+export const registerStorePatchReplayer = <T extends CreateState>(
+  store: Store<T>,
+  replay: StorePatchReplayer<T>
+) => {
+  const runtime = getStoreCommitRuntime(store, true)!;
+  runtime.replay = replay;
+};
+
+/** @internal */
+export const disposeStoreCommitRuntime = (store: object) => {
+  const runtime = getStoreCommitRuntime(store);
+  if (!runtime) {
+    return;
+  }
+  runtime.disposed = true;
+  runtime.listeners.clear();
+  runtime.replay = undefined;
+};
