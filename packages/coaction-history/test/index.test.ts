@@ -978,3 +978,37 @@ test('snapshot only includes own enumerable properties', () => {
   });
   expect(past.data.inherited).toBeUndefined();
 });
+
+test('patch updates avoid full-state snapshots and materialize getters lazily', () => {
+  let getPureState: ReturnType<typeof jest.fn>;
+  const trackPureStateReads = (store: any) => {
+    getPureState = jest.fn(store.getPureState);
+    store.getPureState = getPureState;
+    return store;
+  };
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      unchanged: Array.from({ length: 1000 }, (_, index) => ({ index })),
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [history(), trackPureStateReads]
+    }
+  );
+  const api = (useStore as any).history;
+  getPureState!.mockClear();
+
+  useStore.getState().increment();
+  useStore.getState().increment();
+
+  expect(api.canUndo()).toBe(true);
+  expect(getPureState!).not.toHaveBeenCalled();
+
+  expect(api.getPast().map((state: any) => state.count)).toEqual([0, 1]);
+  expect(getPureState!).toHaveBeenCalledTimes(1);
+});

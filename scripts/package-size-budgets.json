@@ -2,12 +2,12 @@
   "@coaction/history": {
     "files": {
       "dist/index.mjs": {
-        "baselineGzipBytes": 2310,
-        "maxGzipBytes": 2660
+        "baselineGzipBytes": 4900,
+        "maxGzipBytes": 5400
       },
       "dist/index.js": {
-        "baselineGzipBytes": 2344,
-        "maxGzipBytes": 2700
+        "baselineGzipBytes": 5294,
+        "maxGzipBytes": 5800
       }
     }
   },

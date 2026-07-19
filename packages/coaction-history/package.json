@@ -52,6 +52,10 @@
     "build": "node ../../scripts/build-package.mjs",
     "dev": "node ../../scripts/build-package.mjs --watch"
   },
+  "dependencies": {
+    "mutative": "^1.3.0",
+    "travels": "^2.0.0"
+  },
   "devDependencies": {
     "coaction": "workspace:*"
   },

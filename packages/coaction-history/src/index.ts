@@ -1,9 +1,14 @@
 import {
   applyRootReplacementWithPatches,
+  onStoreCommit,
   onStoreReady,
+  replayStorePatches,
   type Middleware,
+  type StoreCommit,
   type Store
 } from 'coaction/adapter';
+import { apply as applyWithMutative, type Draft, type Patches } from 'mutative';
+import * as travels from 'travels';
 
 type Snapshot = Record<PropertyKey, unknown>;
 
@@ -258,7 +263,7 @@ export type HistoryApi<_T extends object> = {
   getFuture: () => object[];
 };
 
-export const history =
+const snapshotHistory =
   <T extends object>(options: HistoryOptions<T> = {}): Middleware<T> =>
   (store: Store<T>) => {
     if (store.share === 'client') {
@@ -435,5 +440,618 @@ export const history =
         baseDestroy();
       };
     }
+    return store;
+  };
+
+type TravelEntry = {
+  patches: Patches;
+  inversePatches: Patches;
+};
+
+type TravelTransition<T extends object> = TravelEntry & {
+  state: T;
+};
+
+type TravelJournal<T extends object> = {
+  back: () => void;
+  forward: () => void;
+  canBack: () => boolean;
+  canForward: () => boolean;
+  getHistoryEntries: () => TravelEntry[];
+  getPosition: () => number;
+  getState: () => T;
+  rebase: () => void;
+  recordPatches?: (state: T, entry: TravelEntry) => void;
+  setState: (updater: T | (() => T) | ((draft: Draft<T>) => void)) => void;
+};
+
+type ControlledJournalFactory = <T extends object>(
+  initialState: T,
+  options: {
+    apply: (transition: TravelTransition<T>) => T;
+    maxHistory: number;
+    warnOnUnsupportedState: boolean;
+  }
+) => TravelJournal<T>;
+
+const controlledJournalFactory = (
+  travels as typeof travels & {
+    createTravelJournal?: ControlledJournalFactory;
+  }
+).createTravelJournal;
+
+const scheduleMicrotask = (callback: () => void) => {
+  if (typeof queueMicrotask === 'function') {
+    queueMicrotask(callback);
+    return;
+  }
+  Promise.resolve().then(callback);
+};
+
+const isDenseArrayIndex = (key: PropertyKey, length: number) => {
+  if (typeof key !== 'string') {
+    return false;
+  }
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === key
+  );
+};
+
+const isTravelCompatibleState = (
+  value: unknown,
+  seen = new WeakSet<object>()
+): boolean => {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
+    return true;
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+  if (typeof value !== 'object') {
+    return false;
+  }
+  if (seen.has(value)) {
+    return false;
+  }
+  seen.add(value);
+  const keys = Reflect.ownKeys(value).filter((key) =>
+    Object.prototype.propertyIsEnumerable.call(value, key)
+  );
+  if (Array.isArray(value)) {
+    if (
+      keys.length !== value.length ||
+      keys.some((key) => !isDenseArrayIndex(key, value.length))
+    ) {
+      return false;
+    }
+    for (let index = 0; index < value.length; index += 1) {
+      if (
+        !Object.prototype.hasOwnProperty.call(value, index) ||
+        !isTravelCompatibleState(value[index], seen)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return false;
+  }
+  for (const key of keys) {
+    if (
+      typeof key !== 'string' ||
+      isUnsafeKey(key) ||
+      !isTravelCompatibleState(
+        (value as Record<PropertyKey, unknown>)[key],
+        seen
+      )
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const isTravelCompatiblePatches = (patches: Patches) => {
+  const seen = new WeakSet<object>();
+  for (const patch of patches) {
+    const path = Array.isArray(patch.path)
+      ? patch.path
+      : typeof patch.path === 'string'
+        ? patch.path.split('/').filter(Boolean)
+        : [];
+    if (
+      path.some(
+        (segment) =>
+          (typeof segment !== 'string' && typeof segment !== 'number') ||
+          (typeof segment === 'string' && isUnsafeKey(segment))
+      )
+    ) {
+      return false;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(patch, 'value') &&
+      !isTravelCompatibleState((patch as { value: unknown }).value, seen)
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+const createPatchHistory = <T extends object>(
+  store: Store<T>,
+  limit: number,
+  baseSetState: Store<T>['setState']
+): {
+  api: HistoryApi<T>;
+  destroy: () => void;
+  runWithoutRecording: <R>(callback: () => R) => R;
+} => {
+  let isTimeTraveling = false;
+  let isSetStateRecording = false;
+  let suppressionDepth = 0;
+  let fallbackVersion = 0;
+  let unsubscribeStore: (() => void) | undefined;
+  let unsubscribeCommit: (() => void) | undefined;
+  let baseApply: Store<T>['apply'] | undefined;
+  let snapshotPast: object[] | undefined;
+  let snapshotFuture: object[] = [];
+  let snapshotCurrent: object | undefined;
+  const createJournal = (initialState: T) => {
+    if (controlledJournalFactory) {
+      return {
+        controlled: true,
+        journal: controlledJournalFactory(initialState, {
+          apply: ({ patches, inversePatches }) =>
+            replayStorePatches(
+              store,
+              { patches, inversePatches },
+              { setState: baseSetState }
+            ),
+          maxHistory: limit,
+          warnOnUnsupportedState: false
+        })
+      };
+    }
+    return {
+      controlled: false,
+      journal: travels.createTravels(toSnapshot(initialState) as T, {
+        autoArchive: true,
+        maxHistory: limit,
+        warnOnUnsupportedState: false
+      }) as unknown as TravelJournal<T>
+    };
+  };
+  let { controlled, journal } = createJournal(store.getPureState());
+
+  const resetJournal = (state: T) => {
+    const next = createJournal(state);
+    controlled = next.controlled;
+    journal = next.journal;
+  };
+  const pushSnapshotPast = (snapshot: object) => {
+    if (!snapshotPast) {
+      return;
+    }
+    snapshotPast.push(snapshot);
+    if (snapshotPast.length > limit) {
+      snapshotPast.shift();
+    }
+  };
+  const recordSnapshotState = (state: T) => {
+    const current = toSnapshot(state);
+    if (snapshotCurrent && !isEqual(snapshotCurrent, current)) {
+      pushSnapshotPast(snapshotCurrent);
+      snapshotFuture.length = 0;
+    }
+    snapshotCurrent = current;
+  };
+  const beginSnapshotCompatibility = () => {
+    if (snapshotPast) {
+      return;
+    }
+    const previous = journal.getState();
+    snapshotPast = materialize('past', previous);
+    snapshotFuture = [];
+    snapshotCurrent = toSnapshot(previous);
+    unsubscribeCommit?.();
+    unsubscribeCommit = undefined;
+  };
+  const switchToSnapshotCompatibility = (state: T) => {
+    beginSnapshotCompatibility();
+    recordSnapshotState(state);
+  };
+  const recordCommit = ({ state, patches, inversePatches }: StoreCommit<T>) => {
+    fallbackVersion += 1;
+    if (isTimeTraveling || suppressionDepth > 0) {
+      return;
+    }
+    if (snapshotPast) {
+      recordSnapshotState(state);
+      return;
+    }
+    if (
+      !isTravelCompatiblePatches(patches) ||
+      !isTravelCompatiblePatches(inversePatches)
+    ) {
+      switchToSnapshotCompatibility(state);
+      return;
+    }
+    if (journal.recordPatches) {
+      journal.recordPatches(state, { patches, inversePatches });
+      return;
+    }
+    journal.setState((draft) => {
+      applyWithMutative(draft, patches, { mutable: true });
+    });
+  };
+  unsubscribeCommit = onStoreCommit(store, recordCommit);
+
+  const recordExternalState = () => {
+    fallbackVersion += 1;
+    if (isTimeTraveling || suppressionDepth > 0) {
+      return;
+    }
+    const state = store.getPureState();
+    if (snapshotPast) {
+      recordSnapshotState(state);
+      return;
+    }
+    if (!isTravelCompatibleState(state)) {
+      switchToSnapshotCompatibility(state);
+      return;
+    }
+    const current = toSnapshot(state) as T;
+    const previous = journal.getState();
+    journal.setState((draft) => {
+      applySnapshot(draft as Record<PropertyKey, unknown>, current, previous);
+    });
+  };
+
+  const rebuildFallbackJournal = () => {
+    if (controlled || !store.patch) {
+      return;
+    }
+    const entries = journal.getHistoryEntries();
+    const position = journal.getPosition();
+    journal = travels.createTravels(toSnapshot(store.getPureState()) as T, {
+      autoArchive: true,
+      initialPatches: {
+        patches: entries.map((entry) => entry.patches),
+        inversePatches: entries.map((entry) => entry.inversePatches)
+      },
+      initialPosition: position,
+      maxHistory: limit,
+      warnOnUnsupportedState: false
+    }) as unknown as TravelJournal<T>;
+  };
+
+  const applyCompatibilitySnapshot = (snapshot: object, current: object) => {
+    const nextState = toSnapshot(store.getPureState());
+    applySnapshot(nextState as Record<PropertyKey, unknown>, snapshot, current);
+    if (baseApply && hasCircularReference(snapshot)) {
+      baseSetState(nextState as T, () => {
+        baseApply!(nextState as T);
+        return [];
+      });
+      return;
+    }
+    baseSetState(nextState as T, () =>
+      applyRootReplacementWithPatches(
+        store,
+        nextState as Record<PropertyKey, unknown>,
+        {
+          applyExactReplacement:
+            !store.share && baseApply
+              ? (replacementState) => baseApply!(replacementState)
+              : undefined
+        }
+      )
+    );
+  };
+
+  const move = (direction: 'back' | 'forward') => {
+    if (snapshotPast) {
+      const target =
+        direction === 'back' ? snapshotPast.pop() : snapshotFuture.pop();
+      if (!target) {
+        return false;
+      }
+      const current = snapshotCurrent ?? toSnapshot(store.getPureState());
+      if (direction === 'back') {
+        snapshotFuture.push(current);
+      } else {
+        pushSnapshotPast(current);
+      }
+      isTimeTraveling = true;
+      try {
+        applyCompatibilitySnapshot(target, current);
+        snapshotCurrent = toSnapshot(store.getPureState());
+      } catch (error) {
+        if (direction === 'back') {
+          snapshotFuture.pop();
+          snapshotPast.push(target);
+        } else {
+          snapshotPast.pop();
+          snapshotFuture.push(target);
+        }
+        throw error;
+      } finally {
+        fallbackVersion += 1;
+        isTimeTraveling = false;
+      }
+      return true;
+    }
+    const canMove =
+      direction === 'back' ? journal.canBack() : journal.canForward();
+    if (!canMove) {
+      return false;
+    }
+    isTimeTraveling = true;
+    try {
+      if (controlled) {
+        journal[direction]();
+        return true;
+      }
+      const entries = journal.getHistoryEntries();
+      const position = journal.getPosition();
+      const entry =
+        direction === 'back' ? entries[position - 1] : entries[position];
+      const transition =
+        direction === 'back'
+          ? {
+              patches: entry.inversePatches,
+              inversePatches: entry.patches
+            }
+          : entry;
+      replayStorePatches(store, transition, { setState: baseSetState });
+      try {
+        journal[direction]();
+      } catch (error) {
+        replayStorePatches(
+          store,
+          {
+            patches: transition.inversePatches,
+            inversePatches: transition.patches
+          },
+          { setState: baseSetState }
+        );
+        throw error;
+      }
+      rebuildFallbackJournal();
+      return true;
+    } finally {
+      fallbackVersion += 1;
+      isTimeTraveling = false;
+    }
+  };
+
+  const materialize = (
+    side: 'past' | 'future',
+    initialState: T = store.getPureState()
+  ) => {
+    const entries = journal.getHistoryEntries();
+    const position = journal.getPosition();
+    let state = initialState;
+    const snapshots: object[] = [];
+    if (side === 'past') {
+      for (let index = position - 1; index >= 0; index -= 1) {
+        state = applyWithMutative(state, entries[index].inversePatches) as T;
+        snapshots.push(toSnapshot(state));
+      }
+      snapshots.reverse();
+      return snapshots;
+    }
+    for (let index = position; index < entries.length; index += 1) {
+      state = applyWithMutative(state, entries[index].patches) as T;
+      snapshots.push(toSnapshot(state));
+    }
+    snapshots.reverse();
+    return snapshots;
+  };
+
+  const api: HistoryApi<T> = {
+    undo: () => move('back'),
+    redo: () => move('forward'),
+    clear: () => {
+      if (snapshotPast) {
+        snapshotPast.length = 0;
+        snapshotFuture.length = 0;
+        snapshotCurrent = toSnapshot(store.getPureState());
+        return;
+      }
+      journal.rebase();
+    },
+    canUndo: () => (snapshotPast ? snapshotPast.length > 0 : journal.canBack()),
+    canRedo: () =>
+      snapshotPast ? snapshotFuture.length > 0 : journal.canForward(),
+    getPast: () =>
+      snapshotPast ? cloneSnapshotList(snapshotPast) : materialize('past'),
+    getFuture: () =>
+      snapshotPast ? cloneSnapshotList(snapshotFuture) : materialize('future')
+  };
+
+  store.setState = (next, updater) => {
+    if (
+      typeof next === 'object' &&
+      next !== null &&
+      !isTravelCompatibleState(next)
+    ) {
+      beginSnapshotCompatibility();
+    }
+    isSetStateRecording = true;
+    let result: ReturnType<typeof baseSetState>;
+    try {
+      result = baseSetState(next, updater);
+    } finally {
+      isSetStateRecording = false;
+    }
+    if (snapshotPast && suppressionDepth === 0 && !isTimeTraveling) {
+      recordSnapshotState(store.getPureState());
+    }
+    return result;
+  };
+
+  const cancelReadySubscription = onStoreReady(store, () => {
+    baseApply = store.apply;
+    store.apply = (state, patches) => {
+      const shouldRecord =
+        !patches &&
+        !isSetStateRecording &&
+        !isTimeTraveling &&
+        suppressionDepth === 0;
+      baseApply!(state, patches);
+      if (shouldRecord) {
+        recordExternalState();
+      }
+    };
+    unsubscribeStore = store.subscribe(() => {
+      if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
+        return;
+      }
+      if (snapshotPast) {
+        recordSnapshotState(store.getPureState());
+        return;
+      }
+      const version = ++fallbackVersion;
+      scheduleMicrotask(() => {
+        if (version !== fallbackVersion) {
+          return;
+        }
+        recordExternalState();
+      });
+    });
+  });
+
+  const runWithoutRecording = <R>(callback: () => R): R => {
+    suppressionDepth += 1;
+    try {
+      return callback();
+    } finally {
+      suppressionDepth -= 1;
+      fallbackVersion += 1;
+      if (suppressionDepth === 0) {
+        if (snapshotPast) {
+          snapshotPast.length = 0;
+          snapshotFuture.length = 0;
+          snapshotCurrent = toSnapshot(store.getPureState());
+        } else {
+          resetJournal(store.getPureState());
+        }
+      }
+    }
+  };
+
+  return {
+    api,
+    runWithoutRecording,
+    destroy: () => {
+      cancelReadySubscription();
+      unsubscribeCommit?.();
+      unsubscribeCommit = undefined;
+      unsubscribeStore?.();
+      unsubscribeStore = undefined;
+      if (baseApply && store.apply !== baseApply) {
+        store.apply = baseApply;
+      }
+    }
+  };
+};
+
+/**
+ * Add undo/redo history to a Coaction store.
+ *
+ * JSON-compatible whole-store history is patch-based and delegated to
+ * Travels. `partialize` and non-JSON state retain the snapshot compatibility
+ * path until they can preserve their legacy semantics safely.
+ */
+export const history =
+  <T extends object>(options: HistoryOptions<T> = {}): Middleware<T> =>
+  (store: Store<T>) => {
+    if (options.partialize) {
+      return snapshotHistory(options)(store);
+    }
+    if (
+      typeof store.subscribe !== 'function' ||
+      typeof store.apply !== 'function' ||
+      typeof store.destroy !== 'function'
+    ) {
+      return snapshotHistory(options)(store);
+    }
+    if (store.share === 'client') {
+      throw new Error(
+        'history() is not supported in client store mode. Apply history() to the main shared store instead.'
+      );
+    }
+    const { limit = 100 } = options;
+    if (!Number.isInteger(limit) || limit < 0) {
+      throw new Error('history limit must be a non-negative integer.');
+    }
+    const middlewareSetState = store.setState;
+
+    let activeApi: HistoryApi<T> | undefined;
+    let patchHistoryDestroy: (() => void) | undefined;
+    let runWithoutRecording: (<R>(callback: () => R) => R) | undefined;
+    const api: HistoryApi<T> = {
+      undo: () => activeApi?.undo() ?? false,
+      redo: () => activeApi?.redo() ?? false,
+      clear: () => activeApi?.clear(),
+      canUndo: () => activeApi?.canUndo() ?? false,
+      canRedo: () => activeApi?.canRedo() ?? false,
+      getPast: () => activeApi?.getPast() ?? [],
+      getFuture: () => activeApi?.getFuture() ?? []
+    };
+    Object.assign(store, { history: api });
+
+    const suppressionRunner = <R>(callback: () => R): R =>
+      runWithoutRecording ? runWithoutRecording(callback) : callback();
+    Object.defineProperty(store, historySuppressionSymbol, {
+      configurable: true,
+      value: suppressionRunner
+    });
+
+    const cancelReady = onStoreReady(store, () => {
+      if (!isTravelCompatibleState(store.getPureState())) {
+        const metadataStore = store as unknown as Record<symbol, unknown>;
+        if (metadataStore[historySuppressionSymbol] === suppressionRunner) {
+          delete metadataStore[historySuppressionSymbol];
+        }
+        snapshotHistory(options)(store);
+        activeApi = (store as unknown as { history: HistoryApi<T> }).history;
+        Object.assign(store, { history: api });
+        return;
+      }
+      const patchHistory = createPatchHistory(store, limit, middlewareSetState);
+      activeApi = patchHistory.api;
+      patchHistoryDestroy = patchHistory.destroy;
+      runWithoutRecording = patchHistory.runWithoutRecording;
+    });
+
+    const baseDestroy = store.destroy;
+    let destroyed = false;
+    store.destroy = () => {
+      if (destroyed) {
+        return;
+      }
+      destroyed = true;
+      cancelReady();
+      patchHistoryDestroy?.();
+      patchHistoryDestroy = undefined;
+      const metadataStore = store as unknown as Record<symbol, unknown>;
+      if (metadataStore[historySuppressionSymbol] === suppressionRunner) {
+        delete metadataStore[historySuppressionSymbol];
+      }
+      baseDestroy();
+    };
     return store;
   };
