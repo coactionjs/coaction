@@ -1,5 +1,14 @@
 # @coaction/xstate
 
+## 3.1.0
+
+### Patch Changes
+
+- Aligned the XState adapter peer dependency with Coaction 3.1's authoritative
+  patch commit and replay pipeline.
+- Updated dependencies
+  - coaction@3.1.0
+
 ## 3.0.0
 
 ### Major Changes

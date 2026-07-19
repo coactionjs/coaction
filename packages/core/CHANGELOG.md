@@ -1,5 +1,26 @@
 # coaction
 
+## 3.1.0
+
+### Minor Changes
+
+- Added `onStoreCommit()`, `onStoreCommitPrepare()`, and
+  `replayStorePatches()` to `coaction/adapter`. External runtimes can now observe
+  authoritative patch pairs and replay navigation through Coaction's validation,
+  middleware, adapter, subscription, and transport pipeline.
+- Published commit events for direct root replacements and added
+  middleware-scoped patch replay so integrations can preserve their own
+  `setState` boundary.
+
+### Patch Changes
+
+- Shared store-readiness metadata across the root, local, shared, and adapter
+  entry bundles so mixed imports cannot miss ready callbacks.
+- Preserved circular, shared, and other non-tree local object graphs when
+  publishing replacement commits.
+- Skipped commit-prepare work for scalar transitions while retaining exact
+  replacement preparation for object graphs.
+
 ## 3.0.0
 
 ### Major Changes

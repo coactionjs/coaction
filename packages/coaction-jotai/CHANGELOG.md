@@ -1,5 +1,17 @@
 # @coaction/jotai
 
+## 3.1.0
+
+### Patch Changes
+
+- Added real-browser SharedWorker and Web Worker coverage for the Jotai binding,
+  validating cross-page atom synchronization, async client actions, and safe
+  remote error redaction.
+- Aligned the peer dependency with Coaction 3.1's authoritative patch commit and
+  replay pipeline.
+- Updated dependencies
+  - coaction@3.1.0
+
 ## 3.0.0
 
 ### Major Changes

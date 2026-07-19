@@ -1,5 +1,28 @@
 # @coaction/history
 
+## 3.1.0
+
+### Minor Changes
+
+- Replaced JSON-compatible snapshot timelines with the controlled journal in
+  Travels 2.1. Whole-store history now hands Coaction's authoritative patch pair
+  directly to `recordPatches()`, while partialized history derives one patch pair
+  over the tracked projection.
+- Added `getPatches()` for compact patch groups and cursor access. `getPast()`
+  and `getFuture()` now materialize compatibility snapshots only when requested.
+
+### Patch Changes
+
+- Required `travels@^2.1.0` and removed the Travels 2.0 replay fallback so every
+  supported installation uses the direct controlled-journal path.
+- Preserved snapshot compatibility for runtime-only state such as circular or
+  shared graphs, `Date`, sparse arrays, symbol keys, and custom prototypes,
+  including state that becomes non-JSON-compatible after recording begins.
+- Kept undo and redo inside Coaction's patch and middleware pipeline while
+  preserving the direct core apply fast path.
+- Updated dependencies
+  - coaction@3.1.0
+
 ## 3.0.0
 
 ### Major Changes

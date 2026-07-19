@@ -1,5 +1,14 @@
 # @coaction/persist
 
+## 3.1.0
+
+### Patch Changes
+
+- Aligned the persistence middleware peer dependency with Coaction 3.1's
+  authoritative patch pipeline.
+- Updated dependencies
+  - coaction@3.1.0
+
 ## 3.0.0
 
 ### Major Changes

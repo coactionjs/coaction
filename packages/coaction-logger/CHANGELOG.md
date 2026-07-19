@@ -1,5 +1,14 @@
 # @coaction/logger
 
+## 3.1.0
+
+### Patch Changes
+
+- Aligned the logger middleware peer dependency with Coaction 3.1's commit and
+  replay lifecycle.
+- Updated dependencies
+  - coaction@3.1.0
+
 ## 3.0.0
 
 ### Major Changes
