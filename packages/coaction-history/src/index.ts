@@ -8,7 +8,12 @@ import {
   type StoreCommit,
   type Store
 } from 'coaction/adapter';
-import { apply as applyWithMutative, type Draft, type Patches } from 'mutative';
+import {
+  apply as applyWithMutative,
+  create as createWithMutative,
+  type Draft,
+  type Patches
+} from 'mutative';
 import * as travels from 'travels';
 
 type Snapshot = Record<PropertyKey, unknown>;
@@ -471,7 +476,7 @@ type TravelJournal<T extends object> = {
   getState: () => T;
   rebase: () => void;
   recordPatches?: (state: T, entry: TravelEntry) => void;
-  setState: (updater: T | (() => T) | ((draft: Draft<T>) => void)) => void;
+  setState?: (updater: T | (() => T) | ((draft: Draft<T>) => void)) => void;
 };
 
 type ControlledJournalFactory = <T extends object>(
@@ -675,6 +680,31 @@ const createPatchHistory = <T extends object>(
     toHistoryState(store.getPureState())
   );
 
+  const recordDerivedState = (
+    current: object,
+    applyHistorySnapshot: typeof applySnapshot
+  ) => {
+    const previous = journal.getState();
+    if (isEqual(previous, current)) {
+      return;
+    }
+    const update = (draft: Draft<object>) => {
+      applyHistorySnapshot(
+        draft as Record<PropertyKey, unknown>,
+        current,
+        previous
+      );
+    };
+    if (journal.recordPatches) {
+      const [, patches, inversePatches] = createWithMutative(previous, update, {
+        enablePatches: true
+      }) as [object, Patches, Patches];
+      journal.recordPatches(current, { patches, inversePatches });
+      return;
+    }
+    journal.setState!(update);
+  };
+
   const resetJournal = (state: T) => {
     const next = createJournal(toHistoryState(state));
     controlled = next.controlled;
@@ -732,17 +762,7 @@ const createPatchHistory = <T extends object>(
       switchToSnapshotCompatibility(state);
       return;
     }
-    const previous = journal.getState();
-    if (isEqual(previous, current)) {
-      return;
-    }
-    journal.setState((draft) => {
-      applyPartialSnapshot(
-        draft as Record<PropertyKey, unknown>,
-        current,
-        previous
-      );
-    });
+    recordDerivedState(current, applyPartialSnapshot);
   };
   const recordCommit = ({ state, patches, inversePatches }: StoreCommit<T>) => {
     if (isTimeTraveling || suppressionDepth > 0) {
@@ -760,7 +780,7 @@ const createPatchHistory = <T extends object>(
       journal.recordPatches(state, { patches, inversePatches });
       return;
     }
-    journal.setState((draft) => {
+    journal.setState!((draft) => {
       applyWithMutative(draft, patches, { mutable: true });
     });
   };
@@ -801,10 +821,7 @@ const createPatchHistory = <T extends object>(
       return;
     }
     const current = toSnapshot(state);
-    const previous = journal.getState();
-    journal.setState((draft) => {
-      applySnapshot(draft as Record<PropertyKey, unknown>, current, previous);
-    });
+    recordDerivedState(current, applySnapshot);
   };
 
   const rebuildFallbackJournal = () => {
