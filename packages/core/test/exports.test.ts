@@ -41,3 +41,13 @@ test('local entry creates local stores and rejects shared options', () => {
     } as any)
   ).toThrow("Option 'transport' requires the coaction/shared entry point.");
 });
+
+test('adapter lifecycle observes stores created by a separate entry bundle', () => {
+  const store = local.create(() => ({ count: 0 }));
+  const ready = jest.fn();
+
+  adapter.onStoreReady(store, ready);
+
+  expect(ready).toHaveBeenCalledTimes(1);
+  store.destroy();
+});

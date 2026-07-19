@@ -34,35 +34,56 @@ export const failTransportInitialization = (
   throw error;
 };
 
-const readyStores = new WeakSet<Store<any>>();
-const readyCallbacks = new WeakMap<Store<any>, Set<() => void>>();
+type StoreReadyRuntime = {
+  callbacks: Set<() => void>;
+  ready: boolean;
+};
+
+const storeReadyRuntimeSymbol = Symbol.for('coaction.lifecycle.ready');
+
+const getStoreReadyRuntime = (store: Store<any>, create = false) => {
+  const target = store as unknown as Record<PropertyKey, unknown>;
+  const existing = target[storeReadyRuntimeSymbol] as
+    | StoreReadyRuntime
+    | undefined;
+  if (existing || !create) {
+    return existing;
+  }
+  const runtime: StoreReadyRuntime = {
+    callbacks: new Set(),
+    ready: false
+  };
+  Object.defineProperty(target, storeReadyRuntimeSymbol, {
+    configurable: true,
+    enumerable: true,
+    value: runtime,
+    writable: true
+  });
+  return runtime;
+};
 
 export const onStoreReady = <T extends CreateState>(
   store: Store<T>,
   callback: () => void
 ) => {
-  if (readyStores.has(store)) {
+  const runtime = getStoreReadyRuntime(store, true)!;
+  if (runtime.ready) {
     callback();
     return () => undefined;
   }
-  let callbacks = readyCallbacks.get(store);
-  if (!callbacks) {
-    callbacks = new Set();
-    readyCallbacks.set(store, callbacks);
-  }
-  callbacks.add(callback);
+  runtime.callbacks.add(callback);
   return () => {
-    callbacks?.delete(callback);
+    runtime.callbacks.delete(callback);
   };
 };
 
 export const markStoreReady = <T extends CreateState>(store: Store<T>) => {
-  readyStores.add(store);
-  const callbacks = readyCallbacks.get(store);
-  if (!callbacks) {
+  const runtime = getStoreReadyRuntime(store, true)!;
+  if (runtime.ready) {
     return;
   }
-  readyCallbacks.delete(store);
+  runtime.ready = true;
+  const callbacks = [...runtime.callbacks];
+  runtime.callbacks.clear();
   callbacks.forEach((callback) => callback());
-  callbacks.clear();
 };
