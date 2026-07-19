@@ -738,6 +738,39 @@ test('nested partialize preserves untracked sibling keys during undo and redo', 
   });
 });
 
+test('partialize excludes circular untracked state from the patch journal', () => {
+  const circular: Record<string, unknown> = { label: 'untracked' };
+  circular.self = circular;
+  const useStore = create(
+    (set) => ({
+      count: 0,
+      circular,
+      increment() {
+        set((draft) => {
+          draft.count += 1;
+        });
+      }
+    }),
+    {
+      middlewares: [
+        history({
+          partialize: (state) => ({ count: state.count })
+        })
+      ]
+    }
+  );
+  const api = (useStore as any).history;
+  const untrackedReference = useStore.getState().circular;
+
+  useStore.getState().increment();
+  expect(api.undo()).toBe(true);
+  expect(useStore.getState().count).toBe(0);
+  expect(useStore.getState().circular).toBe(untrackedReference);
+  expect(api.redo()).toBe(true);
+  expect(useStore.getState().count).toBe(1);
+  expect(useStore.getState().circular).toBe(untrackedReference);
+});
+
 test('partialize snapshots ignore unsafe prototype keys', () => {
   const useStore = create(
     (set) => ({
@@ -979,7 +1012,7 @@ test('snapshot only includes own enumerable properties', () => {
   expect(past.data.inherited).toBeUndefined();
 });
 
-test('patch updates avoid full-state snapshots and materialize getters lazily', () => {
+test('patch updates and lazy getters avoid full-state snapshots', () => {
   let getPureState: ReturnType<typeof jest.fn>;
   const trackPureStateReads = (store: any) => {
     getPureState = jest.fn(store.getPureState);
@@ -1010,5 +1043,5 @@ test('patch updates avoid full-state snapshots and materialize getters lazily', 
   expect(getPureState!).not.toHaveBeenCalled();
 
   expect(api.getPast().map((state: any) => state.count)).toEqual([0, 1]);
-  expect(getPureState!).toHaveBeenCalledTimes(1);
+  expect(getPureState!).not.toHaveBeenCalled();
 });

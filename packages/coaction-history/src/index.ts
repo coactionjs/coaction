@@ -591,7 +591,8 @@ const isTravelCompatiblePatches = (patches: Patches) => {
 const createPatchHistory = <T extends object>(
   store: Store<T>,
   limit: number,
-  baseSetState: Store<T>['setState']
+  baseSetState: Store<T>['setState'],
+  partialize?: (state: T) => object
 ): {
   api: HistoryApi<T>;
   destroy: () => void;
@@ -607,35 +608,57 @@ const createPatchHistory = <T extends object>(
   let snapshotPast: object[] | undefined;
   let snapshotFuture: object[] = [];
   let snapshotCurrent: object | undefined;
-  const createJournal = (initialState: T) => {
+  const toHistoryState = (state: T): object =>
+    partialize ? toSnapshot(partialize(state)) : state;
+  const toHistorySnapshot = (state: T): object =>
+    toSnapshot(partialize ? partialize(state) : state);
+  const applyPartialTransition = ({
+    state,
+    patches
+  }: TravelTransition<object>) => {
+    const nextState = applyWithMutative(state, patches) as object;
+    baseSetState((draft) => {
+      applyPartialSnapshot(
+        draft as Record<PropertyKey, unknown>,
+        nextState,
+        state
+      );
+    });
+    return toHistoryState(store.getPureState());
+  };
+  const createJournal = (initialState: object) => {
     if (controlledJournalFactory) {
       return {
         controlled: true,
         journal: controlledJournalFactory(initialState, {
-          apply: ({ patches, inversePatches }) =>
-            replayStorePatches(
-              store,
-              { patches, inversePatches },
-              { setState: baseSetState }
-            ),
+          apply: partialize
+            ? applyPartialTransition
+            : ({ patches, inversePatches }) =>
+                replayStorePatches(
+                  store,
+                  { patches, inversePatches },
+                  { setState: baseSetState }
+                ),
           maxHistory: limit,
           warnOnUnsupportedState: false
-        })
+        }) as TravelJournal<object>
       };
     }
     return {
       controlled: false,
-      journal: travels.createTravels(toSnapshot(initialState) as T, {
+      journal: travels.createTravels(toSnapshot(initialState), {
         autoArchive: true,
         maxHistory: limit,
         warnOnUnsupportedState: false
-      }) as unknown as TravelJournal<T>
+      }) as unknown as TravelJournal<object>
     };
   };
-  let { controlled, journal } = createJournal(store.getPureState());
+  let { controlled, journal } = createJournal(
+    toHistoryState(store.getPureState())
+  );
 
   const resetJournal = (state: T) => {
-    const next = createJournal(state);
+    const next = createJournal(toHistoryState(state));
     controlled = next.controlled;
     journal = next.journal;
   };
@@ -649,7 +672,7 @@ const createPatchHistory = <T extends object>(
     }
   };
   const recordSnapshotState = (state: T) => {
-    const current = toSnapshot(state);
+    const current = toHistorySnapshot(state);
     if (snapshotCurrent && !isEqual(snapshotCurrent, current)) {
       pushSnapshotPast(snapshotCurrent);
       snapshotFuture.length = 0;
@@ -670,6 +693,24 @@ const createPatchHistory = <T extends object>(
   const switchToSnapshotCompatibility = (state: T) => {
     beginSnapshotCompatibility();
     recordSnapshotState(state);
+  };
+  const recordProjectedState = (state: T) => {
+    const current = toHistorySnapshot(state);
+    if (!isTravelCompatibleState(current)) {
+      switchToSnapshotCompatibility(state);
+      return;
+    }
+    const previous = journal.getState();
+    if (isEqual(previous, current)) {
+      return;
+    }
+    journal.setState((draft) => {
+      applyPartialSnapshot(
+        draft as Record<PropertyKey, unknown>,
+        current,
+        previous
+      );
+    });
   };
   const recordCommit = ({ state, patches, inversePatches }: StoreCommit<T>) => {
     fallbackVersion += 1;
@@ -695,7 +736,9 @@ const createPatchHistory = <T extends object>(
       applyWithMutative(draft, patches, { mutable: true });
     });
   };
-  unsubscribeCommit = onStoreCommit(store, recordCommit);
+  if (!partialize) {
+    unsubscribeCommit = onStoreCommit(store, recordCommit);
+  }
 
   const recordExternalState = () => {
     fallbackVersion += 1;
@@ -707,11 +750,15 @@ const createPatchHistory = <T extends object>(
       recordSnapshotState(state);
       return;
     }
+    if (partialize) {
+      recordProjectedState(state);
+      return;
+    }
     if (!isTravelCompatibleState(state)) {
       switchToSnapshotCompatibility(state);
       return;
     }
-    const current = toSnapshot(state) as T;
+    const current = toSnapshot(state);
     const previous = journal.getState();
     journal.setState((draft) => {
       applySnapshot(draft as Record<PropertyKey, unknown>, current, previous);
@@ -724,7 +771,7 @@ const createPatchHistory = <T extends object>(
     }
     const entries = journal.getHistoryEntries();
     const position = journal.getPosition();
-    journal = travels.createTravels(toSnapshot(store.getPureState()) as T, {
+    journal = travels.createTravels(toHistoryState(store.getPureState()), {
       autoArchive: true,
       initialPatches: {
         patches: entries.map((entry) => entry.patches),
@@ -733,12 +780,19 @@ const createPatchHistory = <T extends object>(
       initialPosition: position,
       maxHistory: limit,
       warnOnUnsupportedState: false
-    }) as unknown as TravelJournal<T>;
+    }) as unknown as TravelJournal<object>;
   };
 
   const applyCompatibilitySnapshot = (snapshot: object, current: object) => {
     const nextState = toSnapshot(store.getPureState());
-    applySnapshot(nextState as Record<PropertyKey, unknown>, snapshot, current);
+    const applyHistorySnapshot = partialize
+      ? applyPartialSnapshot
+      : applySnapshot;
+    applyHistorySnapshot(
+      nextState as Record<PropertyKey, unknown>,
+      snapshot,
+      current
+    );
     if (baseApply && hasCircularReference(snapshot)) {
       baseSetState(nextState as T, () => {
         baseApply!(nextState as T);
@@ -767,7 +821,8 @@ const createPatchHistory = <T extends object>(
       if (!target) {
         return false;
       }
-      const current = snapshotCurrent ?? toSnapshot(store.getPureState());
+      const current =
+        snapshotCurrent ?? toHistorySnapshot(store.getPureState());
       if (direction === 'back') {
         snapshotFuture.push(current);
       } else {
@@ -776,7 +831,7 @@ const createPatchHistory = <T extends object>(
       isTimeTraveling = true;
       try {
         applyCompatibilitySnapshot(target, current);
-        snapshotCurrent = toSnapshot(store.getPureState());
+        snapshotCurrent = toHistorySnapshot(store.getPureState());
       } catch (error) {
         if (direction === 'back') {
           snapshotFuture.pop();
@@ -814,18 +869,45 @@ const createPatchHistory = <T extends object>(
               inversePatches: entry.patches
             }
           : entry;
-      replayStorePatches(store, transition, { setState: baseSetState });
+      let partialRollback: { current: object; applied: object } | undefined;
+      if (partialize) {
+        const current = journal.getState();
+        const nextState = applyWithMutative(
+          current,
+          transition.patches
+        ) as object;
+        baseSetState((draft) => {
+          applyPartialSnapshot(
+            draft as Record<PropertyKey, unknown>,
+            nextState,
+            current
+          );
+        });
+        partialRollback = { current, applied: nextState };
+      } else {
+        replayStorePatches(store, transition, { setState: baseSetState });
+      }
       try {
         journal[direction]();
       } catch (error) {
-        replayStorePatches(
-          store,
-          {
-            patches: transition.inversePatches,
-            inversePatches: transition.patches
-          },
-          { setState: baseSetState }
-        );
+        if (partialRollback) {
+          baseSetState((draft) => {
+            applyPartialSnapshot(
+              draft as Record<PropertyKey, unknown>,
+              partialRollback.current,
+              partialRollback.applied
+            );
+          });
+        } else {
+          replayStorePatches(
+            store,
+            {
+              patches: transition.inversePatches,
+              inversePatches: transition.patches
+            },
+            { setState: baseSetState }
+          );
+        }
         throw error;
       }
       rebuildFallbackJournal();
@@ -838,7 +920,7 @@ const createPatchHistory = <T extends object>(
 
   const materialize = (
     side: 'past' | 'future',
-    initialState: T = store.getPureState()
+    initialState: object = journal.getState()
   ) => {
     const entries = journal.getHistoryEntries();
     const position = journal.getPosition();
@@ -846,14 +928,14 @@ const createPatchHistory = <T extends object>(
     const snapshots: object[] = [];
     if (side === 'past') {
       for (let index = position - 1; index >= 0; index -= 1) {
-        state = applyWithMutative(state, entries[index].inversePatches) as T;
+        state = applyWithMutative(state, entries[index].inversePatches);
         snapshots.push(toSnapshot(state));
       }
       snapshots.reverse();
       return snapshots;
     }
     for (let index = position; index < entries.length; index += 1) {
-      state = applyWithMutative(state, entries[index].patches) as T;
+      state = applyWithMutative(state, entries[index].patches);
       snapshots.push(toSnapshot(state));
     }
     snapshots.reverse();
@@ -867,7 +949,7 @@ const createPatchHistory = <T extends object>(
       if (snapshotPast) {
         snapshotPast.length = 0;
         snapshotFuture.length = 0;
-        snapshotCurrent = toSnapshot(store.getPureState());
+        snapshotCurrent = toHistorySnapshot(store.getPureState());
         return;
       }
       journal.rebase();
@@ -883,6 +965,7 @@ const createPatchHistory = <T extends object>(
 
   store.setState = (next, updater) => {
     if (
+      !partialize &&
       typeof next === 'object' &&
       next !== null &&
       !isTravelCompatibleState(next)
@@ -896,8 +979,12 @@ const createPatchHistory = <T extends object>(
     } finally {
       isSetStateRecording = false;
     }
-    if (snapshotPast && suppressionDepth === 0 && !isTimeTraveling) {
-      recordSnapshotState(store.getPureState());
+    if (suppressionDepth === 0 && !isTimeTraveling) {
+      if (snapshotPast) {
+        recordSnapshotState(store.getPureState());
+      } else if (partialize) {
+        recordProjectedState(store.getPureState());
+      }
     }
     return result;
   };
@@ -923,6 +1010,10 @@ const createPatchHistory = <T extends object>(
         recordSnapshotState(store.getPureState());
         return;
       }
+      if (partialize) {
+        recordExternalState();
+        return;
+      }
       const version = ++fallbackVersion;
       scheduleMicrotask(() => {
         if (version !== fallbackVersion) {
@@ -944,7 +1035,7 @@ const createPatchHistory = <T extends object>(
         if (snapshotPast) {
           snapshotPast.length = 0;
           snapshotFuture.length = 0;
-          snapshotCurrent = toSnapshot(store.getPureState());
+          snapshotCurrent = toHistorySnapshot(store.getPureState());
         } else {
           resetJournal(store.getPureState());
         }
@@ -971,16 +1062,13 @@ const createPatchHistory = <T extends object>(
 /**
  * Add undo/redo history to a Coaction store.
  *
- * JSON-compatible whole-store history is patch-based and delegated to
- * Travels. `partialize` and non-JSON state retain the snapshot compatibility
- * path until they can preserve their legacy semantics safely.
+ * JSON-compatible whole-store and partialized history are patch-based and
+ * delegated to Travels. Non-JSON state retains the snapshot compatibility path
+ * so legacy reference semantics remain intact.
  */
 export const history =
   <T extends object>(options: HistoryOptions<T> = {}): Middleware<T> =>
   (store: Store<T>) => {
-    if (options.partialize) {
-      return snapshotHistory(options)(store);
-    }
     if (
       typeof store.subscribe !== 'function' ||
       typeof store.apply !== 'function' ||
@@ -1021,7 +1109,10 @@ export const history =
     });
 
     const cancelReady = onStoreReady(store, () => {
-      if (!isTravelCompatibleState(store.getPureState())) {
+      const initialHistoryState = options.partialize
+        ? toSnapshot(options.partialize(store.getPureState()))
+        : store.getPureState();
+      if (!isTravelCompatibleState(initialHistoryState)) {
         const metadataStore = store as unknown as Record<symbol, unknown>;
         if (metadataStore[historySuppressionSymbol] === suppressionRunner) {
           delete metadataStore[historySuppressionSymbol];
@@ -1031,7 +1122,12 @@ export const history =
         Object.assign(store, { history: api });
         return;
       }
-      const patchHistory = createPatchHistory(store, limit, middlewareSetState);
+      const patchHistory = createPatchHistory(
+        store,
+        limit,
+        middlewareSetState,
+        options.partialize
+      );
       activeApi = patchHistory.api;
       patchHistoryDestroy = patchHistory.destroy;
       runWithoutRecording = patchHistory.runWithoutRecording;
