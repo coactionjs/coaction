@@ -41,7 +41,10 @@ export const handleState = <T extends CreateState>(
 ): {
   setState: Store['setState'];
   getState: Store['getState'];
-  replayPatches: (transition: StorePatchTransition) => T;
+  replayPatches: (
+    transition: StorePatchTransition,
+    setState?: Store<T>['setState']
+  ) => T;
 } => {
   let defaultResultValidated = false;
   let pendingCommitSource: StoreCommitSource | undefined;
@@ -368,11 +371,14 @@ export const handleState = <T extends CreateState>(
     }
     return result;
   };
-  const replayPatches = ({ patches, inversePatches }: StorePatchTransition) => {
+  const replayPatches = (
+    { patches, inversePatches }: StorePatchTransition,
+    replaySetState: Store<T>['setState'] = setState
+  ) => {
     const previousSource = pendingCommitSource;
     pendingCommitSource = 'replay';
     try {
-      setState(internal.rootState as T, () => {
+      replaySetState(internal.rootState as T, () => {
         const inputPatches = patches.map((patch) => ({
           ...patch,
           path: Array.isArray(patch.path) ? [...patch.path] : patch.path

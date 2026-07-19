@@ -24,12 +24,18 @@ export type StorePatchTransition = {
   readonly inversePatches: Patches;
 };
 
+export type StorePatchReplayOptions<T extends CreateState = CreateState> = {
+  /** Middleware-scoped setState entry that should observe the replay. */
+  setState?: Store<T>['setState'];
+};
+
 type StoreCommitListener<T extends CreateState> = (
   commit: StoreCommit<T>
 ) => void;
 
 type StorePatchReplayer<T extends CreateState> = (
-  transition: StorePatchTransition
+  transition: StorePatchTransition,
+  setState?: Store<T>['setState']
 ) => T;
 
 type StoreCommitRuntime = {
@@ -93,7 +99,8 @@ export const onStoreCommit = <T extends CreateState>(
  */
 export const replayStorePatches = <T extends CreateState>(
   store: Store<T>,
-  transition: StorePatchTransition
+  transition: StorePatchTransition,
+  options: StorePatchReplayOptions<T> = {}
 ): T => {
   const runtime = getStoreCommitRuntime(store);
   const replay = runtime?.disposed ? undefined : runtime?.replay;
@@ -102,7 +109,7 @@ export const replayStorePatches = <T extends CreateState>(
       'replayStorePatches() requires a store created by Coaction.'
     );
   }
-  return replay(transition);
+  return replay(transition, options.setState);
 };
 
 /** @internal */

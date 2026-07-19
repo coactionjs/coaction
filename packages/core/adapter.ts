@@ -17,6 +17,7 @@ export { onStoreCommit, replayStorePatches } from './src/storeCommit';
 export type {
   StoreCommit,
   StoreCommitSource,
+  StorePatchReplayOptions,
   StorePatchTransition
 } from './src/storeCommit';
 export {

@@ -105,6 +105,30 @@ test('replays patches through middleware and publishes the committed result', ()
   });
 });
 
+test('replay can enter through a middleware-scoped setState wrapper', () => {
+  const commits: StoreCommit<Counter>[] = [];
+  const observe: Middleware<Counter> = (store) => {
+    onStoreCommit(store, (commit) => commits.push(commit));
+    return store;
+  };
+  const store = createCounter([observe]);
+  store.getState().increment();
+  const increment = commits[0];
+  const scopedSetState = jest.fn(store.setState);
+
+  replayStorePatches(
+    store,
+    {
+      patches: increment.inversePatches,
+      inversePatches: increment.patches
+    },
+    { setState: scopedSetState }
+  );
+
+  expect(scopedSetState).toHaveBeenCalledTimes(1);
+  expect(store.getState().count).toBe(0);
+});
+
 test('replay does not expose retained patch objects to patch middleware', () => {
   let replaying = false;
   const patchMiddleware: Middleware<Counter> = (store) => {
