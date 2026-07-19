@@ -4,7 +4,14 @@
 
 [English documentation](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
 
-A undo/redo middleware for Coaction.
+Patch-based undo/redo middleware for Coaction, powered by
+[Travels](https://github.com/mutativejs/travels).
+
+For JSON-compatible state, Coaction generates each patch pair once and hands it
+directly to a Travels timeline. History recording is proportional to the change
+instead of the whole store. Legacy snapshot behavior is retained only as a
+compatibility fallback for values such as cyclic graphs, `Date`, sparse arrays,
+symbol keys, and custom prototypes.
 
 ## Installation
 
@@ -18,9 +25,14 @@ pnpm add coaction @coaction/history
 
 ```ts
 import { create } from 'coaction';
-import { history } from '@coaction/history';
+import { history, type HistoryApi } from '@coaction/history';
 
-const store = create(
+type Counter = {
+  count: number;
+  increment: () => void;
+};
+
+const store = create<Counter>(
   (set) => ({
     count: 0,
     increment() {
@@ -35,8 +47,75 @@ const store = create(
 );
 
 store.getState().increment();
-(store as any).history.undo();
+const timeline = (store as typeof store & { history: HistoryApi<Counter> })
+  .history;
+
+timeline.undo();
+timeline.redo();
 ```
+
+## API
+
+| Method         | Description                                                                                        |
+| -------------- | -------------------------------------------------------------------------------------------------- |
+| `undo()`       | Moves back one entry and returns whether the cursor moved.                                         |
+| `redo()`       | Moves forward one entry and returns whether the cursor moved.                                      |
+| `canUndo()`    | Reports whether an undo entry is available.                                                        |
+| `canRedo()`    | Reports whether a redo entry is available.                                                         |
+| `clear()`      | Rebases the timeline at the current state.                                                         |
+| `getPast()`    | Reconstructs and returns detached past snapshots for compatibility.                                |
+| `getFuture()`  | Reconstructs and returns detached future snapshots for compatibility.                              |
+| `getPatches()` | Returns the Travels-backed patch groups and cursor, or `undefined` in snapshot compatibility mode. |
+
+`getPast()` and `getFuture()` materialize snapshots lazily. Keep them out of
+render and update hot paths when only `canUndo()` or `canRedo()` is needed.
+
+`getPatches()` exposes the compact durable shape without reconstructing every
+state:
+
+```ts
+const patches = timeline.getPatches();
+
+if (patches) {
+  const payload = {
+    state: store.getPureState(),
+    ...patches
+  };
+  localStorage.setItem('counter-history', JSON.stringify(payload));
+}
+```
+
+The returned patch arrays are detached from the internal timeline. The shape is
+`{ patches, inversePatches, position }`, where both patch fields contain one
+group per history entry.
+
+## Partial history
+
+Use `partialize` to track a JSON-compatible projection while leaving other
+state untouched:
+
+```ts
+history<Counter>({
+  limit: 50,
+  partialize: (state) => ({ count: state.count })
+});
+```
+
+Travels stores patches over the projected state. Undo and redo apply only those
+projected fields through Coaction's normal middleware and subscription pipeline.
+Untracked state can contain runtime-only or cyclic values without forcing the
+tracked projection into snapshot mode.
+
+## Compatibility behavior
+
+- JSON-compatible whole-store and partialized histories use Travels patches.
+- If tracked state becomes non-JSON-compatible, the existing timeline is
+  materialized once and recording continues with legacy snapshots.
+- In snapshot compatibility mode, `getPatches()` returns `undefined` while the
+  other history methods keep their previous behavior.
+- Install history on the authoritative main store. Client mirror stores reject
+  local history because it would diverge from their authority.
+- `limit` defaults to `100` and must be a non-negative integer.
 
 ## Documentation
 
