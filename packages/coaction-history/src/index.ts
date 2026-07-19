@@ -14,9 +14,17 @@ import {
   type Draft,
   type Patches
 } from 'mutative';
-import * as travels from 'travels';
+import {
+  createTravelJournal,
+  type TravelJournal,
+  type TravelsControlledTransition
+} from 'travels';
 
 type Snapshot = Record<PropertyKey, unknown>;
+// Coaction patch middleware may emit either supported Mutative path format.
+// The controlled journal retains and returns those external patches unchanged.
+type CoactionPatchOptions = any;
+type CoactionTravelJournal = TravelJournal<object, false, CoactionPatchOptions>;
 
 const historySuppressionSymbol = Symbol.for('coaction.history.suppress');
 
@@ -457,43 +465,6 @@ const snapshotHistory =
     return store;
   };
 
-type TravelEntry = {
-  patches: Patches;
-  inversePatches: Patches;
-};
-
-type TravelTransition<T extends object> = TravelEntry & {
-  state: T;
-};
-
-type TravelJournal<T extends object> = {
-  back: () => void;
-  forward: () => void;
-  canBack: () => boolean;
-  canForward: () => boolean;
-  getHistoryEntries: () => TravelEntry[];
-  getPosition: () => number;
-  getState: () => T;
-  rebase: () => void;
-  recordPatches?: (state: T, entry: TravelEntry) => void;
-  setState?: (updater: T | (() => T) | ((draft: Draft<T>) => void)) => void;
-};
-
-type ControlledJournalFactory = <T extends object>(
-  initialState: T,
-  options: {
-    apply: (transition: TravelTransition<T>) => T;
-    maxHistory: number;
-    warnOnUnsupportedState: boolean;
-  }
-) => TravelJournal<T>;
-
-const controlledJournalFactory = (
-  travels as typeof travels & {
-    createTravelJournal?: ControlledJournalFactory;
-  }
-).createTravelJournal;
-
 const isDenseArrayIndex = (key: PropertyKey, length: number) => {
   if (typeof key !== 'string') {
     return false;
@@ -638,7 +609,7 @@ const createPatchHistory = <T extends object>(
   const applyPartialTransition = ({
     state,
     patches
-  }: TravelTransition<object>) => {
+  }: TravelsControlledTransition<object, CoactionPatchOptions>) => {
     const nextState = applyWithMutative(state, patches) as object;
     baseSetState((draft) => {
       applyPartialSnapshot(
@@ -649,36 +620,20 @@ const createPatchHistory = <T extends object>(
     });
     return toHistoryState(store.getPureState());
   };
-  const createJournal = (initialState: object) => {
-    if (controlledJournalFactory) {
-      return {
-        controlled: true,
-        journal: controlledJournalFactory(initialState, {
-          apply: partialize
-            ? applyPartialTransition
-            : ({ patches, inversePatches }) =>
-                replayStorePatches(
-                  store,
-                  { patches, inversePatches },
-                  { setState: baseSetState }
-                ),
-          maxHistory: limit,
-          warnOnUnsupportedState: false
-        }) as TravelJournal<object>
-      };
-    }
-    return {
-      controlled: false,
-      journal: travels.createTravels(toSnapshot(initialState), {
-        autoArchive: true,
-        maxHistory: limit,
-        warnOnUnsupportedState: false
-      }) as unknown as TravelJournal<object>
-    };
-  };
-  let { controlled, journal } = createJournal(
-    toHistoryState(store.getPureState())
-  );
+  const createJournal = (initialState: object): CoactionTravelJournal =>
+    createTravelJournal<object, false, CoactionPatchOptions>(initialState, {
+      apply: partialize
+        ? applyPartialTransition
+        : ({ patches, inversePatches }) =>
+            replayStorePatches(
+              store,
+              { patches, inversePatches },
+              { setState: baseSetState }
+            ),
+      maxHistory: limit,
+      warnOnUnsupportedState: false
+    });
+  let journal = createJournal(toHistoryState(store.getPureState()));
 
   const recordDerivedState = (
     current: object,
@@ -695,20 +650,14 @@ const createPatchHistory = <T extends object>(
         previous
       );
     };
-    if (journal.recordPatches) {
-      const [, patches, inversePatches] = createWithMutative(previous, update, {
-        enablePatches: true
-      }) as [object, Patches, Patches];
-      journal.recordPatches(current, { patches, inversePatches });
-      return;
-    }
-    journal.setState!(update);
+    const [, patches, inversePatches] = createWithMutative(previous, update, {
+      enablePatches: true
+    }) as [object, Patches, Patches];
+    journal.recordPatches(current, { patches, inversePatches });
   };
 
   const resetJournal = (state: T) => {
-    const next = createJournal(toHistoryState(state));
-    controlled = next.controlled;
-    journal = next.journal;
+    journal = createJournal(toHistoryState(state));
   };
   const pushSnapshotPast = (snapshot: object) => {
     if (!snapshotPast) {
@@ -776,13 +725,7 @@ const createPatchHistory = <T extends object>(
       switchToSnapshotCompatibility(state);
       return;
     }
-    if (journal.recordPatches) {
-      journal.recordPatches(state, { patches, inversePatches });
-      return;
-    }
-    journal.setState!((draft) => {
-      applyWithMutative(draft, patches, { mutable: true });
-    });
+    journal.recordPatches(state, { patches, inversePatches });
   };
   if (!partialize) {
     unsubscribeCommit = onStoreCommit(store, recordCommit);
@@ -822,24 +765,6 @@ const createPatchHistory = <T extends object>(
     }
     const current = toSnapshot(state);
     recordDerivedState(current, applySnapshot);
-  };
-
-  const rebuildFallbackJournal = () => {
-    if (controlled || !store.patch) {
-      return;
-    }
-    const entries = journal.getHistoryEntries();
-    const position = journal.getPosition();
-    journal = travels.createTravels(toHistoryState(store.getPureState()), {
-      autoArchive: true,
-      initialPatches: {
-        patches: entries.map((entry) => entry.patches),
-        inversePatches: entries.map((entry) => entry.inversePatches)
-      },
-      initialPosition: position,
-      maxHistory: limit,
-      warnOnUnsupportedState: false
-    }) as unknown as TravelJournal<object>;
   };
 
   const applyCompatibilitySnapshot = (snapshot: object, current: object) => {
@@ -912,63 +837,7 @@ const createPatchHistory = <T extends object>(
     }
     isTimeTraveling = true;
     try {
-      if (controlled) {
-        journal[direction]();
-        return true;
-      }
-      const entries = journal.getHistoryEntries();
-      const position = journal.getPosition();
-      const entry =
-        direction === 'back' ? entries[position - 1] : entries[position];
-      const transition =
-        direction === 'back'
-          ? {
-              patches: entry.inversePatches,
-              inversePatches: entry.patches
-            }
-          : entry;
-      let partialRollback: { current: object; applied: object } | undefined;
-      if (partialize) {
-        const current = journal.getState();
-        const nextState = applyWithMutative(
-          current,
-          transition.patches
-        ) as object;
-        baseSetState((draft) => {
-          applyPartialSnapshot(
-            draft as Record<PropertyKey, unknown>,
-            nextState,
-            current
-          );
-        });
-        partialRollback = { current, applied: nextState };
-      } else {
-        replayStorePatches(store, transition, { setState: baseSetState });
-      }
-      try {
-        journal[direction]();
-      } catch (error) {
-        if (partialRollback) {
-          baseSetState((draft) => {
-            applyPartialSnapshot(
-              draft as Record<PropertyKey, unknown>,
-              partialRollback.current,
-              partialRollback.applied
-            );
-          });
-        } else {
-          replayStorePatches(
-            store,
-            {
-              patches: transition.inversePatches,
-              inversePatches: transition.patches
-            },
-            { setState: baseSetState }
-          );
-        }
-        throw error;
-      }
-      rebuildFallbackJournal();
+      journal[direction]();
       return true;
     } finally {
       isTimeTraveling = false;
