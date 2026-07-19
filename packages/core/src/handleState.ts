@@ -142,6 +142,9 @@ export const handleState = <T extends CreateState>(
     );
     if (
       producedState &&
+      safePatches.some(
+        (patch) => typeof patch.value === 'object' && patch.value !== null
+      ) &&
       prepareStoreCommit(store, {
         state: producedState,
         patches: safePatches,

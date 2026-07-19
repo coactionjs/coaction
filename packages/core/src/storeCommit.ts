@@ -101,7 +101,7 @@ export const onStoreCommit = <T extends CreateState>(
 };
 
 /**
- * Inspect a pending commit before its patch pair is applied.
+ * Inspect a pending object-valued commit before its patch pair is applied.
  *
  * @remarks
  * Return `true` to request an exact state replacement for transitions whose
@@ -175,7 +175,7 @@ export const prepareStoreCommit = <T extends CreateState>(
     return false;
   }
   let replace = false;
-  for (const listener of [...runtime.prepareListeners]) {
+  for (const listener of runtime.prepareListeners) {
     replace = listener(commit) === true || replace;
   }
   return replace;
