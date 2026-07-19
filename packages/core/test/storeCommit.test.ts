@@ -73,6 +73,27 @@ test('commit observer cleanup is idempotent', () => {
   expect(listener).not.toHaveBeenCalled();
 });
 
+test('direct root replacements publish patch pairs without wrapping apply', () => {
+  const commits: StoreCommit<Counter>[] = [];
+  const observe: Middleware<Counter> = (store) => {
+    onStoreCommit(store, (commit) => commits.push(commit));
+    return store;
+  };
+  const store = createCounter([observe]);
+  const originalApply = store.apply;
+
+  store.apply({ count: 5 } as Counter);
+
+  expect(store.apply).toBe(originalApply);
+  expect(store.getState().count).toBe(5);
+  expect(commits).toHaveLength(1);
+  expect(commits[0]).toMatchObject({
+    source: 'external',
+    patches: [{ op: 'replace', path: ['count'], value: 5 }],
+    inversePatches: [{ op: 'replace', path: ['count'], value: 0 }]
+  });
+});
+
 test('replays patches through middleware and publishes the committed result', () => {
   const commits: StoreCommit<Counter>[] = [];
   const patch = jest.fn((transition: any) => transition);

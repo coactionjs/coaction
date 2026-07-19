@@ -18,13 +18,17 @@ import type {
 import type { Internal } from './internal';
 import {
   disposeStoreCommitRuntime,
+  hasStoreCommitListeners,
+  publishStoreCommit,
   registerStorePatchReplayer
 } from './storeCommit';
 import {
   assertKnownStateShape,
   assertSafePatches,
+  createRootReplacementPatches,
   createStateSchema,
   getOwnEnumerableKeys,
+  sanitizeCheckedPatches,
   sanitizePatches,
   sanitizeReplacementState
 } from './utils';
@@ -192,7 +196,37 @@ export const createStore = <T extends CreateState>(
     const apply: Store<T>['apply'] = (
       state = internal.rootState as T,
       patches
-    ) => applyState(state, patches);
+    ) => {
+      const observeReplacement =
+        patches === undefined && hasStoreCommitListeners(store);
+      const previousState = internal.rootState as T;
+      applyState(state, patches);
+      if (!observeReplacement) {
+        return;
+      }
+      const replacement = createRootReplacementPatches(
+        previousState as Record<PropertyKey, unknown>,
+        internal.rootState as Record<PropertyKey, unknown>
+      );
+      const safePatches = sanitizeCheckedPatches(
+        replacement.patches as Patches,
+        'store.apply() replacement'
+      );
+      const safeInversePatches = sanitizeCheckedPatches(
+        replacement.inversePatches as Patches,
+        'store.apply() replacement inverse patches'
+      );
+      if (!safePatches.length && !safeInversePatches.length) {
+        return;
+      }
+      internal.emitPatches?.(safePatches);
+      publishStoreCommit(store, {
+        state: internal.rootState as T,
+        patches: safePatches,
+        inversePatches: safeInversePatches,
+        source: 'external'
+      });
+    };
     internal.applyValidatedPatches = (state, patches, skipFinalValidation) => {
       if (store.apply !== apply) {
         store.apply(state, patches);
