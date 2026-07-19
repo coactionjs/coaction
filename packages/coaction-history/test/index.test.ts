@@ -58,7 +58,7 @@ test('undo and redo', () => {
   expect(api.redo()).toBeFalsy();
 });
 
-test('records mutable adapter updates from final store subscription', () => {
+test('records mutable adapter updates from the core commit feed', () => {
   const useStore = create(
     () =>
       makeAutoObservable(

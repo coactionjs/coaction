@@ -488,14 +488,6 @@ const controlledJournalFactory = (
   }
 ).createTravelJournal;
 
-const scheduleMicrotask = (callback: () => void) => {
-  if (typeof queueMicrotask === 'function') {
-    queueMicrotask(callback);
-    return;
-  }
-  Promise.resolve().then(callback);
-};
-
 const isDenseArrayIndex = (key: PropertyKey, length: number) => {
   if (typeof key !== 'string') {
     return false;
@@ -609,7 +601,6 @@ const createPatchHistory = <T extends object>(
   let isTimeTraveling = false;
   let isSetStateRecording = false;
   let suppressionDepth = 0;
-  let fallbackVersion = 0;
   let unsubscribeStore: (() => void) | undefined;
   let unsubscribeCommit: (() => void) | undefined;
   let baseApply: Store<T>['apply'] | undefined;
@@ -721,7 +712,6 @@ const createPatchHistory = <T extends object>(
     });
   };
   const recordCommit = ({ state, patches, inversePatches }: StoreCommit<T>) => {
-    fallbackVersion += 1;
     if (isTimeTraveling || suppressionDepth > 0) {
       return;
     }
@@ -749,7 +739,6 @@ const createPatchHistory = <T extends object>(
   }
 
   const recordExternalState = () => {
-    fallbackVersion += 1;
     if (isTimeTraveling || suppressionDepth > 0) {
       return;
     }
@@ -850,7 +839,6 @@ const createPatchHistory = <T extends object>(
         }
         throw error;
       } finally {
-        fallbackVersion += 1;
         isTimeTraveling = false;
       }
       return true;
@@ -921,7 +909,6 @@ const createPatchHistory = <T extends object>(
       rebuildFallbackJournal();
       return true;
     } finally {
-      fallbackVersion += 1;
       isTimeTraveling = false;
     }
   };
@@ -1010,37 +997,14 @@ const createPatchHistory = <T extends object>(
 
   const cancelReadySubscription = onStoreReady(store, () => {
     baseApply = store.apply;
-    store.apply = (state, patches) => {
-      const shouldRecord =
-        !patches &&
-        !isSetStateRecording &&
-        !isTimeTraveling &&
-        suppressionDepth === 0;
-      baseApply!(state, patches);
-      if (shouldRecord) {
-        recordExternalState();
-      }
-    };
-    unsubscribeStore = store.subscribe(() => {
-      if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
-        return;
-      }
-      if (snapshotPast) {
-        recordSnapshotState(store.getPureState());
-        return;
-      }
-      if (partialize) {
-        recordExternalState();
-        return;
-      }
-      const version = ++fallbackVersion;
-      scheduleMicrotask(() => {
-        if (version !== fallbackVersion) {
+    if (partialize) {
+      unsubscribeStore = store.subscribe(() => {
+        if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
           return;
         }
         recordExternalState();
       });
-    });
+    }
   });
 
   const runWithoutRecording = <R>(callback: () => R): R => {
@@ -1049,7 +1013,6 @@ const createPatchHistory = <T extends object>(
       return callback();
     } finally {
       suppressionDepth -= 1;
-      fallbackVersion += 1;
       if (suppressionDepth === 0) {
         if (snapshotPast) {
           snapshotPast.length = 0;
@@ -1071,9 +1034,6 @@ const createPatchHistory = <T extends object>(
       unsubscribeCommit = undefined;
       unsubscribeStore?.();
       unsubscribeStore = undefined;
-      if (baseApply && store.apply !== baseApply) {
-        store.apply = baseApply;
-      }
     }
   };
 };
