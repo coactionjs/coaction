@@ -416,6 +416,7 @@ test('undo and redo preserve non-record object values', () => {
 
   useStore.getState().setStamp(after);
 
+  expect(api.getPatches()).toBeUndefined();
   expect(api.getPast()[0].stamp).toBe(before);
   expect(api.undo()).toBeTruthy();
   expect(useStore.getState().stamp).toBe(before);
@@ -1040,6 +1041,12 @@ test('patch updates and lazy getters avoid full-state snapshots', () => {
   useStore.getState().increment();
 
   expect(api.canUndo()).toBe(true);
+  expect(getPureState!).not.toHaveBeenCalled();
+
+  const patches = api.getPatches();
+  expect(patches.position).toBe(2);
+  expect(patches.patches).toHaveLength(2);
+  expect(patches.inversePatches).toHaveLength(2);
   expect(getPureState!).not.toHaveBeenCalled();
 
   expect(api.getPast().map((state: any) => state.count)).toEqual([0, 1]);

@@ -253,6 +253,12 @@ export type HistoryOptions<T extends object> = {
   partialize?: (state: T) => object;
 };
 
+export type HistoryPatches = {
+  patches: Patches[];
+  inversePatches: Patches[];
+  position: number;
+};
+
 export type HistoryApi<_T extends object> = {
   undo: () => boolean;
   redo: () => boolean;
@@ -261,6 +267,7 @@ export type HistoryApi<_T extends object> = {
   canRedo: () => boolean;
   getPast: () => object[];
   getFuture: () => object[];
+  getPatches: () => HistoryPatches | undefined;
 };
 
 const snapshotHistory =
@@ -413,7 +420,8 @@ const snapshotHistory =
       canUndo: () => past.length > 0,
       canRedo: () => future.length > 0,
       getPast: () => cloneSnapshotList(past),
-      getFuture: () => cloneSnapshotList(future)
+      getFuture: () => cloneSnapshotList(future),
+      getPatches: () => undefined
     };
     Object.assign(store, {
       history: api
@@ -960,7 +968,18 @@ const createPatchHistory = <T extends object>(
     getPast: () =>
       snapshotPast ? cloneSnapshotList(snapshotPast) : materialize('past'),
     getFuture: () =>
-      snapshotPast ? cloneSnapshotList(snapshotFuture) : materialize('future')
+      snapshotPast ? cloneSnapshotList(snapshotFuture) : materialize('future'),
+    getPatches: () => {
+      if (snapshotPast) {
+        return undefined;
+      }
+      const entries = journal.getHistoryEntries();
+      return {
+        patches: entries.map((entry) => entry.patches),
+        inversePatches: entries.map((entry) => entry.inversePatches),
+        position: journal.getPosition()
+      };
+    }
   };
 
   store.setState = (next, updater) => {
@@ -1097,7 +1116,8 @@ export const history =
       canUndo: () => activeApi?.canUndo() ?? false,
       canRedo: () => activeApi?.canRedo() ?? false,
       getPast: () => activeApi?.getPast() ?? [],
-      getFuture: () => activeApi?.getFuture() ?? []
+      getFuture: () => activeApi?.getFuture() ?? [],
+      getPatches: () => activeApi?.getPatches()
     };
     Object.assign(store, { history: api });
 
