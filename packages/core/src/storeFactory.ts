@@ -18,6 +18,7 @@ import type {
 import type { Internal } from './internal';
 import {
   disposeStoreCommitRuntime,
+  getStoreCommitSource,
   hasStoreCommitListeners,
   publishStoreCommit,
   registerStorePatchReplayer
@@ -224,7 +225,7 @@ export const createStore = <T extends CreateState>(
         state: internal.rootState as T,
         patches: safePatches,
         inversePatches: safeInversePatches,
-        source: 'external'
+        source: getStoreCommitSource(store, 'external')
       });
     };
     internal.applyValidatedPatches = (state, patches, skipFinalValidation) => {

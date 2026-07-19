@@ -33,6 +33,10 @@ type StoreCommitListener<T extends CreateState> = (
   commit: StoreCommit<T>
 ) => void;
 
+type StoreCommitPrepareListener<T extends CreateState> = (
+  commit: StoreCommit<T>
+) => boolean | void;
+
 type StorePatchReplayer<T extends CreateState> = (
   transition: StorePatchTransition,
   setState?: Store<T>['setState']
@@ -41,6 +45,8 @@ type StorePatchReplayer<T extends CreateState> = (
 type StoreCommitRuntime = {
   disposed: boolean;
   listeners: Set<StoreCommitListener<any>>;
+  prepareListeners: Set<StoreCommitPrepareListener<any>>;
+  source?: StoreCommitSource;
   replay?: StorePatchReplayer<any>;
 };
 
@@ -56,7 +62,8 @@ const getStoreCommitRuntime = (store: object, create = false) => {
   }
   const runtime: StoreCommitRuntime = {
     disposed: false,
-    listeners: new Set()
+    listeners: new Set(),
+    prepareListeners: new Set()
   };
   Object.defineProperty(target, storeCommitRuntimeSymbol, {
     configurable: true,
@@ -90,6 +97,34 @@ export const onStoreCommit = <T extends CreateState>(
     }
     active = false;
     runtime.listeners.delete(listener);
+  };
+};
+
+/**
+ * Inspect a pending commit before its patch pair is applied.
+ *
+ * @remarks
+ * Return `true` to request an exact state replacement for transitions whose
+ * object graph cannot be represented safely by the patch pair.
+ */
+export const onStoreCommitPrepare = <T extends CreateState>(
+  store: Store<T>,
+  listener: StoreCommitPrepareListener<T>
+) => {
+  const runtime = getStoreCommitRuntime(store, true)!;
+  if (runtime.disposed) {
+    throw new Error(
+      'onStoreCommitPrepare() cannot be called after store.destroy().'
+    );
+  }
+  runtime.prepareListeners.add(listener);
+  let active = true;
+  return () => {
+    if (!active) {
+      return;
+    }
+    active = false;
+    runtime.prepareListeners.delete(listener);
   };
 };
 
@@ -131,6 +166,44 @@ export const publishStoreCommit = <T extends CreateState>(
 };
 
 /** @internal */
+export const prepareStoreCommit = <T extends CreateState>(
+  store: Store<T>,
+  commit: StoreCommit<T>
+) => {
+  const runtime = getStoreCommitRuntime(store);
+  if (!runtime || runtime.disposed || !runtime.prepareListeners.size) {
+    return false;
+  }
+  let replace = false;
+  for (const listener of [...runtime.prepareListeners]) {
+    replace = listener(commit) === true || replace;
+  }
+  return replace;
+};
+
+/** @internal */
+export const getStoreCommitSource = (
+  store: object,
+  fallback: StoreCommitSource
+) => getStoreCommitRuntime(store)?.source ?? fallback;
+
+/** @internal */
+export const runWithStoreCommitSource = <T>(
+  store: object,
+  source: StoreCommitSource,
+  callback: () => T
+): T => {
+  const runtime = getStoreCommitRuntime(store, true)!;
+  const previousSource = runtime.source;
+  runtime.source = source;
+  try {
+    return callback();
+  } finally {
+    runtime.source = previousSource;
+  }
+};
+
+/** @internal */
 export const registerStorePatchReplayer = <T extends CreateState>(
   store: Store<T>,
   replay: StorePatchReplayer<T>
@@ -147,5 +220,7 @@ export const disposeStoreCommitRuntime = (store: object) => {
   }
   runtime.disposed = true;
   runtime.listeners.clear();
+  runtime.prepareListeners.clear();
+  runtime.source = undefined;
   runtime.replay = undefined;
 };

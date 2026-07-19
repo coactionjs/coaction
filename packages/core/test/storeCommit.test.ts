@@ -1,6 +1,7 @@
 import { create, type Middleware, type Store } from '../src';
 import {
   onStoreCommit,
+  onStoreCommitPrepare,
   replayStorePatches,
   type StoreCommit
 } from '../adapter';
@@ -92,6 +93,74 @@ test('direct root replacements publish patch pairs without wrapping apply', () =
     patches: [{ op: 'replace', path: ['count'], value: 5 }],
     inversePatches: [{ op: 'replace', path: ['count'], value: 0 }]
   });
+});
+
+test.each(['object', 'recipe'] as const)(
+  'commit observers preserve cyclic and shared references from %s updates',
+  (updateKind) => {
+    type GraphState = {
+      value: Record<string, unknown> | null;
+      setValue: (value: Record<string, unknown>) => void;
+    };
+    const commits: StoreCommit<GraphState>[] = [];
+    const observe: Middleware<GraphState> = (store) => {
+      onStoreCommit(store, (commit) => commits.push(commit));
+      onStoreCommitPrepare(store, () => true);
+      return store;
+    };
+    const store = create<GraphState>(
+      (set) => ({
+        value: null,
+        setValue(value) {
+          if (updateKind === 'object') {
+            set({ value });
+            return;
+          }
+          set((draft) => {
+            draft.value = value;
+          });
+        }
+      }),
+      { middlewares: [observe] }
+    );
+    const shared: Record<string, unknown> = { label: 'shared' };
+    const graph: Record<string, unknown> = {
+      left: shared,
+      right: shared
+    };
+    graph.self = graph;
+
+    expect(() => store.getState().setValue(graph)).not.toThrow();
+
+    const value = store.getPureState().value!;
+    expect(value.self).toBe(value);
+    expect(value.left).toBe(value.right);
+    expect(commits).toHaveLength(1);
+    expect(commits[0].source).toBe('setState');
+    expect(commits[0].state).toBe(store.getPureState());
+  }
+);
+
+test('replacement commit patches retain aliases across root values', () => {
+  type SharedState = {
+    left: Record<string, unknown> | null;
+    right: Record<string, unknown> | null;
+  };
+  const commits: StoreCommit<SharedState>[] = [];
+  const observe: Middleware<SharedState> = (store) => {
+    onStoreCommit(store, (commit) => commits.push(commit));
+    return store;
+  };
+  const store = create<SharedState>(() => ({ left: null, right: null }), {
+    middlewares: [observe]
+  });
+  const shared = { label: 'shared' };
+
+  store.apply({ left: shared, right: shared });
+
+  const values = commits[0].patches.map((patch) => patch.value);
+  expect(values).toHaveLength(2);
+  expect(values[0]).toBe(values[1]);
 });
 
 test('replays patches through middleware and publishes the committed result', () => {

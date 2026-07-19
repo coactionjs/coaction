@@ -96,13 +96,14 @@ export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
       options.source ?? 'patches'
     );
   }
+  const seen = new WeakMap<object, unknown>();
   return patches
     ?.filter((patch) => !hasUnsafePatchPath(patch.path))
     .map((patch) =>
       Object.prototype.hasOwnProperty.call(patch, 'value')
         ? {
             ...patch,
-            value: sanitizeReplacementState(patch.value)
+            value: sanitizeReplacementState(patch.value, seen)
           }
         : patch
     );

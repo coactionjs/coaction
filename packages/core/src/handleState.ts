@@ -29,7 +29,9 @@ import { handleDraft } from './handleDraft';
 import { Computed, refreshSignalSlots } from './computed';
 import {
   hasStoreCommitListeners,
+  prepareStoreCommit,
   publishStoreCommit,
+  runWithStoreCommitSource,
   type StoreCommitSource,
   type StorePatchTransition
 } from './storeCommit';
@@ -52,6 +54,7 @@ export const handleState = <T extends CreateState>(
     next
   ) => {
     defaultResultValidated = false;
+    let producedState: T | undefined;
     const merge = (_next = next) => {
       if (_next !== next) {
         internal.validateState?.(_next);
@@ -116,6 +119,7 @@ export const handleState = <T extends CreateState>(
         }
       );
       internal.validateState?.(internal.getTransportState?.() ?? result[0]);
+      producedState = result[0] as T;
       patches = result[1];
       inversePatches = result[2];
     } finally {
@@ -136,6 +140,21 @@ export const handleState = <T extends CreateState>(
       finalPatches.inversePatches,
       'store.patch() inverse patches'
     );
+    if (
+      producedState &&
+      prepareStoreCommit(store, {
+        state: producedState,
+        patches: safePatches,
+        inversePatches: safeInversePatches,
+        source: 'setState'
+      })
+    ) {
+      runWithStoreCommitSource(store, 'setState', () => {
+        store.apply(producedState);
+      });
+      defaultResultValidated = true;
+      return [];
+    }
     if (safePatches.length) {
       defaultResultValidated =
         internal.applyValidatedPatches?.(

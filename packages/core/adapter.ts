@@ -13,7 +13,11 @@ export { createReactiveTracker } from './src/reactiveTracker';
 export type { ReactiveTracker } from './src/reactiveTracker';
 export { onStoreReady } from './src/lifecycle';
 export { replaceExternalStoreState } from './src/replaceExternalStoreState';
-export { onStoreCommit, replayStorePatches } from './src/storeCommit';
+export {
+  onStoreCommit,
+  onStoreCommitPrepare,
+  replayStorePatches
+} from './src/storeCommit';
 export type {
   StoreCommit,
   StoreCommitSource,
