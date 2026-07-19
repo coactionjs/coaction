@@ -477,6 +477,107 @@ test('undo and redo preserve circular and shared root references', () => {
   });
 });
 
+test.each(['object', 'recipe'] as const)(
+  'actions switch dynamic cyclic %s updates to snapshot compatibility',
+  (updateKind) => {
+    type Graph = Record<string, unknown>;
+    const useStore = create(
+      (set) => ({
+        value: null as Graph | null,
+        setValue(value: Graph | null) {
+          if (updateKind === 'object') {
+            set({ value });
+            return;
+          }
+          set((draft) => {
+            draft.value = value;
+          });
+        }
+      }),
+      {
+        middlewares: [history()]
+      }
+    );
+    const api = (useStore as any).history;
+    const first: Graph = { label: 'first' };
+    first.self = first;
+    const second: Graph = { label: 'second' };
+    second.self = second;
+
+    expect(() => useStore.getState().setValue(first)).not.toThrow();
+    useStore.getState().setValue(second);
+
+    expect(api.getPatches()).toBeUndefined();
+    expect(api.undo()).toBeTruthy();
+    expect(useStore.getState().value!.self).toBe(useStore.getState().value);
+    expect(useStore.getState().value!.label).toBe('first');
+    expect(api.undo()).toBeTruthy();
+    expect(useStore.getState().value).toBeNull();
+    expect(api.redo()).toBeTruthy();
+    expect(useStore.getState().value!.self).toBe(useStore.getState().value);
+  }
+);
+
+test('dynamic cyclic actions leave the patch pipeline before application', () => {
+  const patch = vi.fn((options: any) => options);
+  const patchMiddleware = (store: any) => {
+    store.patch = patch;
+    return store;
+  };
+  const useStore = create(
+    (set) => ({
+      value: null as Record<string, unknown> | null,
+      setValue(value: Record<string, unknown>) {
+        set((draft) => {
+          draft.value = value;
+        });
+      }
+    }),
+    {
+      middlewares: [patchMiddleware, history()]
+    }
+  );
+  const api = (useStore as any).history;
+  const value: Record<string, unknown> = { label: 'cyclic' };
+  value.self = value;
+
+  expect(() => useStore.getState().setValue(value)).not.toThrow();
+
+  expect(patch).toHaveBeenCalledTimes(1);
+  expect(api.getPatches()).toBeUndefined();
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().value).toBeNull();
+});
+
+test('snapshot compatibility preserves aliases introduced across patch paths', () => {
+  const useStore = create(
+    (set) => ({
+      left: null as Record<string, unknown> | null,
+      right: null as Record<string, unknown> | null,
+      shareValue() {
+        const shared = { label: 'shared' };
+        set((draft) => {
+          draft.left = shared;
+          draft.right = shared;
+        });
+      }
+    }),
+    {
+      middlewares: [history()]
+    }
+  );
+  const api = (useStore as any).history;
+
+  useStore.getState().shareValue();
+
+  expect(useStore.getState().left).toBe(useStore.getState().right);
+  expect(api.getPatches()).toBeUndefined();
+  expect(api.undo()).toBeTruthy();
+  expect(useStore.getState().left).toBeNull();
+  expect(api.redo()).toBeTruthy();
+  expect(useStore.getState().left).toBe(useStore.getState().right);
+});
+
 test('partialized undo and redo replace non-record object values', () => {
   const before = new Date('2026-01-01T00:00:00.000Z');
   const after = new Date('2026-01-02T00:00:00.000Z');

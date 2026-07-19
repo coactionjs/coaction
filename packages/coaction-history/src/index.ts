@@ -1,6 +1,7 @@
 import {
   applyRootReplacementWithPatches,
   onStoreCommit,
+  onStoreCommitPrepare,
   onStoreReady,
   replayStorePatches,
   type Middleware,
@@ -588,6 +589,23 @@ const isTravelCompatiblePatches = (patches: Patches) => {
   return true;
 };
 
+const hasObjectPatchValue = (patches: Patches) =>
+  patches.some(
+    (patch) =>
+      Object.prototype.hasOwnProperty.call(patch, 'value') &&
+      typeof patch.value === 'object' &&
+      patch.value !== null
+  );
+
+const needsSnapshotCompatibility = (
+  state: object,
+  patches: Patches,
+  inversePatches: Patches
+) =>
+  !isTravelCompatiblePatches(patches) ||
+  !isTravelCompatiblePatches(inversePatches) ||
+  (hasObjectPatchValue(patches) && !isTravelCompatibleState(state));
+
 const createPatchHistory = <T extends object>(
   store: Store<T>,
   limit: number,
@@ -603,6 +621,7 @@ const createPatchHistory = <T extends object>(
   let suppressionDepth = 0;
   let unsubscribeStore: (() => void) | undefined;
   let unsubscribeCommit: (() => void) | undefined;
+  let unsubscribePrepare: (() => void) | undefined;
   let baseApply: Store<T>['apply'] | undefined;
   let snapshotPast: object[] | undefined;
   let snapshotFuture: object[] = [];
@@ -678,6 +697,17 @@ const createPatchHistory = <T extends object>(
     }
     snapshotCurrent = current;
   };
+  const subscribeSnapshotCompatibility = () => {
+    if (unsubscribeStore) {
+      return;
+    }
+    unsubscribeStore = store.subscribe(() => {
+      if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
+        return;
+      }
+      recordSnapshotState(store.getPureState());
+    });
+  };
   const beginSnapshotCompatibility = () => {
     if (snapshotPast) {
       return;
@@ -688,6 +718,9 @@ const createPatchHistory = <T extends object>(
     snapshotCurrent = toSnapshot(previous);
     unsubscribeCommit?.();
     unsubscribeCommit = undefined;
+    unsubscribePrepare?.();
+    unsubscribePrepare = undefined;
+    subscribeSnapshotCompatibility();
   };
   const switchToSnapshotCompatibility = (state: T) => {
     beginSnapshotCompatibility();
@@ -719,10 +752,7 @@ const createPatchHistory = <T extends object>(
       recordSnapshotState(state);
       return;
     }
-    if (
-      !isTravelCompatiblePatches(patches) ||
-      !isTravelCompatiblePatches(inversePatches)
-    ) {
+    if (needsSnapshotCompatibility(state, patches, inversePatches)) {
       switchToSnapshotCompatibility(state);
       return;
     }
@@ -736,6 +766,21 @@ const createPatchHistory = <T extends object>(
   };
   if (!partialize) {
     unsubscribeCommit = onStoreCommit(store, recordCommit);
+    unsubscribePrepare = onStoreCommitPrepare(
+      store,
+      ({ state, patches, inversePatches }) => {
+        if (
+          isTimeTraveling ||
+          suppressionDepth > 0 ||
+          snapshotPast ||
+          !needsSnapshotCompatibility(state, patches, inversePatches)
+        ) {
+          return false;
+        }
+        beginSnapshotCompatibility();
+        return true;
+      }
+    );
   }
 
   const recordExternalState = () => {
@@ -997,7 +1042,7 @@ const createPatchHistory = <T extends object>(
 
   const cancelReadySubscription = onStoreReady(store, () => {
     baseApply = store.apply;
-    if (partialize) {
+    if (partialize && !unsubscribeStore) {
       unsubscribeStore = store.subscribe(() => {
         if (isSetStateRecording || isTimeTraveling || suppressionDepth > 0) {
           return;
@@ -1032,6 +1077,8 @@ const createPatchHistory = <T extends object>(
       cancelReadySubscription();
       unsubscribeCommit?.();
       unsubscribeCommit = undefined;
+      unsubscribePrepare?.();
+      unsubscribePrepare = undefined;
       unsubscribeStore?.();
       unsubscribeStore = undefined;
     }
