@@ -237,21 +237,29 @@ const exposesStateValues = <T extends CreateState>(internal: Internal<T>) =>
 const freezeStateValue = <V>(value: V): V => {
   if (Object.isFrozen(value) || !isImmutableStateObject(value)) return value;
   const pending: object[] = [value];
+  const queue = (child: unknown) => {
+    if (
+      typeof child === 'object' &&
+      child !== null &&
+      !Object.isFrozen(child) &&
+      isImmutableStateObject(child)
+    ) {
+      pending.push(child);
+    }
+  };
   while (pending.length) {
     const current = pending.pop() as Record<PropertyKey, unknown>;
     // A shared object can be queued twice before it is first reached.
     if (Object.isFrozen(current)) continue;
     Object.freeze(current);
-    for (const key of Reflect.ownKeys(current)) {
-      const child = current[key];
-      if (
-        typeof child === 'object' &&
-        child !== null &&
-        !Object.isFrozen(child) &&
-        isImmutableStateObject(child)
-      ) {
-        pending.push(child);
+    // An array's values are its elements; listing its keys would allocate one
+    // per element each time a write hands the scan a fresh copy.
+    if (Array.isArray(current)) {
+      for (let index = 0; index < current.length; index += 1) {
+        queue(current[index]);
       }
+    } else {
+      for (const key of Reflect.ownKeys(current)) queue(current[key]);
     }
   }
   return value;
