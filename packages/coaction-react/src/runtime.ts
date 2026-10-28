@@ -205,18 +205,31 @@ const runObserverRender = <T>(render: () => T) => {
  * there are, and to the order they were found in.
  */
 const trackReturnedStateValues = (value: unknown) => {
-  const seen = new WeakSet<object>();
   const carried: CarriedStateValue[] = [];
+  // Only what is below the value can be reached twice -- through a shared
+  // reference or a cycle -- so the set that stops a revisit is created on the
+  // first step down. A leaf result, an element with primitive props, needs none.
+  let seen: WeakSet<object> | undefined;
+  let root = true;
   const visit = (current: unknown) => {
-    if (
-      (typeof current !== 'object' && typeof current !== 'function') ||
-      !current
-    ) {
+    if (typeof current === 'function') {
+      const version = trackReadonlyStateValue(current)
+        ? getReadonlyStateValueVersion(current)
+        : undefined;
+      if (version !== undefined) carried.push({ value: current, version });
+      return;
+    }
+    if (typeof current !== 'object' || !current) {
       return;
     }
     const object = current as object;
-    if (seen.has(object)) return;
-    seen.add(object);
+    if (root) {
+      root = false;
+    } else {
+      seen ??= new WeakSet<object>();
+      if (seen.has(object)) return;
+      seen.add(object);
+    }
     // A Coaction state proxy/facade is already a terminal path dependency.
     // Do not traverse large state arrays/objects merely because they escaped
     // through a React prop.
