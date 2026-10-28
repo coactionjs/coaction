@@ -409,6 +409,8 @@ function CartSummary() {
 
 `useStore(selector)` and `observer()` track nested paths: an age-only recipe leaves a reader of `user.profile.name` cached. Parent replacements, array structure changes and graph snapshot patches can invalidate more broadly. A React selector still compares its result with `Object.is`; returning a fresh object each run can trigger a re-render.
 
+Arrays hold values. An element read by index, found by a scan or returned by a getter is the element itself, frozen, not a readonly proxy, so it compares equal however it was reached. A reader depends on the identity of the elements it reads, and structural sharing gives an element a new identity whenever anything inside it changes: a reader of `items[0].name` reruns when `items[0]` changes, not when `items[1]` does. Writing to an element outside `set()` throws a `TypeError`.
+
 ### React concurrency is part of the contract
 
 Coaction's React integration is designed around modern React semantics rather than assuming every render commits. A speculative render gets speculative dependency tracking; only committed work becomes the active subscription set. The 4.0 qualification covers React 18 and 19, StrictMode, hydration in Chromium, Firefox and WebKit, abandoned renders, and a dedicated React Compiler behavioral check.

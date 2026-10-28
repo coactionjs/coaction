@@ -11,15 +11,24 @@ export const isImmutableStateObject = (value: unknown): value is object => {
   return prototype === Object.prototype || prototype === null;
 };
 
+/**
+ * Snapshots of values held inside an array. The public state hands those out
+ * as the frozen values themselves rather than as readonly proxies, so a getter
+ * returning one has to map back to the value, not to its proxy.
+ */
+export const elementSnapshots = new WeakSet<object>();
+
 export const getImmutableStateSnapshot = (
   value: unknown,
-  cache: WeakMap<object, unknown>
+  cache: WeakMap<object, unknown>,
+  withinArray = false
 ): unknown => {
   if (!isImmutableStateObject(value)) {
     return value;
   }
-  const cached = cache.get(value);
+  const cached = cache.get(value) as object | undefined;
   if (cached) {
+    if (withinArray) elementSnapshots.add(cached);
     return cached;
   }
   const isArray = Array.isArray(value);
@@ -27,13 +36,18 @@ export const getImmutableStateSnapshot = (
     ? new Array(value.length)
     : Object.create(Object.getPrototypeOf(value));
   cache.set(value, snapshot);
+  if (withinArray) elementSnapshots.add(snapshot);
   for (const key of Reflect.ownKeys(value)) {
     if (isArray && key === 'length') {
       continue;
     }
     const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
     if (Object.prototype.hasOwnProperty.call(descriptor, 'value')) {
-      descriptor.value = getImmutableStateSnapshot(descriptor.value, cache);
+      descriptor.value = getImmutableStateSnapshot(
+        descriptor.value,
+        cache,
+        withinArray || isArray
+      );
     }
     Object.defineProperty(snapshot, key, descriptor);
   }
@@ -75,6 +89,10 @@ export const updateImmutableStateSnapshot = (
       previous = previous[key] as typeof previous;
     }
     let next = patch.value;
+    // The copy at a depth is held inside an array when any container above
+    // it is one.
+    let withinArray = parents.findIndex(([, parent]) => Array.isArray(parent));
+    if (withinArray < 0) withinArray = parents.length;
     for (let index = parents.length - 1; index >= 0; index -= 1) {
       const [source, parent] = parents[index];
       const copy = (
@@ -82,6 +100,7 @@ export const updateImmutableStateSnapshot = (
       ) as Record<PropertyKey, unknown>;
       copy[patch.path[index]] = next;
       next = Object.freeze(copy);
+      if (index > withinArray) elementSnapshots.add(next);
       cache.set(source, next);
       sources?.set(next, source);
     }
@@ -119,6 +138,7 @@ export const finalizeImmutableStateSnapshot = (
     if (isImmutableStateObject(snapshotValue)) {
       ancestors.push(snapshotValue);
     }
+    let withinArray = false;
     for (const key of patch.path) {
       if (
         !isImmutableStateObject(value) ||
@@ -126,11 +146,13 @@ export const finalizeImmutableStateSnapshot = (
       ) {
         break;
       }
+      withinArray ||= Array.isArray(snapshotValue);
       value = (value as Record<PropertyKey, unknown>)[key];
       snapshotValue = (snapshotValue as Record<PropertyKey, unknown>)[key];
       mapPair(value, snapshotValue);
       if (isImmutableStateObject(snapshotValue)) {
         ancestors.push(snapshotValue);
+        if (withinArray) elementSnapshots.add(snapshotValue);
       }
     }
     for (let index = ancestors.length - 1; index >= 0; index -= 1) {

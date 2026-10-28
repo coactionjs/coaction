@@ -137,6 +137,12 @@ An age change must rerun this selector because it replaces the `user` object, ev
 name is unchanged. `identity()` returns the same readonly object; `whole()` instead returns
 owned raw data for coarse scans, which must never be mutated.
 
+Array elements are values rather than readonly proxies. An element read by index, found by a
+scan or returned by a getter is the frozen element itself, so it compares equal however it was
+reached, and reading it depends on its identity: any write inside an element gives it a new
+identity, while writes to its siblings do not. A write to an element outside `set()` throws a
+`TypeError`.
+
 Returning a state object directly, or carrying it inside ordinary object/array data wrappers,
 retains its terminal dependency automatically. Cyclic wrappers are supported. Output accessors
 are not invoked, and opaque instances, functions and closures are not traversed: mark any state

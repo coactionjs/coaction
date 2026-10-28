@@ -2,6 +2,7 @@ import { Computed, createCachedGetter } from './computed';
 import type { CreateState } from './interface';
 import type { Internal } from './internal';
 import {
+  elementSnapshots,
   getImmutableStateSnapshot,
   indexImmutableStateSnapshot,
   isImmutableStateObject
@@ -213,6 +214,38 @@ const assertImmutableStateMutationAllowed = <T extends CreateState>(
   );
 };
 
+/**
+ * Whether reads hand values inside arrays out as themselves. Adapter-backed
+ * stores read another runtime's objects, which are not Coaction's to freeze,
+ * and drafts and getter snapshots have their own read paths.
+ */
+const exposesStateValues = <T extends CreateState>(internal: Internal<T>) =>
+  !internal.mutableInstance &&
+  !internal.updateImmutable &&
+  !internal.externalApply &&
+  !internal.isBatching &&
+  !internal.computedReadDepth;
+
+/**
+ * Freeze a state value before it leaves the store as itself. A value is frozen
+ * with everything below it, so a frozen state object needs no second visit and
+ * a stray write fails as loudly as a write through a readonly proxy does.
+ * Commits never edit a value in place -- a write copies the path it changes --
+ * so freezing what is handed out costs only the first read of each value.
+ */
+const freezeStateValue = <V>(value: V): V => {
+  const pending = [value as unknown];
+  while (pending.length) {
+    const current = pending.pop();
+    if (!isImmutableStateObject(current) || Object.isFrozen(current)) continue;
+    Object.freeze(current);
+    for (const key of Reflect.ownKeys(current)) {
+      pending.push((current as Record<PropertyKey, unknown>)[key]);
+    }
+  }
+  return value;
+};
+
 // Key the cache by the immutable source object so obsolete snapshots and their
 // dynamic dictionary paths can be reclaimed together, and so one source object
 // keeps one proxy no matter how many paths reach it.
@@ -289,6 +322,11 @@ const toReadonlyStateValue = <T extends CreateState>(
   if (publicValue) {
     return publicValue;
   }
+  // A frozen state object has already left the store as a value -- an array
+  // element reached again through another path -- and stays one.
+  if (Object.isFrozen(value) && exposesStateValues(internal)) {
+    return value;
+  }
   const cache = getReadonlyProxyCache(internal);
   const cached = cache.get(value as object);
   if (cached) {
@@ -306,13 +344,24 @@ const toReadonlyStateValue = <T extends CreateState>(
   const proxy: object = new Proxy(value as Record<PropertyKey, unknown>, {
     get(target, key, receiver) {
       const nextValue = Reflect.get(target, key, receiver);
+      const isStateObject = isImmutableStateObject(nextValue);
+      const isOwn = Object.prototype.hasOwnProperty.call(target, key);
+      // An array holds values. Its elements leave as themselves, frozen, so an
+      // element compares equal however it was reached -- an index, a scan, a
+      // getter -- and a reader depends on its identity, which structural
+      // sharing changes on any write inside it. A frozen target is one such
+      // value reached through an alias; it cannot return proxies of its own.
+      const isValue =
+        isStateObject &&
+        (Array.isArray(target) ? isOwn : Object.isFrozen(target)) &&
+        exposesStateValues(internal);
       // Nothing can be recorded without an active subscriber, so skip the
       // whole node-resolving step for untracked reads.
       if (!isReactiveTrackingActive()) {
-        return toReadonlyStateValue(internal, nextValue, sliceKey);
+        return isValue
+          ? freezeStateValue(nextValue)
+          : toReadonlyStateValue(internal, nextValue, sliceKey);
       }
-      const isStateObject = isImmutableStateObject(nextValue);
-      const isOwn = Object.prototype.hasOwnProperty.call(target, key);
       // `Reflect.has` walks the prototype chain; an own key can never be
       // missing, so only ask when the key is not the target's own.
       const isTracked =
@@ -330,11 +379,14 @@ const toReadonlyStateValue = <T extends CreateState>(
         const parent = metaNode(meta, index);
         markReactiveTraversed(parent);
         child = getChildReactiveNode(parent, key);
-        if (isStateObject) trackReactiveTraversalNode(child);
+        if (isStateObject && !isValue) trackReactiveTraversalNode(child);
         else trackReactiveNode(child);
       }
       if (!isStateObject) {
         return nextValue;
+      }
+      if (isValue) {
+        return freezeStateValue(nextValue);
       }
       return basePaths.length === 1 && !internal.computedReadDepth
         ? toReadonlyChildValue(
@@ -436,10 +488,15 @@ const toPublicComputedValue = <T extends CreateState>(
     indexImmutableStateSnapshot(internal.rootState, rootSnapshot, sources);
     source = sources.get(value);
   }
-  if (source) {
-    internal.computedIdentityRequired = true;
+  if (!source) {
+    return value;
   }
-  return source ? toReadonlyStateValue(internal, source, sliceKey) : value;
+  internal.computedIdentityRequired = true;
+  // A getter returning a value held inside an array returns that value, as
+  // reading it through the state does.
+  return elementSnapshots.has(value as object) && exposesStateValues(internal)
+    ? freezeStateValue(source)
+    : toReadonlyStateValue(internal, source, sliceKey);
 };
 
 export const prepareStateDescriptor = <T extends CreateState>({

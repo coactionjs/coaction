@@ -71,11 +71,12 @@ test('accessor getters read frozen raw state without weakening public guards', (
   sawFrozenItems = false;
   expect(store.getState().total).toBe(4);
   expect(sawFrozenItems).toBe(true);
+  // An array element leaves the store as a frozen value, not a proxy.
+  expect(Object.isFrozen(store.getState().items[0])).toBe(true);
   expect(() => {
     store.getState().items[0].value = 5;
-  }).toThrow(
-    'Direct state mutation is not allowed in immutable Coaction stores.'
-  );
+  }).toThrow(TypeError);
+  expect(store.getPureState().items[0].value).toBe(4);
 });
 
 test('accessor getters cannot mutate the frozen state used for computation', () => {
@@ -168,10 +169,9 @@ test('object-valued computed results retain public state identity', () => {
   expect(store.getState().first).toBe(store.getState().items[0]);
   expect(store.getState().first.value).toBe(2);
   expect(() => {
-    store.getState().first.value = 2;
-  }).toThrow(
-    'Direct state mutation is not allowed in immutable Coaction stores.'
-  );
+    store.getState().first.value = 3;
+  }).toThrow(TypeError);
+  expect(store.getState().first.value).toBe(2);
 });
 
 test('accessor getters read fresh draft values during mutation', () => {
