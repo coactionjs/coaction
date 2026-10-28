@@ -551,11 +551,23 @@ const cloneStateValue = <T>(
     array ? new Array(source.length) : Object.create(prototype)
   ) as Record<PropertyKey, unknown>;
   seen.set(source, target);
+  const keys = array ? Reflect.ownKeys(source) : getOwnEnumerableKeys(source);
+  // A dense array without named extras lists exactly its indexes and then its
+  // length; a hole moves `length` earlier. Copy that by index instead of
+  // classifying every key -- it is what nearly every state array is.
+  if (
+    array &&
+    keys.length === source.length + 1 &&
+    keys[source.length] === 'length'
+  ) {
+    for (let index = 0; index < source.length; index += 1) {
+      target[index] = cloneStateValue(source[index], seen, preserveFunctions);
+    }
+    return target as T;
+  }
   // Array indices include non-enumerable slots. Named extras and symbols
   // remain enumerable-only, matching the object replacement boundary.
-  for (const key of array
-    ? Reflect.ownKeys(source)
-    : getOwnEnumerableKeys(source)) {
+  for (const key of keys) {
     const index = array && isArrayIndexKey(key);
     if (
       (typeof key === 'string' && isUnsafeKey(key)) ||

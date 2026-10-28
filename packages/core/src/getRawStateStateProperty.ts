@@ -236,13 +236,23 @@ const exposesStateValues = <T extends CreateState>(internal: Internal<T>) =>
  * so freezing what is handed out costs only the first read of each value.
  */
 const freezeStateValue = <V>(value: V): V => {
-  const pending = [value as unknown];
+  if (Object.isFrozen(value) || !isImmutableStateObject(value)) return value;
+  const pending: object[] = [value];
   while (pending.length) {
-    const current = pending.pop();
-    if (!isImmutableStateObject(current) || Object.isFrozen(current)) continue;
+    const current = pending.pop() as Record<PropertyKey, unknown>;
+    // A shared object can be queued twice before it is first reached.
+    if (Object.isFrozen(current)) continue;
     Object.freeze(current);
     for (const key of Reflect.ownKeys(current)) {
-      pending.push((current as Record<PropertyKey, unknown>)[key]);
+      const child = current[key];
+      if (
+        typeof child === 'object' &&
+        child !== null &&
+        !Object.isFrozen(child) &&
+        isImmutableStateObject(child)
+      ) {
+        pending.push(child);
+      }
     }
   }
   return value;
