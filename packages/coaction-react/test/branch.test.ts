@@ -347,6 +347,51 @@ test('observer disposes uncommitted render tracker after grace period', async ()
   expect(dispose).toHaveBeenCalledTimes(1);
 });
 
+test('uncommitted renders share one cleanup timer and keep their own deadlines', async () => {
+  vi.useFakeTimers();
+  vi.resetModules();
+  const dispose = vi.fn();
+  vi.doMock('coaction/adapter', async () => ({
+    ...(await vi.importActual<object>('coaction/adapter')),
+    createReactiveTracker: () => ({
+      dispose,
+      getSnapshot: () => 0,
+      subscribe: vi.fn(() => () => undefined),
+      track: (fn: () => unknown) => fn()
+    })
+  }));
+  vi.doMock('use-sync-external-store/shim', () => ({
+    useSyncExternalStore: vi.fn(
+      (
+        _subscribe: () => () => void,
+        getSnapshot: () => unknown,
+        _getServerSnapshot?: () => unknown
+      ) => getSnapshot()
+    )
+  }));
+
+  const React = await import('react');
+  const { render } = await import('@testing-library/react');
+  const { observer } = await import('../src');
+  const Item = observer(() => React.createElement('span', null, 'item'));
+
+  const timersBefore = vi.getTimerCount();
+  render(React.createElement(Item) as any);
+  render(React.createElement(Item) as any);
+  expect(vi.getTimerCount() - timersBefore).toBe(1);
+
+  vi.advanceTimersByTime(5_000);
+  render(React.createElement(Item) as any);
+  expect(vi.getTimerCount() - timersBefore).toBe(1);
+
+  vi.advanceTimersByTime(5_000);
+  expect(dispose).toHaveBeenCalledTimes(2);
+  vi.advanceTimersByTime(4_999);
+  expect(dispose).toHaveBeenCalledTimes(2);
+  vi.advanceTimersByTime(1);
+  expect(dispose).toHaveBeenCalledTimes(3);
+});
+
 test('observer committed subscription cancels uncommitted tracker cleanup', async () => {
   vi.useFakeTimers();
   vi.resetModules();
