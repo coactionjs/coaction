@@ -244,6 +244,13 @@ const trackReturnedStateValues = (value: unknown) => {
     // the first state value, so this only walks what the caller wrote.
     const prototype = Object.getPrototypeOf(current);
     if (prototype !== Object.prototype && prototype !== null) return;
+    // A frozen plain object is a value the store handed out -- an array
+    // element -- or one held inside it. It cannot carry a readonly proxy, so
+    // there is nothing below it to find; it is carried by identity instead.
+    if (Object.isFrozen(current)) {
+      carried.push({ value: object, version: 0 });
+      return;
+    }
     const record = current as Record<PropertyKey, unknown>;
     for (const key of Reflect.ownKeys(record)) {
       visit(record[key]);

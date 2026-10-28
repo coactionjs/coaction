@@ -137,3 +137,38 @@ test('a reused wrapper that swaps which state object it carries re-renders', () 
   expect(screen.getByTestId('swapped').textContent).toBe('Bo');
   useStore.destroy();
 });
+
+test('a reused wrapper carrying an array element re-renders when it changes', () => {
+  const useStore = createDefault(
+    (set: any) =>
+      ({
+        items: [{ name: 'Ann' }, { name: 'Bo' }],
+        rename(index: number, name: string) {
+          set(() => {
+            (this as any).items[index].name = name;
+          });
+        }
+      }) as any
+  ) as any;
+  // Array elements are frozen values rather than proxies, so the wrapper is
+  // all reference equality sees; the element it carries is compared instead.
+  const wrapper = { item: null as any };
+  const App = () => {
+    const held = useStore((state: any) => {
+      wrapper.item = state.items[0];
+      return wrapper;
+    });
+    return React.createElement(
+      'span',
+      { 'data-testid': 'element' },
+      held.item.name
+    );
+  };
+  render(React.createElement(App));
+  expect(screen.getByTestId('element').textContent).toBe('Ann');
+  act(() => {
+    useStore.getState().rename(0, 'Cy');
+  });
+  expect(screen.getByTestId('element').textContent).toBe('Cy');
+  useStore.destroy();
+});
