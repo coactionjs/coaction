@@ -10,11 +10,10 @@ import {
 import { sharedRegistry } from './sharedRegistry';
 import { sanitizeInitialStateValue } from './utils';
 import {
-  getChildReactiveNode,
   getReactivePathNode,
   getReactivePathVersion,
   isReactiveTrackingActive,
-  markReactiveTraversed,
+  trackReactiveChild,
   trackReactiveNode,
   trackReactivePath,
   trackReactiveStructureNode,
@@ -461,11 +460,11 @@ const toReadonlyStateValue = <T extends CreateState>(
       const basePaths = meta.paths;
       let child: ReactivePathNode | undefined;
       for (let index = 0; index < basePaths.length; index += 1) {
-        const parent = metaNode(meta, index);
-        markReactiveTraversed(parent);
-        child = getChildReactiveNode(parent, key);
-        if (isStateObject && !isValue) trackReactiveTraversalNode(child);
-        else trackReactiveNode(child);
+        child = trackReactiveChild(
+          metaNode(meta, index),
+          key,
+          isStateObject && !isValue
+        );
       }
       if (!isStateObject) {
         return nextValue;

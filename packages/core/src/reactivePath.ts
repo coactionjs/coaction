@@ -243,7 +243,8 @@ const linkSignals = (node: ReactivePathNode, mask: number) => {
 };
 
 /**
- * Record a read for whichever subscriber is active.
+ * Record a read for whichever subscriber is active, which the caller has
+ * already looked up.
  *
  * This runs on every tracked property read, so the Coaction case is a stamp
  * compare and an array push: the node was resolved by the caller, a repeated
@@ -252,11 +253,11 @@ const linkSignals = (node: ReactivePathNode, mask: number) => {
  * pass to tell a traversal step from a returned object, so it keeps the
  * conservative persistent link it always had.
  */
-const record = (node: ReactivePathNode, mask: number) => {
-  const subscriber = getActiveSub();
-  if (!subscriber) {
-    return;
-  }
+const recordFor = (
+  subscriber: object,
+  node: ReactivePathNode,
+  mask: number
+) => {
   const collection = collector.active;
   if (collection !== undefined && collection.subscriber === subscriber) {
     if (node.stamp === collection.stamp) {
@@ -277,6 +278,13 @@ const record = (node: ReactivePathNode, mask: number) => {
   linkSignals(node, foreignMask);
 };
 
+const record = (node: ReactivePathNode, mask: number) => {
+  const subscriber = getActiveSub();
+  if (subscriber) {
+    recordFor(subscriber, node, mask);
+  }
+};
+
 /** @internal Track a terminal value read of a node. */
 export const trackReactiveNode = (node: ReactivePathNode) =>
   record(node, VALUE_DEPENDENCY | TERMINAL_DEPENDENCY);
@@ -293,14 +301,32 @@ export const trackReactiveStructureNode = (node: ReactivePathNode) =>
   record(node, STRUCTURE_DEPENDENCY);
 
 /**
- * @internal A child is being read through this node. Only the collection that
- * performs the read is told: a nested one has its own provisional reads.
+ * @internal Track a read of `key` through `parent`, and return the child node.
+ *
+ * The one call a tracked property read makes: it resolves the child, tells the
+ * collection that the parent was only traversed -- only the collection that
+ * performs the read: a nested one has its own provisional reads -- and records
+ * the child as a terminal value, or as a traversal step when `traversal` is set.
  */
-export const markReactiveTraversed = (node: ReactivePathNode) => {
-  const collection = collector.active;
-  if (collection !== undefined && collection.subscriber === getActiveSub()) {
-    node.traversed = collection.stamp;
+export const trackReactiveChild = (
+  parent: ReactivePathNode,
+  key: PropertyKey,
+  traversal: boolean
+) => {
+  const child = getChildReactiveNode(parent, key);
+  const subscriber = getActiveSub();
+  if (subscriber) {
+    const collection = collector.active;
+    if (collection !== undefined && collection.subscriber === subscriber) {
+      parent.traversed = collection.stamp;
+    }
+    recordFor(
+      subscriber,
+      child,
+      traversal ? VALUE_DEPENDENCY : VALUE_DEPENDENCY | TERMINAL_DEPENDENCY
+    );
   }
+  return child;
 };
 
 /** Register a Coaction-owned tracker so path-node lifetimes can be reclaimed. */
