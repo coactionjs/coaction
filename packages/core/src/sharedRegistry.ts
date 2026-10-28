@@ -12,7 +12,7 @@
  * already use for their per-store runtimes. Bump the version in the key when a
  * map's contract changes.
  */
-const registryKey = Symbol.for('coaction.sharedRegistry.v1');
+const registryKey = Symbol.for('coaction.sharedRegistry.v2');
 
 type SharedRegistry = {
   /** Public readonly value -> the reactive paths it is reachable at. */
@@ -23,6 +23,8 @@ type SharedRegistry = {
   readonlyProxyCache: WeakMap<object, WeakMap<object, object>>;
   /** Reactive subscriber -> the path nodes it currently depends on. */
   reactiveSubscribers: WeakMap<object, unknown>;
+  /** The dependency collection in progress, and the collection stamp clock. */
+  reactiveCollector: { active: unknown; stamp: number };
 };
 
 const globalHolder = globalThis as unknown as Record<symbol, unknown>;
@@ -31,5 +33,6 @@ export const sharedRegistry = (globalHolder[registryKey] ??= {
   publicStatePathMeta: new WeakMap<object, unknown>(),
   readonlyProxySource: new WeakMap<object, object>(),
   readonlyProxyCache: new WeakMap<object, WeakMap<object, object>>(),
-  reactiveSubscribers: new WeakMap<object, unknown>()
+  reactiveSubscribers: new WeakMap<object, unknown>(),
+  reactiveCollector: { active: undefined, stamp: 0 }
 } satisfies SharedRegistry) as SharedRegistry;

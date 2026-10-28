@@ -4,15 +4,15 @@
     "maxGzipBytes": 2250
   },
   "derived": {
-    "baselineGzipBytes": 2264,
-    "maxGzipBytes": 2450
+    "baselineGzipBytes": 2689,
+    "maxGzipBytes": 2875
   },
   "index": {
-    "baselineGzipBytes": 10945,
-    "maxGzipBytes": 11200
+    "baselineGzipBytes": 11340,
+    "maxGzipBytes": 11595
   },
   "shared": {
-    "baselineGzipBytes": 15142,
-    "maxGzipBytes": 15500
+    "baselineGzipBytes": 15559,
+    "maxGzipBytes": 15917
   }
 }

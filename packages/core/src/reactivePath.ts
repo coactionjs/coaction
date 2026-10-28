@@ -20,6 +20,20 @@ export type ReactivePathNode = {
   valuePersistent?: boolean;
   structurePersistent?: boolean;
   owner: Internal<any>;
+  /**
+   * The collection that last recorded this node, and the node's slot in it.
+   * A read compares one stamp instead of looking the node up in a map.
+   */
+  stamp: number;
+  slot: number;
+  /** The collection that read a child through this node. */
+  traversed: number;
+  /**
+   * Set once the node has left the trie. Proxies and getters hold nodes
+   * directly, so they resolve the path again rather than record a node that
+   * no write can reach.
+   */
+  pruned?: boolean;
 };
 
 const VALUE_DEPENDENCY = 1;
@@ -27,9 +41,20 @@ const STRUCTURE_DEPENDENCY = 2;
 const TERMINAL_DEPENDENCY = 4;
 const COUNTED_DEPENDENCIES = VALUE_DEPENDENCY | STRUCTURE_DEPENDENCY;
 
+/** The dependencies of one evaluation in progress, in first-read order. */
+type ReactiveCollection = {
+  subscriber: object;
+  stamp: number;
+  nodes: ReactivePathNode[];
+  masks: number[];
+  outer: ReactiveCollection | undefined;
+};
+
 type ReactiveSubscriberState = {
-  current: Map<ReactivePathNode, number>;
-  next?: Map<ReactivePathNode, number>;
+  /** The committed dependency set, as parallel arrays. */
+  nodes: ReactivePathNode[];
+  masks: number[];
+  collection?: ReactiveCollection;
 };
 
 // Shared across entry points; see sharedRegistry.ts.
@@ -37,6 +62,12 @@ const reactiveSubscribers = sharedRegistry.reactiveSubscribers as WeakMap<
   object,
   ReactiveSubscriberState
 >;
+// A tracker from `coaction/adapter` collects reads made through a store that
+// `coaction` created, so the collection in progress cannot be module-local.
+const collector = sharedRegistry.reactiveCollector as {
+  active: ReactiveCollection | undefined;
+  stamp: number;
+};
 
 const createNode = (
   owner: Internal<any>,
@@ -49,7 +80,10 @@ const createNode = (
   valueTick: 0,
   structureTick: 0,
   valueSubscribers: 0,
-  structureSubscribers: 0
+  structureSubscribers: 0,
+  stamp: 0,
+  slot: 0,
+  traversed: 0
 });
 
 const normalizePointerSegment = (segment: string) =>
@@ -98,6 +132,35 @@ const getNode = <T extends CreateState>(
   return node;
 };
 
+/** @internal The node for a path, created on demand. */
+export const getReactivePathNode = <T extends CreateState>(
+  internal: Internal<T>,
+  path: ReactivePath
+) => getNode(internal, path, true)!;
+
+/** @internal The node for one key below a node, created on demand. */
+export const getChildReactiveNode = (
+  parent: ReactivePathNode,
+  key: PropertyKey
+) => {
+  let child = parent.children?.get(key);
+  if (!child) {
+    child = createNode(parent.owner, parent, key);
+    (parent.children ??= new Map()).set(key, child);
+  }
+  return child;
+};
+
+/** @internal A held node, or the node now in the trie at its path. */
+export const liveReactiveNode = (node: ReactivePathNode) => {
+  if (!node.pruned) return node;
+  const path: PropertyKey[] = [];
+  for (let current = node; current.parent; current = current.parent) {
+    path.push(current.key!);
+  }
+  return getNode(node.owner, path.reverse(), true)!;
+};
+
 export const hasReactivePathNodes = <T extends CreateState>(
   internal: Internal<T>
 ) => Boolean(internal.reactivePathActiveCount);
@@ -122,10 +185,13 @@ const pruneNode = (node: ReactivePathNode) => {
   if (!parent || typeof node.key === 'undefined') {
     return;
   }
-  parent.children?.delete(node.key);
-  if (parent.children?.size === 0) {
-    parent.children = undefined;
+  if (parent.children?.get(node.key) === node) {
+    parent.children.delete(node.key);
+    if (parent.children.size === 0) {
+      parent.children = undefined;
+    }
   }
+  node.pruned = true;
   node.valueVersion = undefined;
   node.structureVersion = undefined;
   pruneNode(parent);
@@ -167,121 +233,189 @@ const markPersistent = (node: ReactivePathNode, mask: number) => {
   }
 };
 
-const recordSubscriberDependency = (
-  subscriber: object,
-  node: ReactivePathNode,
-  mask: number
-) => {
-  const state = reactiveSubscribers.get(subscriber);
-  if (!state?.next) {
-    markPersistent(node, mask & COUNTED_DEPENDENCIES);
-    return;
+const linkSignals = (node: ReactivePathNode, mask: number) => {
+  if (mask & VALUE_DEPENDENCY) {
+    (node.valueVersion ??= signal(node.valueTick))();
   }
-  state.next.set(node, (state.next.get(node) ?? 0) | mask);
+  if (mask & STRUCTURE_DEPENDENCY) {
+    (node.structureVersion ??= signal(node.structureTick))();
+  }
 };
 
-const minimizeTrackedDependencies = (
-  dependencies: Map<ReactivePathNode, number>
-) => {
-  // Object property access is initially provisional: it may be the terminal
-  // value, or merely a step toward a deeper leaf. If the same evaluation
-  // reaches a descendant, retain the deeper dependency and drop redundant
-  // ancestor value subscriptions. Explicit terminal markers (selector return
-  // values / React props) keep the ancestor when object identity is consumed.
-  for (const [node, mask] of dependencies) {
-    if (!(mask & COUNTED_DEPENDENCIES)) continue;
-    let parent = node.parent;
-    while (parent) {
-      const parentMask = dependencies.get(parent);
-      if (
-        parentMask &&
-        parentMask & VALUE_DEPENDENCY &&
-        !(parentMask & TERMINAL_DEPENDENCY)
-      ) {
-        const nextMask = parentMask & ~VALUE_DEPENDENCY;
-        if (nextMask & COUNTED_DEPENDENCIES) {
-          dependencies.set(parent, nextMask);
-        } else {
-          dependencies.delete(parent);
-        }
-      }
-      parent = parent.parent;
-    }
+/**
+ * Record a read for whichever subscriber is active.
+ *
+ * This runs on every tracked property read, so the Coaction case is a stamp
+ * compare and an array push: the node was resolved by the caller, a repeated
+ * read only widens its mask, and signal links wait until the collection ends.
+ * A foreign subscriber -- a bare `computed` or `effect` -- has no finalization
+ * pass to tell a traversal step from a returned object, so it keeps the
+ * conservative persistent link it always had.
+ */
+const record = (node: ReactivePathNode, mask: number) => {
+  const subscriber = getActiveSub();
+  if (!subscriber) {
+    return;
   }
-  for (const [node, mask] of dependencies) {
-    let nextMask = mask;
-    if (
-      nextMask & VALUE_DEPENDENCY &&
-      nextMask & STRUCTURE_DEPENDENCY &&
-      !(nextMask & TERMINAL_DEPENDENCY)
-    ) {
-      nextMask &= ~VALUE_DEPENDENCY;
+  const collection = collector.active;
+  if (collection !== undefined && collection.subscriber === subscriber) {
+    if (node.stamp === collection.stamp) {
+      collection.masks[node.slot] |= mask;
+      return;
     }
-    // Traversal candidates deliberately did not touch their signal while the
-    // property chain was executing. Only candidates that survive minimization
-    // are true terminal object dependencies; activate those links now while
-    // the Coaction tracker is still the active alien-signals subscriber.
-    if (nextMask & VALUE_DEPENDENCY && !(nextMask & TERMINAL_DEPENDENCY)) {
-      (node.valueVersion ??= signal(node.valueTick))();
-    }
-    nextMask &= COUNTED_DEPENDENCIES;
-    if (nextMask) dependencies.set(node, nextMask);
-    else dependencies.delete(node);
+    // A nested collection may have restamped the node. Pushing it again is
+    // harmless: duplicates are merged when the collection ends.
+    node.stamp = collection.stamp;
+    node.slot = collection.nodes.length;
+    collection.nodes.push(node);
+    collection.masks.push(mask);
+    return;
   }
-  return dependencies;
+  const foreignMask =
+    mask & STRUCTURE_DEPENDENCY ? STRUCTURE_DEPENDENCY : VALUE_DEPENDENCY;
+  markPersistent(node, foreignMask);
+  linkSignals(node, foreignMask);
+};
+
+/** @internal Track a terminal value read of a node. */
+export const trackReactiveNode = (node: ReactivePathNode) =>
+  record(node, VALUE_DEPENDENCY | TERMINAL_DEPENDENCY);
+
+/**
+ * @internal Track an object/array access that may only be a traversal step.
+ * Coaction trackers drop it when a child is read through it in the same pass.
+ */
+export const trackReactiveTraversalNode = (node: ReactivePathNode) =>
+  record(node, VALUE_DEPENDENCY);
+
+/** @internal Track existence/key-order reads of a node. */
+export const trackReactiveStructureNode = (node: ReactivePathNode) =>
+  record(node, STRUCTURE_DEPENDENCY);
+
+/**
+ * @internal A child is being read through this node. Only the collection that
+ * performs the read is told: a nested one has its own provisional reads.
+ */
+export const markReactiveTraversed = (node: ReactivePathNode) => {
+  const collection = collector.active;
+  if (collection !== undefined && collection.subscriber === getActiveSub()) {
+    node.traversed = collection.stamp;
+  }
 };
 
 /** Register a Coaction-owned tracker so path-node lifetimes can be reclaimed. */
 export const registerReactiveSubscriber = (subscriber: object) => {
-  reactiveSubscribers.set(subscriber, { current: new Map() });
+  reactiveSubscribers.set(subscriber, { nodes: [], masks: [] });
 };
 
 /** Begin collecting the exact path dependencies for one tracker evaluation. */
 export const beginReactiveSubscriberTrack = (subscriber: object) => {
   const state = reactiveSubscribers.get(subscriber);
-  if (state) {
-    state.next = new Map();
+  if (!state) {
+    return;
   }
+  const collection: ReactiveCollection = {
+    subscriber,
+    stamp: ++collector.stamp,
+    nodes: [],
+    masks: [],
+    outer: collector.active
+  };
+  state.collection = collection;
+  collector.active = collection;
 };
 
 /** @internal Preserve object identity reads for a conservative derived selector. */
 export const retainReactiveTraversalPaths = (subscriber: object) => {
-  const next = reactiveSubscribers.get(subscriber)?.next;
-  for (const [node, mask] of next ?? []) {
-    if (mask & VALUE_DEPENDENCY) {
-      next!.set(node, mask | TERMINAL_DEPENDENCY);
-      (node.valueVersion ??= signal(node.valueTick))();
-    }
+  const masks = reactiveSubscribers.get(subscriber)?.collection?.masks ?? [];
+  for (let index = 0; index < masks.length; index++) {
+    if (masks[index] & VALUE_DEPENDENCY) masks[index] |= TERMINAL_DEPENDENCY;
   }
 };
 
-/** Reconcile tracker dependencies and prune nodes that are no longer used. */
+const closeCollection = (collection: ReactiveCollection) => {
+  if (collector.active === collection) {
+    collector.active = collection.outer;
+  }
+};
+
+/**
+ * Reconcile a finished collection with the subscriber's committed set.
+ *
+ * Object property access is initially provisional: it may be the terminal
+ * value, or merely a step toward a deeper leaf. A step that a child was read
+ * through in this collection is dropped; explicit terminal markers (selector
+ * return values / React props) keep the object when its identity is consumed.
+ * A value dependency that also tracks structure is covered by the structure.
+ *
+ * Stamps replace the maps a diff would otherwise need: the committed nodes are
+ * stamped with their slot, each surviving node then finds its previous mask
+ * there and is restamped with its slot in the next set, which also merges the
+ * duplicates a nested collection can leave. Signal links are established once
+ * per dependency, while the collecting subscriber is still active and in
+ * first-read order -- which is what lets a re-tracked subscriber reuse them.
+ */
 export const endReactiveSubscriberTrack = (subscriber: object) => {
   const state = reactiveSubscribers.get(subscriber);
-  const collected = state?.next;
-  if (!state || !collected) {
+  const collection = state?.collection;
+  if (!state || !collection) {
     return;
   }
-  const next = minimizeTrackedDependencies(collected);
-  const removedNodes = new Set<ReactivePathNode>();
-  for (const [node, currentMask] of state.current) {
-    const nextMask = next.get(node) ?? 0;
-    const removedMask = currentMask & ~nextMask;
-    if (removedMask) {
-      updateSubscriberCount(node, removedMask, -1, false);
-      removedNodes.add(node);
+  state.collection = undefined;
+  closeCollection(collection);
+  const previous = ++collector.stamp;
+  for (let index = 0; index < state.nodes.length; index++) {
+    state.nodes[index].stamp = previous;
+    state.nodes[index].slot = index;
+  }
+  const current = ++collector.stamp;
+  const nodes: ReactivePathNode[] = [];
+  const masks: number[] = [];
+  const previousMasks: number[] = [];
+  for (let index = 0; index < collection.nodes.length; index++) {
+    const recorded = collection.nodes[index];
+    const node = liveReactiveNode(recorded);
+    let mask = collection.masks[index];
+    if (!(mask & TERMINAL_DEPENDENCY)) {
+      if (mask & VALUE_DEPENDENCY && recorded.traversed === collection.stamp) {
+        mask &= ~VALUE_DEPENDENCY;
+      }
+      if (mask & VALUE_DEPENDENCY && mask & STRUCTURE_DEPENDENCY) {
+        mask &= ~VALUE_DEPENDENCY;
+      }
+    }
+    mask &= COUNTED_DEPENDENCIES;
+    if (!mask) continue;
+    if (node.stamp === current) {
+      masks[node.slot] |= mask;
+      continue;
+    }
+    previousMasks.push(node.stamp === previous ? state.masks[node.slot] : 0);
+    node.stamp = current;
+    node.slot = nodes.length;
+    nodes.push(node);
+    masks.push(mask);
+  }
+  for (let index = 0; index < nodes.length; index++) {
+    linkSignals(nodes[index], masks[index]);
+    const addedMask = masks[index] & ~previousMasks[index];
+    if (addedMask) {
+      updateSubscriberCount(nodes[index], addedMask, 1);
     }
   }
-  for (const [node, nextMask] of next) {
-    const currentMask = state.current.get(node) ?? 0;
-    const addedMask = nextMask & ~currentMask;
-    if (addedMask) {
-      updateSubscriberCount(node, addedMask, 1);
+  const removedNodes: ReactivePathNode[] = [];
+  for (let index = 0; index < state.nodes.length; index++) {
+    const node = state.nodes[index];
+    const nextMask = node.stamp === current ? masks[node.slot] : 0;
+    const removedMask = state.masks[index] & ~nextMask;
+    if (removedMask) {
+      updateSubscriberCount(node, removedMask, -1, false);
+      removedNodes.push(node);
     }
   }
   removedNodes.forEach(pruneNode);
-  state.current = next;
-  state.next = undefined;
+  state.nodes = nodes;
+  state.masks = masks;
 };
 
 /** Release every path dependency owned by a disposed framework tracker. */
@@ -290,8 +424,12 @@ export const disposeReactiveSubscriber = (subscriber: object) => {
   if (!state) {
     return;
   }
-  for (const [node, mask] of state.current) {
-    updateSubscriberCount(node, mask, -1);
+  if (state.collection) {
+    closeCollection(state.collection);
+    state.collection = undefined;
+  }
+  for (let index = 0; index < state.nodes.length; index++) {
+    updateSubscriberCount(state.nodes[index], state.masks[index], -1);
   }
   reactiveSubscribers.delete(subscriber);
 };
@@ -301,8 +439,7 @@ export const disposeReactiveSubscriber = (subscriber: object) => {
  *
  * Reads outside a tracked scope -- action bodies, event handlers, a bare
  * `getState()` -- cannot record anything, so the public state proxy checks this
- * once per access and skips building child paths entirely rather than paying
- * for them and discarding the result inside each `track*` call.
+ * once per access and skips resolving child nodes entirely.
  */
 export const isReactiveTrackingActive = () => Boolean(getActiveSub());
 
@@ -310,50 +447,9 @@ export const trackReactivePath = <T extends CreateState>(
   internal: Internal<T>,
   path: ReactivePath
 ) => {
-  const subscriber = getActiveSub() as object | undefined;
-  if (!subscriber) {
-    return;
+  if (getActiveSub()) {
+    trackReactiveNode(getNode(internal, path, true)!);
   }
-  const node = getNode(internal, path, true)!;
-  recordSubscriberDependency(
-    subscriber,
-    node,
-    VALUE_DEPENDENCY | TERMINAL_DEPENDENCY
-  );
-  (node.valueVersion ??= signal(node.valueTick))();
-};
-
-/**
- * Track an object/array access that may only be a traversal step. Coaction
- * trackers collapse it when a deeper dependency is read in the same pass.
- */
-export const trackReactiveTraversalPath = <T extends CreateState>(
-  internal: Internal<T>,
-  path: ReactivePath
-) => {
-  const subscriber = getActiveSub() as object | undefined;
-  if (!subscriber || !reactiveSubscribers.get(subscriber)?.next) {
-    // Foreign subscribers have no finalization pass to distinguish traversal
-    // from a returned object or an identity comparison. Keep the object path
-    // conservatively; otherwise even computed(() => state.user) can go stale.
-    trackReactivePath(internal, path);
-    return;
-  }
-  const node = getNode(internal, path, true)!;
-  recordSubscriberDependency(subscriber, node, VALUE_DEPENDENCY);
-};
-
-export const trackReactiveStructure = <T extends CreateState>(
-  internal: Internal<T>,
-  path: ReactivePath
-) => {
-  const subscriber = getActiveSub() as object | undefined;
-  if (!subscriber) {
-    return;
-  }
-  const node = getNode(internal, path, true)!;
-  recordSubscriberDependency(subscriber, node, STRUCTURE_DEPENDENCY);
-  (node.structureVersion ??= signal(node.structureTick))();
 };
 
 const invalidateNode = (node: ReactivePathNode, deep: boolean) => {

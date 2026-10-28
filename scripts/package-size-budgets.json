@@ -254,12 +254,12 @@
   "coaction": {
     "files": {
       "dist/derived.mjs": {
-        "baselineGzipBytes": 3480,
-        "maxGzipBytes": 3800
+        "baselineGzipBytes": 4025,
+        "maxGzipBytes": 4345
       },
       "dist/derived.js": {
-        "baselineGzipBytes": 3887,
-        "maxGzipBytes": 4250
+        "baselineGzipBytes": 4426,
+        "maxGzipBytes": 4789
       },
       "dist/index.mjs": {
         "baselineGzipBytes": 18083,

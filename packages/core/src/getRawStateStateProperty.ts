@@ -9,12 +9,17 @@ import {
 import { sharedRegistry } from './sharedRegistry';
 import { sanitizeInitialStateValue } from './utils';
 import {
+  getChildReactiveNode,
+  getReactivePathNode,
   getReactivePathVersion,
   isReactiveTrackingActive,
+  markReactiveTraversed,
+  trackReactiveNode,
   trackReactivePath,
-  trackReactiveStructure,
-  trackReactiveTraversalPath,
-  type ReactivePath
+  trackReactiveStructureNode,
+  trackReactiveTraversalNode,
+  type ReactivePath,
+  type ReactivePathNode
 } from './reactivePath';
 
 // A readonly value keeps one proxy per source object so aliased and circular
@@ -26,6 +31,8 @@ import {
 type ReactivePathMeta = {
   internal: Internal<any>;
   paths: ReactivePath[];
+  /** The trie node of each path, resolved on first tracked use. */
+  nodes?: (ReactivePathNode | undefined)[];
 };
 
 // Shared across entry points: a value created by `coaction` is read
@@ -36,6 +43,20 @@ const publicStatePathMeta = sharedRegistry.publicStatePathMeta as WeakMap<
 >;
 /** Reverse of the readonly proxy cache, so a proxy can hand back its source. */
 const readonlyProxySource = sharedRegistry.readonlyProxySource;
+
+/**
+ * The trie node a recorded path is tracked at. Holding it on the meta is what
+ * keeps a tracked read from building a path array and walking the trie from
+ * the root; a node that has since been pruned is resolved again.
+ */
+const metaNode = (meta: ReactivePathMeta, index: number) => {
+  const nodes = (meta.nodes ??= []);
+  let node = nodes[index];
+  if (node === undefined || node.pruned) {
+    node = nodes[index] = getReactivePathNode(meta.internal, meta.paths[index]);
+  }
+  return node;
+};
 
 const isReactivePathPrefix = (left: ReactivePath, right: ReactivePath) => {
   if (left.length > right.length) return false;
@@ -58,6 +79,7 @@ const addReactivePathTo = (
     if (isReactivePathPrefix(path, known)) meta.paths.splice(index, 1);
   }
   meta.paths.push(owned ? path : [...path]);
+  meta.nodes = undefined;
 };
 
 const mergeReadonlyStateValuePaths = <T extends CreateState>(
@@ -104,8 +126,10 @@ export const trackReadonlyStateValue = (value: unknown) => {
   if (!meta) {
     return false;
   }
-  for (const path of meta.paths) {
-    trackReactivePath(meta.internal, path);
+  if (isReactiveTrackingActive()) {
+    for (let index = 0; index < meta.paths.length; index++) {
+      trackReactiveNode(metaNode(meta, index));
+    }
   }
   return true;
 };
@@ -283,8 +307,7 @@ const toReadonlyStateValue = <T extends CreateState>(
     get(target, key, receiver) {
       const nextValue = Reflect.get(target, key, receiver);
       // Nothing can be recorded without an active subscriber, so skip the
-      // whole path-building step instead of building child paths that every
-      // `track*` call would immediately discard.
+      // whole node-resolving step for untracked reads.
       if (!isReactiveTrackingActive()) {
         return toReadonlyStateValue(internal, nextValue, sliceKey);
       }
@@ -296,33 +319,51 @@ const toReadonlyStateValue = <T extends CreateState>(
         isOwn ||
         !Reflect.has(target, key) ||
         (Array.isArray(target) && key === 'length');
-      // Indexed loop, not for-of: this runs on every tracked property read and
-      // the path list is almost always a single entry.
-      const basePaths = meta.paths;
-      const nextPaths: ReactivePath[] = new Array(basePaths.length);
-      for (let index = 0; index < basePaths.length; index += 1) {
-        const nextPath = [...basePaths[index], key];
-        if (isStateObject) {
-          trackReactiveTraversalPath(internal, nextPath);
-        } else if (isTracked) {
-          trackReactivePath(internal, nextPath);
-        }
-        nextPaths[index] = nextPath;
+      if (!isStateObject && !isTracked) {
+        return nextValue;
       }
-      return toReadonlyStateValue(internal, nextValue, sliceKey, nextPaths);
+      // Each recorded path's child node is one map lookup from the node the
+      // meta already holds, so a read never builds a path to be tracked.
+      const basePaths = meta.paths;
+      let child: ReactivePathNode | undefined;
+      for (let index = 0; index < basePaths.length; index += 1) {
+        const parent = metaNode(meta, index);
+        markReactiveTraversed(parent);
+        child = getChildReactiveNode(parent, key);
+        if (isStateObject) trackReactiveTraversalNode(child);
+        else trackReactiveNode(child);
+      }
+      if (!isStateObject) {
+        return nextValue;
+      }
+      return basePaths.length === 1 && !internal.computedReadDepth
+        ? toReadonlyChildValue(
+            internal,
+            nextValue as object,
+            sliceKey,
+            basePaths[0],
+            key,
+            child!
+          )
+        : toReadonlyStateValue(
+            internal,
+            nextValue,
+            sliceKey,
+            basePaths.map((path) => [...path, key])
+          );
     },
     has(target, key) {
       if (isReactiveTrackingActive()) {
-        for (const path of meta.paths) {
-          trackReactiveStructure(internal, path);
+        for (let index = 0; index < meta.paths.length; index++) {
+          trackReactiveStructureNode(metaNode(meta, index));
         }
       }
       return Reflect.has(target, key);
     },
     ownKeys(target) {
       if (isReactiveTrackingActive()) {
-        for (const path of meta.paths) {
-          trackReactiveStructure(internal, path);
+        for (let index = 0; index < meta.paths.length; index++) {
+          trackReactiveStructureNode(metaNode(meta, index));
         }
       }
       return Reflect.ownKeys(target);
@@ -341,6 +382,42 @@ const toReadonlyStateValue = <T extends CreateState>(
     }
   }
   return proxy;
+};
+
+/**
+ * The object-valued case of a tracked single-path read. A cached proxy whose
+ * one path ends at this node needs nothing merged, so the child path is only
+ * built the first time a value is reached there.
+ */
+const toReadonlyChildValue = <T extends CreateState>(
+  internal: Internal<T>,
+  value: object,
+  sliceKey: PropertyKey | undefined,
+  basePath: ReactivePath,
+  key: PropertyKey,
+  node: ReactivePathNode
+): unknown => {
+  const cached =
+    internal.mutableInstance || internal.isBatching
+      ? undefined
+      : readonlyProxyCache.get(internal)?.get(value);
+  const cachedMeta = cached && publicStatePathMeta.get(cached);
+  if (cachedMeta && cachedMeta.paths.length === 1) {
+    if (cachedMeta.nodes?.[0] === node) return cached;
+  }
+  const result = toReadonlyStateValue(internal, value, sliceKey, [
+    [...basePath, key]
+  ]);
+  const meta =
+    result !== value ? publicStatePathMeta.get(result as object) : undefined;
+  // A single path of this length ending in this key can only be the one just
+  // merged: an alias would have added a second path, and an ancestor already
+  // recorded is shorter.
+  const path = meta && meta.paths.length === 1 ? meta.paths[0] : undefined;
+  if (path?.length === basePath.length + 1 && path[basePath.length] === key) {
+    (meta!.nodes ??= [])[0] = node;
+  }
+  return result;
 };
 
 const toPublicComputedValue = <T extends CreateState>(
@@ -413,12 +490,15 @@ export const prepareStateDescriptor = <T extends CreateState>({
     const path: ReactivePath =
       typeof sliceKey === 'undefined' ? [key] : [sliceKey, key];
     const paths = [path];
+    let node: ReactivePathNode | undefined;
     descriptor.get = () => {
       const value = readStateValue();
       if (isReactiveTrackingActive()) {
-        if (isImmutableStateObject(value))
-          trackReactiveTraversalPath(internal, path);
-        else trackReactivePath(internal, path);
+        if (node === undefined || node.pruned) {
+          node = getReactivePathNode(internal, path);
+        }
+        if (isImmutableStateObject(value)) trackReactiveTraversalNode(node);
+        else trackReactiveNode(node);
       }
       return toReadonlyStateValue(internal, value, sliceKey, paths);
     };

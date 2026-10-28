@@ -58,3 +58,17 @@ other entry budgets and all performance floors retain their existing limits.
 Single scalar replacements use a direct certificate, while compound and non-tree
 transitions retain full replay/snapshot verification. Consumer fixtures and
 externalized dependencies are unchanged, so these are comparable measurements.
+
+## Node-addressed read tracking
+
+A tracked read now records the trie node its proxy already holds, deduplicated
+by a collection stamp, and signal links are established once per surviving
+dependency when the collection ends. The old path arrays, root-to-leaf trie
+walks and per-read map updates are gone; the stamped collection, its reconcile
+pass and node re-resolution after pruning replace them.
+
+Against the 4.1.0 build, that costs **341 bytes** in the default core consumer
+(11,340), **347 bytes** in the shared consumer (15,559) and **357 bytes** in the
+derived consumer (2,689), which carries the same collection runtime. The
+`coaction/derived` artifacts record it as 4,025 and 4,426 bytes. Each baseline
+moved with its ceiling, so the headroom is the same as at the 4.0 freeze.
