@@ -72,3 +72,13 @@ Against the 4.1.0 build, that costs **341 bytes** in the default core consumer
 derived consumer (2,689), which carries the same collection runtime. The
 `coaction/derived` artifacts record it as 4,025 and 4,426 bytes. Each baseline
 moved with its ceiling, so the headroom is the same as at the 4.0 freeze.
+
+## Array values and whole-array scans
+
+Array elements leave the public state as frozen values, and the read-only array
+methods scan the array itself under one dependency. That adds the element
+freeze, the getter mapping for values held inside arrays, and one cached
+wrapper per scanned method: **441 bytes** in the default core consumer (11,781)
+and **442 bytes** in the shared consumer (16,001). The derived consumer does
+not contain the proxy layer and is unchanged. Both baselines moved with their
+ceilings.

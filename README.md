@@ -317,6 +317,7 @@ Reading `state.user.profile.name` is very different from scanning `state.items.r
 | `get(deps, fn)`               | Explicit computed dependencies    | Explicit dependency selection                         |
 | `derive(..., { deep: true })` | Sparse or dynamic deep reads      | Leaf and structure tracking                           |
 | `derivePath()`                | Known static data paths           | Exact path subscription                               |
+| Array methods                 | Scans of one array                | One dependency on the array, direct data traversal    |
 | `whole()`                     | Full collection scans             | One coarse dependency, direct data traversal          |
 
 ### Native getters: the default
@@ -372,7 +373,9 @@ const selected = derive(
 
 ### Whole-value reads for scans
 
-If a selector scans every item anyway, tracking each element adds overhead without avoiding the scan. `whole()` takes one dependency on the collection and hands back the underlying value:
+If a selector scans every item anyway, tracking each element adds overhead without avoiding the scan. Array methods that read every element without changing it — `filter`, `map`, `find`, `some`, `reduce`, `slice`, `for...of` and the rest — already work this way through the public state: the scan takes one dependency on the array and runs over the array itself, while state read inside the callback is still tracked.
+
+For other traversals — an indexed loop, a scan across nested collections, the values of a record — `whole()` takes one dependency on the collection and hands back the underlying value:
 
 ```tsx
 import { whole } from '@coaction/react';

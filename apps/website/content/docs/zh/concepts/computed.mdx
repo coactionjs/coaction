@@ -117,6 +117,8 @@ age 变化会替换 user 对象，因此这里即使 name 不变也必须重算�
 
 数组元素是值，而不是 readonly 代理。通过下标读取、经扫描找到或由 getter 返回的元素，都是同一个被冻结的元素本身，无论从哪条路径得到都相等；读取元素即依赖它的身份：元素内部的任何写入都会使它获得新身份，而对同级元素的写入不会。在 `set()` 之外写入元素会抛出 `TypeError`。
 
+`filter`、`map`、`find`、`reduce`、`slice`、`for...of` 等读取全部元素且不修改数组的方法，只对整个数组登记一个依赖，并直接在数组本身上执行；回调中读取的其他 state 仍照常追踪。对于不是单个数组方法的遍历，例如带下标的循环或 record 的所有值，请使用 `whole()`。
+
 直接返回 state 对象，或将它放进普通对象／数组的数据属性中，会自动保留 terminal dependency；带 cycle 的结果包装也受支持。追踪不会执行结果的 accessor，也不会遍历 opaque instance、函数或 closure；在这些位置携带 state 时，应在 selector 内用 `identity()` 标记。数组、空洞、symbol、null prototype、cycle 和共享引用保留现有 local-state contract。Date、Map、Set 和 class instance 仍是 atomic identity leaf，其内部 mutation 不会自动变得可观察。
 
 ### 结果比较

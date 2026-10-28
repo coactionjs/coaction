@@ -166,8 +166,10 @@ export const getReadonlyStateValueVersion = (value: unknown) => {
  * element touched, which is what makes an unrelated sibling write cheap. When a
  * selector scans the whole collection that precision buys nothing -- any change
  * to it invalidates the scan anyway -- and every element read pays for a proxy
- * trap. `whole()` records a single dependency on the value and returns the
- * underlying object, so the scan runs at plain-object speed:
+ * trap. Array methods such as `filter` or `reduce` already scan this way.
+ * `whole()` does the same for any other traversal: it records a single
+ * dependency on the value and returns the underlying object, so the scan runs
+ * at plain-object speed:
  *
  * ```ts
  * const total = useStore((state) => sum(whole(state.items)));
@@ -245,6 +247,47 @@ const freezeStateValue = <V>(value: V): V => {
   }
   return value;
 };
+
+/**
+ * Array methods that read every element and change nothing. Through the public
+ * state each of them takes one dependency on the whole array -- what `whole()`
+ * registers -- and runs over the array itself: the elements are values anyway,
+ * and a scan depends on all of them, so a proxy trap and a dependency per
+ * element read would only make it slower. Reads of other state inside a
+ * callback are tracked as usual.
+ */
+const scanMethods = new Set<PropertyKey>([
+  'at',
+  'concat',
+  'entries',
+  'every',
+  'filter',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'flat',
+  'flatMap',
+  'forEach',
+  'includes',
+  'indexOf',
+  'join',
+  'keys',
+  'lastIndexOf',
+  'map',
+  'reduce',
+  'reduceRight',
+  'slice',
+  'some',
+  'toLocaleString',
+  'toReversed',
+  'toSorted',
+  'toSpliced',
+  'toString',
+  'values',
+  'with',
+  Symbol.iterator
+]);
 
 // Key the cache by the immutable source object so obsolete snapshots and their
 // dynamic dictionary paths can be reclaimed together, and so one source object
@@ -337,6 +380,30 @@ const toReadonlyStateValue = <T extends CreateState>(
   // The array is read at trap time, not captured, because a proxy can still
   // pick up further paths later when an alias of the same object is traversed.
   const meta: ReactivePathMeta = { internal, paths: [] };
+  let scans: Map<PropertyKey, Function> | undefined;
+  const getScan = (target: unknown[], key: PropertyKey, method: Function) => {
+    let scan = scans?.get(key);
+    if (!scan) {
+      scan = function (this: unknown, ...args: unknown[]) {
+        if (this !== proxy || !exposesStateValues(internal)) {
+          return method.apply(this, args);
+        }
+        if (isReactiveTrackingActive()) {
+          for (let index = 0; index < meta.paths.length; index++) {
+            trackReactiveNode(metaNode(meta, index));
+          }
+        }
+        // An element searched for may be an alias reached through an object
+        // key, which is its readonly proxy.
+        if (typeof args[0] === 'object' && args[0] !== null) {
+          args[0] = readonlyProxySource.get(args[0]) ?? args[0];
+        }
+        return method.apply(freezeStateValue(target), args);
+      };
+      (scans ??= new Map()).set(key, scan);
+    }
+    return scan;
+  };
   const rejectMutation = () => {
     assertImmutableStateMutationAllowed(internal);
     return false;
@@ -346,6 +413,14 @@ const toReadonlyStateValue = <T extends CreateState>(
       const nextValue = Reflect.get(target, key, receiver);
       const isStateObject = isImmutableStateObject(nextValue);
       const isOwn = Object.prototype.hasOwnProperty.call(target, key);
+      if (
+        typeof nextValue === 'function' &&
+        !isOwn &&
+        Array.isArray(target) &&
+        scanMethods.has(key)
+      ) {
+        return getScan(target, key, nextValue);
+      }
       // An array holds values. Its elements leave as themselves, frozen, so an
       // element compares equal however it was reached -- an index, a scan, a
       // getter -- and a reader depends on its identity, which structural
