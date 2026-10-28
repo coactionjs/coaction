@@ -265,6 +265,9 @@ const getObserverDisplayName = (Component: ObserverRender<object>) =>
 
 const createObserverTrackerState = (): ObserverTrackerState => {
   let activeTracker: ReactiveTracker | undefined;
+  // The tracker the last commit replaced. A render re-tracks it instead of
+  // creating a tracker, so its registration and path-node counts carry over.
+  let spareTracker: ReactiveTracker | undefined;
   let activeUnsubscribe: (() => void) | undefined;
   let activeSnapshot: number | undefined;
   let latestRender: TrackedRender | undefined;
@@ -322,6 +325,12 @@ const createObserverTrackerState = (): ObserverTrackerState => {
     });
     cleanupHandles.set(tracker, cancelCleanup);
   };
+  const disposeSpareTracker = () => {
+    if (spareTracker) {
+      disposeTracker(spareTracker);
+      spareTracker = undefined;
+    }
+  };
   const unsubscribeActiveTracker = () => {
     activeUnsubscribe?.();
     activeUnsubscribe = undefined;
@@ -351,6 +360,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
           if (activeTracker) {
             scheduleTrackerCleanup(activeTracker, observerReleaseCleanupMs);
           }
+          disposeSpareTracker();
         }
       };
     },
@@ -371,7 +381,9 @@ const createObserverTrackerState = (): ObserverTrackerState => {
           scheduleTrackerCleanup(tracker);
         }
         if (previousTracker) {
-          disposeTracker(previousTracker);
+          disposeSpareTracker();
+          clearTrackerCleanup(previousTracker);
+          spareTracker = previousTracker;
         }
       }
       syncActiveSnapshot();
@@ -380,8 +392,18 @@ const createObserverTrackerState = (): ObserverTrackerState => {
       if (!canTrackObserverRender()) {
         return runObserverRender(render);
       }
-      const tracker = createReactiveTracker();
-      scheduleTrackerCleanup(tracker);
+      // A render never re-tracks the committed tracker: it may be discarded --
+      // a suspended transition, a StrictMode replay -- and the subscription
+      // has to keep the dependencies that were committed. It re-tracks an
+      // uncommitted render's tracker or the spare one instead.
+      const reused = latestRender?.tracker ?? spareTracker;
+      if (reused === spareTracker) {
+        spareTracker = undefined;
+      }
+      const tracker = reused ?? createReactiveTracker();
+      if (!cleanupHandles.has(tracker)) {
+        scheduleTrackerCleanup(tracker);
+      }
       try {
         const value = tracker.track(() => {
           const rendered = runObserverRender(render);
@@ -425,6 +447,9 @@ const createSelectorTrackerState = <TState extends object>(
   store: Store<TState>
 ): SelectorTrackerState<TState> => {
   let activeSelection: TrackedSelection<TState, any> | undefined;
+  // As for observers: the tracker the last commit replaced, re-tracked by the
+  // next render instead of creating one.
+  let spareTracker: ReactiveTracker | undefined;
   let activeUnsubscribe: (() => void) | undefined;
   let latestRender: TrackedSelection<TState, any> | undefined;
   let version = 0;
@@ -438,12 +463,10 @@ const createSelectorTrackerState = <TState extends object>(
       cleanupHandles.delete(tracker);
     }
   };
-  const disposeSelection = (
-    selection: TrackedSelection<TState, any> | undefined
-  ) => {
-    if (!selection) return;
-    clearCleanup(selection.tracker);
-    selection.tracker.dispose();
+  const disposeTracker = (tracker: ReactiveTracker | undefined) => {
+    if (!tracker) return;
+    clearCleanup(tracker);
+    tracker.dispose();
   };
   const scheduleSelectionCleanup = (
     selection: TrackedSelection<TState, any>,
@@ -466,9 +489,10 @@ const createSelectorTrackerState = <TState extends object>(
     cleanupHandles.set(selection.tracker, cancelCleanup);
   };
   const evaluate = <TValue>(
-    selector: SelectorFn<TState, TValue>
+    selector: SelectorFn<TState, TValue>,
+    reuse?: ReactiveTracker
   ): TrackedSelection<TState, TValue> => {
-    const tracker = createReactiveTracker();
+    const tracker = reuse ?? createReactiveTracker();
     try {
       let stateObjectVersion: number | undefined;
       let carried: CarriedStateValue[] | undefined;
@@ -496,8 +520,9 @@ const createSelectorTrackerState = <TState extends object>(
       };
     } catch (error) {
       // A render-time selector may suspend or throw. It never becomes the
-      // committed dependency set, so release its path nodes immediately.
-      tracker.dispose();
+      // committed dependency set, so release its path nodes immediately. A
+      // re-tracked tracker is released by whoever lent it.
+      if (!reuse) tracker.dispose();
       throw error;
     }
   };
@@ -526,8 +551,8 @@ const createSelectorTrackerState = <TState extends object>(
       activeUnsubscribe &&
       listeners.size &&
       previous &&
-      !previous.reactive &&
-      !next.reactive
+      previous.reactive === next.reactive &&
+      (!next.reactive || previous.tracker === next.tracker)
     ) {
       return;
     }
@@ -542,7 +567,10 @@ const createSelectorTrackerState = <TState extends object>(
     if (!previous) return;
     let next: TrackedSelection<TState, any>;
     try {
-      next = evaluate(previous.selector);
+      // A refresh is not speculative, so the committed tracker re-tracks in
+      // place -- from inside its own notification, which keeps the links the
+      // selector reads again.
+      next = evaluate(previous.selector, previous.tracker);
     } catch {
       // Surface selector failures from the next React render rather than from
       // an external-store notification callback.
@@ -559,7 +587,6 @@ const createSelectorTrackerState = <TState extends object>(
       (next.stateObjectVersion !== undefined &&
         next.stateObjectVersion !== previous.stateObjectVersion) ||
       carriedChanged(previous.carried, next.carried);
-    disposeSelection(previous);
     if (changed) {
       notify();
     }
@@ -592,6 +619,8 @@ const createSelectorTrackerState = <TState extends object>(
           if (activeSelection) {
             scheduleSelectionCleanup(activeSelection, observerReleaseCleanupMs);
           }
+          disposeTracker(spareTracker);
+          spareTracker = undefined;
         }
       };
     },
@@ -607,8 +636,21 @@ const createSelectorTrackerState = <TState extends object>(
         // hydrates against.
         return selector(store.getState());
       }
-      const selection = evaluate(selector);
-      scheduleSelectionCleanup(selection);
+      const reuse = latestRender?.tracker ?? spareTracker;
+      if (reuse === spareTracker) {
+        spareTracker = undefined;
+      }
+      let selection: TrackedSelection<TState, TValue>;
+      try {
+        selection = evaluate(selector, reuse);
+      } catch (error) {
+        if (latestRender?.tracker === reuse) latestRender = undefined;
+        disposeTracker(reuse);
+        throw error;
+      }
+      if (!cleanupHandles.has(selection.tracker)) {
+        scheduleSelectionCleanup(selection);
+      }
       latestRender = selection;
       return selection.value;
     },
@@ -623,13 +665,18 @@ const createSelectorTrackerState = <TState extends object>(
         !rendered.reactive ||
         rendered.tracker.getSnapshot() !== rendered.snapshot
       ) {
-        const refreshed = evaluate(rendered.selector);
+        let refreshed: TrackedSelection<TState, any>;
+        try {
+          refreshed = evaluate(rendered.selector, rendered.tracker);
+        } catch (error) {
+          disposeTracker(rendered.tracker);
+          throw error;
+        }
         renderedValueStale =
           !Object.is(rendered.value, refreshed.value) ||
           (refreshed.stateObjectVersion !== undefined &&
             refreshed.stateObjectVersion !== rendered.stateObjectVersion) ||
           carriedChanged(rendered.carried, refreshed.carried);
-        disposeSelection(rendered);
         next = refreshed;
       }
       const previous = activeSelection;
@@ -639,7 +686,9 @@ const createSelectorTrackerState = <TState extends object>(
         scheduleSelectionCleanup(next);
       }
       if (previous && previous.tracker !== next.tracker) {
-        disposeSelection(previous);
+        disposeTracker(spareTracker);
+        clearCleanup(previous.tracker);
+        spareTracker = previous.tracker;
       }
       if (renderedValueStale) {
         notify();

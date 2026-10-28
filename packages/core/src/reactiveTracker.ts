@@ -98,6 +98,7 @@ export const createReactiveTracker = (): ReactiveTracker => {
   let version = 0;
   let disposed = false;
   const listeners = new Set<() => void>();
+  let trackedTail: Link | undefined;
   const node: ReactiveTrackerNode = {
     deps: undefined,
     depsTail: undefined,
@@ -108,6 +109,12 @@ export const createReactiveTracker = (): ReactiveTracker => {
       if (disposed) {
         return;
       }
+      // alien-signals runs a notified subscriber as it runs an effect: it
+      // clears the dependency tail first and afterwards purges every link the
+      // callback did not read again. A tracker re-tracks on its own schedule --
+      // the next render or selector refresh -- so it keeps the links it
+      // tracked, and that pass reuses them in place.
+      node.depsTail = trackedTail;
       version += 1;
       listeners.forEach((listener) => listener());
     }
@@ -155,6 +162,7 @@ export const createReactiveTracker = (): ReactiveTracker => {
           setActiveSub(prevSub);
           node.flags &= ~ReactiveFlags.RecursedCheck;
           purgeDeps(node);
+          trackedTail = node.depsTail;
         }
       }
     },

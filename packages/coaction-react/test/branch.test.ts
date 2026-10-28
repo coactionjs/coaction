@@ -620,3 +620,57 @@ test('handles non-object slice state defensively', async () => {
   const store = create(() => ({}));
   expect(store.auto()).toMatchInlineSnapshot(`{}`);
 });
+
+test('re-renders re-track two trackers instead of creating one per render', async () => {
+  vi.resetModules();
+  let created = 0;
+  vi.doMock('coaction/adapter', async () => {
+    const actual =
+      await vi.importActual<typeof import('coaction/adapter')>(
+        'coaction/adapter'
+      );
+    return {
+      ...actual,
+      createReactiveTracker: () => {
+        created += 1;
+        return actual.createReactiveTracker();
+      }
+    };
+  });
+  const React = await import('react');
+  const { act, render, screen } = await import('@testing-library/react');
+  const { create, observer } = await import('../src');
+  const useStore = create((set: any) => ({
+    count: 0,
+    increment() {
+      set(() => {
+        (this as { count: number }).count += 1;
+      });
+    }
+  })) as any;
+  const Count = observer(() =>
+    React.createElement('span', { 'data-testid': 'observed' }, useStore().count)
+  );
+  const Selected = () =>
+    React.createElement(
+      'span',
+      { 'data-testid': 'selected' },
+      useStore((state: { count: number }) => state.count)
+    );
+  render(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(Count),
+      React.createElement(Selected)
+    ) as any
+  );
+  for (let index = 0; index < 5; index += 1) {
+    act(() => useStore.getState().increment());
+  }
+  expect(screen.getByTestId('observed').textContent).toBe('5');
+  expect(screen.getByTestId('selected').textContent).toBe('5');
+  // One committed and one spare tracker per hook, however many renders.
+  expect(created).toBeLessThanOrEqual(4);
+  useStore.destroy();
+});
