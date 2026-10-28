@@ -91,8 +91,13 @@ export const updateImmutableStateSnapshot = (
     let next = patch.value;
     // The copy at a depth is held inside an array when any container above
     // it is one.
-    let withinArray = parents.findIndex(([, parent]) => Array.isArray(parent));
-    if (withinArray < 0) withinArray = parents.length;
+    let withinArray = parents.length;
+    for (let index = 0; index < parents.length; index += 1) {
+      if (Array.isArray(parents[index][1])) {
+        withinArray = index;
+        break;
+      }
+    }
     for (let index = parents.length - 1; index >= 0; index -= 1) {
       const [source, parent] = parents[index];
       const copy = (

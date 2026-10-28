@@ -19,12 +19,13 @@ sampling diagnostics, not an improvement attributed to library code. The gate
 measures sustained throughput; it does not measure cold startup. Historical
 single-process results below therefore have a different measurement boundary.
 
-Native stores with at most eight active dependency kinds can compare the known
-read paths directly when no patch middleware, journal consumer, transport or
-computed snapshot cache needs a patch pair. Key/existence reads compare shape as
-well as values. Larger read sets retain patch-directed invalidation to avoid
-walking every subscriber on each write. The limit bounds the alternative scan;
-it does not change dependency semantics or the public API.
+Native stores compare the known read paths directly when no patch middleware,
+journal consumer, transport or computed snapshot cache needs a patch pair.
+Key/existence reads compare shape as well as values. The comparison descends
+only into subtrees whose identity changed, so its cost follows the subscribers
+of what a write touched; producing and certifying a journal compares every
+sibling of each written path as well, so read sets of any size skip it. This
+does not change dependency semantics or the public API.
 
 Complete producer-patch certification also does real additional work. Checking
 unchanged siblings catches changes missing from an otherwise nonempty patch
@@ -91,9 +92,8 @@ same, over four thousand items           1,043     34,413
 
 ### The remaining write cost and the 4.0 optimizations
 
-Commit observers request patches. Larger read sets and computed snapshots use
-patch-directed invalidation; small read sets can use the direct comparison
-described above. A plain `subscribe()` listener does not request patches. The previous roughly 468k versus
+Commit observers request patches. Computed snapshots use patch-directed
+invalidation; read sets use the direct comparison described above. A plain `subscribe()` listener does not request patches. The previous roughly 468k versus
 70k writes/sec gap also included avoidable work: replaying an already-produced
 native transition and drafting the getter's frozen array snapshot.
 

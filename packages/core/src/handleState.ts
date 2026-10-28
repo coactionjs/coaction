@@ -252,8 +252,10 @@ export const handleState = <T extends CreateState>(
         );
       }
       internal.isBatching = true;
-      // A bounded read set needs state comparisons, not a serialized journal.
-      // Patch middleware, cached snapshots and larger tries keep the patch path.
+      // A read set needs state comparisons, not a serialized journal: the
+      // comparison only descends into what changed identity, while the journal
+      // has to be produced and certified sibling by sibling. Patch middleware
+      // and cached getter snapshots need the patch pair, so they keep it.
       if (
         !store.share &&
         !internal.validateState &&
@@ -262,8 +264,7 @@ export const handleState = <T extends CreateState>(
         (!hasReactivePathNodes(internal) ||
           (!store.patch &&
             !internal.computedSnapshotCache &&
-            !internal.updateImmutable &&
-            (internal.reactivePathActiveCount ?? 0) <= 8)) &&
+            !internal.updateImmutable)) &&
         !internal.mutableInstance &&
         updater === defaultUpdater
       ) {
