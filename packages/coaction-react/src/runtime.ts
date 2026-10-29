@@ -414,9 +414,9 @@ const createObserverTrackerState = (): ObserverTrackerState => {
         spareTracker = undefined;
       }
       const tracker = reused ?? createReactiveTracker();
-      if (!cleanupHandles.has(tracker)) {
-        scheduleTrackerCleanup(tracker);
-      }
+      // The grace period belongs to this render, which is the one that may
+      // never commit, however long ago an earlier render of the tracker began.
+      scheduleTrackerCleanup(tracker);
       try {
         const value = tracker.track(() => {
           const rendered = runObserverRender(render);
@@ -661,9 +661,8 @@ const createSelectorTrackerState = <TState extends object>(
         disposeTracker(reuse);
         throw error;
       }
-      if (!cleanupHandles.has(selection.tracker)) {
-        scheduleSelectionCleanup(selection);
-      }
+      // As for observers, the grace period starts over with this render.
+      scheduleSelectionCleanup(selection);
       latestRender = selection;
       return selection.value;
     },

@@ -716,3 +716,75 @@ test('a re-tracked observer keeps dependencies it reads in another order', async
   expect(screen.getByTestId('pair').textContent).toBe('Ba');
   useStore.destroy();
 });
+
+test.each(['observer', 'selector'] as const)(
+  'each uncommitted %s render restarts its tracker grace period',
+  async (kind) => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    let disposed = 0;
+    vi.doMock('coaction/adapter', async () => {
+      const actual =
+        await vi.importActual<typeof import('coaction/adapter')>(
+          'coaction/adapter'
+        );
+      return {
+        ...actual,
+        createReactiveTracker: () => {
+          const tracker = actual.createReactiveTracker();
+          return {
+            ...tracker,
+            dispose: () => {
+              disposed += 1;
+              tracker.dispose();
+            }
+          };
+        }
+      };
+    });
+    const React = await import('react');
+    const { act, render } = await import('@testing-library/react');
+    const { create, observer } = await import('../src');
+    const useStore = create(() => ({ count: 0 })) as any;
+    let suspended: Promise<void> | undefined;
+    const View =
+      kind === 'observer'
+        ? observer(({ value }: { value: number }) => {
+            if (suspended) throw suspended;
+            return React.createElement(
+              'span',
+              null,
+              `${useStore().count}:${value}`
+            );
+          })
+        : ({ value }: { value: number }) => {
+            const count = useStore((state: { count: number }) => state.count);
+            if (suspended) throw suspended;
+            return React.createElement('span', null, `${count}:${value}`);
+          };
+    let setValue!: (value: number) => void;
+    const Parent = () => {
+      const [value, update] = React.useState(0);
+      setValue = update;
+      return React.createElement(
+        React.Suspense,
+        { fallback: 'loading' },
+        React.createElement(View, { value })
+      );
+    };
+    render(React.createElement(Parent) as any);
+    suspended = new Promise<void>(() => undefined);
+    // A transition keeps the committed UI while its render stays suspended.
+    await act(async () => React.startTransition(() => setValue(1)));
+    vi.advanceTimersByTime(9_000);
+    // The next attempt re-tracks that render's tracker; its grace period has to
+    // start over, or it is released under a render that may yet commit.
+    await act(async () => React.startTransition(() => setValue(2)));
+    vi.advanceTimersByTime(1_000);
+    expect(disposed).toBe(0);
+    vi.advanceTimersByTime(9_000);
+    expect(disposed).toBe(1);
+    useStore.destroy();
+    vi.useRealTimers();
+  }
+);
