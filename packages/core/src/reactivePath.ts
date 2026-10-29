@@ -26,8 +26,6 @@ export type ReactivePathNode = {
    */
   stamp: number;
   slot: number;
-  /** The collection that read a child through this node. */
-  traversed: number;
   /**
    * Set once the node has left the trie. Proxies and getters hold nodes
    * directly, so they resolve the path again rather than record a node that
@@ -39,6 +37,8 @@ export type ReactivePathNode = {
 const VALUE_DEPENDENCY = 1;
 const STRUCTURE_DEPENDENCY = 2;
 const TERMINAL_DEPENDENCY = 4;
+/** A child was read through the node, so its value read was only a step. */
+const TRAVERSED_DEPENDENCY = 8;
 const COUNTED_DEPENDENCIES = VALUE_DEPENDENCY | STRUCTURE_DEPENDENCY;
 
 /** The dependencies of one evaluation in progress, in first-read order. */
@@ -82,8 +82,7 @@ const createNode = (
   valueSubscribers: 0,
   structureSubscribers: 0,
   stamp: 0,
-  slot: 0,
-  traversed: 0
+  slot: 0
 });
 
 const normalizePointerSegment = (segment: string) =>
@@ -243,15 +242,44 @@ const linkSignals = (node: ReactivePathNode, mask: number) => {
 };
 
 /**
- * Record a read for whichever subscriber is active, which the caller has
- * already looked up.
+ * Add to a node's entry in a collection.
  *
- * This runs on every tracked property read, so the Coaction case is a stamp
- * compare and an array push: the node was resolved by the caller, a repeated
- * read only widens its mask, and signal links wait until the collection ends.
+ * This runs on every tracked property read, so it is a stamp compare and an
+ * array push: the node was resolved by the caller, a repeated read only widens
+ * its mask, and signal links wait until the collection ends.
+ */
+const collect = (
+  collection: ReactiveCollection,
+  node: ReactivePathNode,
+  mask: number
+) => {
+  if (node.stamp === collection.stamp) {
+    collection.masks[node.slot] |= mask;
+    return;
+  }
+  // A nested collection may have restamped the node. A second entry is
+  // harmless: the entries of a node are merged when the collection ends.
+  node.stamp = collection.stamp;
+  node.slot = collection.nodes.length;
+  collection.nodes.push(node);
+  collection.masks.push(mask);
+};
+
+/**
  * A foreign subscriber -- a bare `computed` or `effect` -- has no finalization
  * pass to tell a traversal step from a returned object, so it keeps the
  * conservative persistent link it always had.
+ */
+const recordForeign = (node: ReactivePathNode, mask: number) => {
+  const foreignMask =
+    mask & STRUCTURE_DEPENDENCY ? STRUCTURE_DEPENDENCY : VALUE_DEPENDENCY;
+  markPersistent(node, foreignMask);
+  linkSignals(node, foreignMask);
+};
+
+/**
+ * Record a read for whichever subscriber is active, which the caller has
+ * already looked up.
  */
 const recordFor = (
   subscriber: object,
@@ -260,22 +288,10 @@ const recordFor = (
 ) => {
   const collection = collector.active;
   if (collection !== undefined && collection.subscriber === subscriber) {
-    if (node.stamp === collection.stamp) {
-      collection.masks[node.slot] |= mask;
-      return;
-    }
-    // A nested collection may have restamped the node. Pushing it again is
-    // harmless: duplicates are merged when the collection ends.
-    node.stamp = collection.stamp;
-    node.slot = collection.nodes.length;
-    collection.nodes.push(node);
-    collection.masks.push(mask);
-    return;
+    collect(collection, node, mask);
+  } else {
+    recordForeign(node, mask);
   }
-  const foreignMask =
-    mask & STRUCTURE_DEPENDENCY ? STRUCTURE_DEPENDENCY : VALUE_DEPENDENCY;
-  markPersistent(node, foreignMask);
-  linkSignals(node, foreignMask);
 };
 
 const record = (node: ReactivePathNode, mask: number) => {
@@ -303,10 +319,11 @@ export const trackReactiveStructureNode = (node: ReactivePathNode) =>
 /**
  * @internal Track a read of `key` through `parent`, and return the child node.
  *
- * The one call a tracked property read makes: it resolves the child, tells the
- * collection that the parent was only traversed -- only the collection that
- * performs the read: a nested one has its own provisional reads -- and records
- * the child as a terminal value, or as a traversal step when `traversal` is set.
+ * The one call a tracked property read makes: it resolves the child, records
+ * in the collection that the parent was only traversed -- in that collection's
+ * own entry, which a nested collection reading the same parent cannot touch --
+ * and records the child as a terminal value, or as a traversal step when
+ * `traversal` is set.
  */
 export const trackReactiveChild = (
   parent: ReactivePathNode,
@@ -316,15 +333,16 @@ export const trackReactiveChild = (
   const child = getChildReactiveNode(parent, key);
   const subscriber = getActiveSub();
   if (subscriber) {
+    const mask = traversal
+      ? VALUE_DEPENDENCY
+      : VALUE_DEPENDENCY | TERMINAL_DEPENDENCY;
     const collection = collector.active;
     if (collection !== undefined && collection.subscriber === subscriber) {
-      parent.traversed = collection.stamp;
+      collect(collection, parent, TRAVERSED_DEPENDENCY);
+      collect(collection, child, mask);
+    } else {
+      recordForeign(child, mask);
     }
-    recordFor(
-      subscriber,
-      child,
-      traversal ? VALUE_DEPENDENCY : VALUE_DEPENDENCY | TERMINAL_DEPENDENCY
-    );
   }
   return child;
 };
@@ -375,10 +393,11 @@ const closeCollection = (collection: ReactiveCollection) => {
  * A value dependency that also tracks structure is covered by the structure.
  *
  * Stamps replace the maps a diff would otherwise need: the committed nodes are
- * stamped with their slot, each surviving node then finds its previous mask
- * there and is restamped with its slot in the next set, which also merges the
- * duplicates a nested collection can leave. Signal links are established once
- * per dependency, while the collecting subscriber is still active and in
+ * stamped with their slot, and each recorded node is restamped with its slot
+ * in the next set, where it finds its previous mask. That pass merges the
+ * entries a nested collection can split a node into, so the rules above see
+ * every read of a node at once. Signal links are established once per
+ * dependency, while the collecting subscriber is still active and in
  * first-read order -- which is what lets a re-tracked subscriber reuse them.
  */
 export const endReactiveSubscriberTrack = (subscriber: object) => {
@@ -399,36 +418,46 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
   const masks: number[] = [];
   const previousMasks: number[] = [];
   for (let index = 0; index < collection.nodes.length; index++) {
-    const recorded = collection.nodes[index];
-    const node = liveReactiveNode(recorded);
-    let mask = collection.masks[index];
-    if (!(mask & TERMINAL_DEPENDENCY)) {
-      if (mask & VALUE_DEPENDENCY && recorded.traversed === collection.stamp) {
-        mask &= ~VALUE_DEPENDENCY;
-      }
-      if (mask & VALUE_DEPENDENCY && mask & STRUCTURE_DEPENDENCY) {
-        mask &= ~VALUE_DEPENDENCY;
-      }
-    }
-    mask &= COUNTED_DEPENDENCIES;
-    if (!mask) continue;
+    const node = liveReactiveNode(collection.nodes[index]);
     if (node.stamp === current) {
-      masks[node.slot] |= mask;
+      masks[node.slot] |= collection.masks[index];
       continue;
     }
     previousMasks.push(node.stamp === previous ? state.masks[node.slot] : 0);
     node.stamp = current;
     node.slot = nodes.length;
     nodes.push(node);
-    masks.push(mask);
+    masks.push(collection.masks[index]);
   }
+  // Compact the set in place. A node that keeps no dependency is unstamped,
+  // so the removal pass below reads it as gone.
+  let length = 0;
   for (let index = 0; index < nodes.length; index++) {
-    linkSignals(nodes[index], masks[index]);
-    const addedMask = masks[index] & ~previousMasks[index];
-    if (addedMask) {
-      updateSubscriberCount(nodes[index], addedMask, 1);
+    const node = nodes[index];
+    let mask = masks[index];
+    if (
+      !(mask & TERMINAL_DEPENDENCY) &&
+      mask & (TRAVERSED_DEPENDENCY | STRUCTURE_DEPENDENCY)
+    ) {
+      mask &= ~VALUE_DEPENDENCY;
     }
+    mask &= COUNTED_DEPENDENCIES;
+    if (!mask) {
+      node.stamp = 0;
+      continue;
+    }
+    linkSignals(node, mask);
+    const addedMask = mask & ~previousMasks[index];
+    if (addedMask) {
+      updateSubscriberCount(node, addedMask, 1);
+    }
+    node.slot = length;
+    nodes[length] = node;
+    masks[length] = mask;
+    length += 1;
   }
+  nodes.length = length;
+  masks.length = length;
   const removedNodes: ReactivePathNode[] = [];
   for (let index = 0; index < state.nodes.length; index++) {
     const node = state.nodes[index];

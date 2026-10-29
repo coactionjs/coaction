@@ -97,3 +97,39 @@ test('a throwing tracked function propagates and leaves the tracker usable', () 
   expect(notifications).toBe(1);
   tracker.dispose();
 });
+
+test('a nested tracker does not widen what the outer one depends on', () => {
+  const store = create((set) => ({
+    user: { name: 'Michael', age: 30 },
+    grow() {
+      set(() => {
+        this.user.age += 1;
+      });
+    },
+    setName(name: string) {
+      set(() => {
+        this.user.name = name;
+      });
+    }
+  }));
+  const outer = createReactiveTracker();
+  const inner = createReactiveTracker();
+  let outerNotifications = 0;
+  let innerNotifications = 0;
+  outer.subscribe(() => outerNotifications++);
+  inner.subscribe(() => innerNotifications++);
+  outer.track(() => {
+    void store.getState().user.name;
+    // The inner pass traverses `user` too, after the outer one did.
+    inner.track(() => store.getState().user.age);
+  });
+
+  store.getState().grow();
+  expect(innerNotifications).toBe(1);
+  expect(outerNotifications).toBe(0);
+
+  store.getState().setName('Lin');
+  expect(outerNotifications).toBe(1);
+  outer.dispose();
+  inner.dispose();
+});
