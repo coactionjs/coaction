@@ -107,3 +107,24 @@ test('array methods that mutate keep failing through the public state', () => {
   }).toThrow('Direct state mutation is not allowed');
   expect(store.getPureState().items.map((item) => item.id)).toEqual([1, 2]);
 });
+
+test('a scanned array stays the readonly proxy its key reaches', () => {
+  const store = createScanStore();
+  const items = store.getState().items;
+  expect(items.filter((item) => item.id > 0)).toHaveLength(2);
+  // The scan froze the array. Its key still reaches the same proxy, which
+  // keeps element reads precise and mutations rejected.
+  expect(store.getState().items).toBe(items);
+  expect(() => {
+    store.getState().items.push({ id: 3, label: 'c' });
+  }).toThrow('Direct state mutation is not allowed');
+  const tracker = createReactiveTracker();
+  let notifications = 0;
+  tracker.subscribe(() => notifications++);
+  expect(tracker.track(() => store.getState().items[0].label)).toBe('a');
+  store.getState().rename(1, 'c');
+  expect(notifications).toBe(0);
+  store.getState().rename(0, 'd');
+  expect(notifications).toBe(1);
+  tracker.dispose();
+});

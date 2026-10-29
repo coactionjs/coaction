@@ -382,11 +382,9 @@ const toReadonlyStateValue = <T extends CreateState>(
   if (publicValue) {
     return publicValue;
   }
-  // A frozen state object has already left the store as a value -- an array
-  // element reached again through another path -- and stays one.
-  if (Object.isFrozen(value) && exposesStateValues(internal)) {
-    return value;
-  }
+  // A value reached through an object key stays a readonly proxy even once it
+  // is frozen -- a scan freezes the array it runs over -- so its identity does
+  // not depend on what read it before, and reads through it stay precise.
   const cache = getReadonlyProxyCache(internal);
   const cached = cache.get(value as object);
   if (cached) {
