@@ -113,3 +113,35 @@ test('freezing an element reaches the named extras of an array', () => {
   }).toThrow(TypeError);
   expect((store.getPureState().rows[0] as typeof row).meta.note).toBe('x');
 });
+
+test('a getter returns an element copied before any getter returned one', () => {
+  const store = create<{
+    items: { id: number; label: string }[];
+    readonly label: string;
+    readonly second: { id: number; label: string };
+    rename: (label: string) => void;
+  }>((set) => ({
+    items: [
+      { id: 1, label: 'a' },
+      { id: 2, label: 'b' }
+    ],
+    get label() {
+      return this.items[1].label;
+    },
+    get second() {
+      return this.items[1];
+    },
+    rename(label: string) {
+      set(() => {
+        this.items[1].label = label;
+      });
+    }
+  }));
+  // A getter that returns a value builds the snapshots; the write then copies
+  // the element's snapshot before anything asked which values sit in arrays.
+  expect(store.getState().label).toBe('b');
+  store.getState().rename('c');
+  const state = store.getState();
+  expect(state.second).toBe(state.items[1]);
+  expect(state.second.label).toBe('c');
+});

@@ -15,6 +15,10 @@ export const isImmutableStateObject = (value: unknown): value is object => {
  * Snapshots of values held inside an array. The public state hands those out
  * as the frozen values themselves rather than as readonly proxies, so a getter
  * returning one has to map back to the value, not to its proxy.
+ *
+ * Only a getter that returns an object needs this, so a write marks the copies
+ * it makes only while the snapshot sources are maintained -- the same switch
+ * that keeps `sources` -- and indexing the sources marks what it finds.
  */
 export const elementSnapshots = new WeakSet<object>();
 
@@ -92,7 +96,7 @@ export const updateImmutableStateSnapshot = (
     // The copy at a depth is held inside an array when any container above
     // it is one.
     let withinArray = parents.length;
-    for (let index = 0; index < parents.length; index += 1) {
+    for (let index = 0; sources && index < parents.length; index += 1) {
       if (Array.isArray(parents[index][1])) {
         withinArray = index;
         break;
@@ -157,7 +161,7 @@ export const finalizeImmutableStateSnapshot = (
       mapPair(value, snapshotValue);
       if (isImmutableStateObject(snapshotValue)) {
         ancestors.push(snapshotValue);
-        if (withinArray) elementSnapshots.add(snapshotValue);
+        if (sources && withinArray) elementSnapshots.add(snapshotValue);
       }
     }
     for (let index = ancestors.length - 1; index >= 0; index -= 1) {
@@ -170,17 +174,21 @@ export const indexImmutableStateSnapshot = (
   state: unknown,
   snapshot: unknown,
   sources: WeakMap<object, object>,
-  seen = new WeakSet<object>()
+  seen = new WeakSet<object>(),
+  withinArray = false
 ) => {
-  if (
-    !isImmutableStateObject(state) ||
-    !isImmutableStateObject(snapshot) ||
-    seen.has(snapshot)
-  ) {
+  if (!isImmutableStateObject(state) || !isImmutableStateObject(snapshot)) {
+    return;
+  }
+  // Marked before the revisit check: an alias can be reached through an
+  // object key first and through an array later.
+  if (withinArray) elementSnapshots.add(snapshot);
+  if (seen.has(snapshot)) {
     return;
   }
   seen.add(snapshot);
   sources.set(snapshot, state);
+  const isArray = Array.isArray(snapshot);
   for (const key of Reflect.ownKeys(state)) {
     const stateDescriptor = Object.getOwnPropertyDescriptor(state, key);
     const snapshotDescriptor = Object.getOwnPropertyDescriptor(snapshot, key);
@@ -194,7 +202,8 @@ export const indexImmutableStateSnapshot = (
         stateDescriptor.value,
         snapshotDescriptor.value,
         sources,
-        seen
+        seen,
+        withinArray || isArray
       );
     }
   }
