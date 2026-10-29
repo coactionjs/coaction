@@ -552,7 +552,7 @@ const getValueAtPath = (root: unknown, path: readonly PropertyKey[]) => {
   return value;
 };
 
-/** A small read set can be checked directly without producing a patch journal.
+/** A read set can be checked directly without producing a patch journal.
  * Walk only its trie, including existence/key-order dependencies. Immutable
  * identity skips unchanged subtrees; an iterative walk also handles deep paths.
  */
@@ -562,30 +562,44 @@ export const invalidateReactiveTransition = <T extends CreateState>(
   after: unknown
 ) => {
   const root = internal.reactivePathRoot;
-  if (!root) return;
-  const pending: Array<[ReactivePathNode, any, any]> = [[root, before, after]];
-  while (pending.length) {
-    const [node, previous, next] = pending.pop()!;
-    if (Object.is(previous, next)) continue;
+  if (!root || Object.is(before, after)) return;
+  // Three parallel stacks of nodes whose value changed identity. A child is
+  // compared before it is queued: a write changes one element of a large
+  // array, and queueing every child to compare later allocated per child.
+  const nodes: ReactivePathNode[] = [root];
+  const previousValues: any[] = [before];
+  const nextValues: any[] = [after];
+  let previous: any;
+  let next: any;
+  const queueChanged = (child: ReactivePathNode, key: PropertyKey) => {
+    const previousValue = previous?.[key];
+    const nextValue = next?.[key];
+    if (!Object.is(previousValue, nextValue)) {
+      nodes.push(child);
+      previousValues.push(previousValue);
+      nextValues.push(nextValue);
+    }
+  };
+  while (nodes.length) {
+    const node = nodes.pop()!;
+    previous = previousValues.pop();
+    next = nextValues.pop();
     invalidateValue(node);
-    if (node.structureVersion) {
-      const object = (value: unknown): value is object =>
-        value !== null && typeof value === 'object';
-      if (
-        !object(previous) ||
-        !object(next) ||
+    if (
+      node.structureVersion &&
+      (previous === null ||
+        typeof previous !== 'object' ||
+        next === null ||
+        typeof next !== 'object' ||
         Object.getPrototypeOf(previous) !== Object.getPrototypeOf(next) ||
         !areShallowEqualWithArray(
           Reflect.ownKeys(previous),
           Reflect.ownKeys(next)
-        )
-      ) {
-        invalidateStructure(node);
-      }
+        ))
+    ) {
+      invalidateStructure(node);
     }
-    for (const [key, child] of node.children ?? []) {
-      pending.push([child, previous?.[key], next?.[key]]);
-    }
+    node.children?.forEach(queueChanged);
   }
 };
 
