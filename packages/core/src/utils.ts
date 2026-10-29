@@ -447,7 +447,7 @@ export const assertKnownStateShape = (
   }
 };
 
-const isArrayIndexKey = (key: PropertyKey) => {
+export const isArrayIndexKey = (key: PropertyKey) => {
   if (typeof key !== 'string') {
     return false;
   }

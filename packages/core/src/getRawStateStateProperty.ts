@@ -8,7 +8,7 @@ import {
   isImmutableStateObject
 } from './immutableState';
 import { sharedRegistry } from './sharedRegistry';
-import { sanitizeInitialStateValue } from './utils';
+import { isArrayIndexKey, sanitizeInitialStateValue } from './utils';
 import {
   getReactivePathNode,
   getReactivePathVersion,
@@ -253,10 +253,23 @@ const freezeStateValue = <V>(value: V): V => {
     if (Object.isFrozen(current)) continue;
     Object.freeze(current);
     // An array's values are its elements; listing its keys would allocate one
-    // per element each time a write hands the scan a fresh copy.
+    // per element each time a write hands the scan a fresh copy. Its named
+    // extras are state too: they follow the indexes in `Object.keys`, which
+    // lists an array's keys several times faster than `Reflect.ownKeys`.
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index += 1) {
         queue(current[index]);
+      }
+      const keys = Object.keys(current);
+      for (
+        let index = keys.length - 1;
+        index >= 0 && !isArrayIndexKey(keys[index]);
+        index -= 1
+      ) {
+        queue(current[keys[index]]);
+      }
+      for (const symbol of Object.getOwnPropertySymbols(current)) {
+        queue(current[symbol]);
       }
     } else {
       for (const key of Reflect.ownKeys(current)) queue(current[key]);

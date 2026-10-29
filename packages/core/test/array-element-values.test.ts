@@ -96,3 +96,20 @@ test('replacement values are copied before they are frozen', () => {
   expect(Object.isFrozen(store.getState().items[0])).toBe(true);
   expect(Object.isFrozen(items[0])).toBe(false);
 });
+
+test('freezing an element reaches the named extras of an array', () => {
+  const tag = Symbol('tag');
+  const row = Object.assign([{ id: 1 }], {
+    meta: { note: 'x' },
+    [tag]: { note: 'y' }
+  });
+  const store = create(() => ({ rows: [row] }));
+  const first = store.getState().rows[0] as typeof row;
+  expect(Object.isFrozen(first[0])).toBe(true);
+  expect(Object.isFrozen(first.meta)).toBe(true);
+  expect(Object.isFrozen(first[tag])).toBe(true);
+  expect(() => {
+    first.meta.note = 'z';
+  }).toThrow(TypeError);
+  expect((store.getPureState().rows[0] as typeof row).meta.note).toBe('x');
+});
