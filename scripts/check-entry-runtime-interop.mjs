@@ -63,6 +63,24 @@ for (const [entryName, entry] of [
     'getReadonlyStateValueVersion() returned no version'
   );
 
+  // An array element leaves the store as the frozen value itself. The adapter
+  // has to know it for state, by identity, or a selector result carrying one
+  // hides its changes -- and an object frozen anywhere else is not state.
+  const elements = entry.create(() => ({ items: [{ id: 'a' }] }));
+  const element = elements.getState().items[0];
+  check(
+    `${entryName} -> coaction/adapter`,
+    adapter.trackReadonlyStateValue(element) === true &&
+      adapter.getReadonlyStateValueVersion(element) === 0,
+    'an array element was not recognised as a state value'
+  );
+  check(
+    `${entryName} -> coaction/adapter`,
+    adapter.trackReadonlyStateValue(Object.freeze({ id: 'a' })) === false,
+    'an object frozen outside the state was taken for a state value'
+  );
+  elements.destroy();
+
   // A tracker from the adapter must collect dependencies from that store.
   const tracker = adapter.createReactiveTracker();
   tracker.track(() => store.getState().user.name);

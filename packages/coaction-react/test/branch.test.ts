@@ -788,3 +788,35 @@ test.each(['observer', 'selector'] as const)(
     vi.useRealTimers();
   }
 );
+
+test('an observer traverses a frozen wrapper of its own that it renders', async () => {
+  vi.resetModules();
+  const React = await import('react');
+  const { act, render, screen } = await import('@testing-library/react');
+  const { create, observer } = await import('../src');
+  const useStore = create((set: any) => ({
+    user: { name: 'Ada', age: 30 },
+    grow() {
+      set(() => {
+        (this as { user: { age: number } }).user.age += 1;
+      });
+    }
+  })) as any;
+  const Age = ({ data }: { data: { user: { age: number } } }) =>
+    React.createElement('span', { 'data-testid': 'age' }, data.user.age);
+  // Reading the name traverses `user`; only the wrapper carries it whole.
+  const Profile = observer(() => {
+    const state = useStore();
+    return React.createElement(
+      'div',
+      null,
+      state.user.name,
+      React.createElement(Age, { data: Object.freeze({ user: state.user }) })
+    );
+  });
+  render(React.createElement(Profile) as any);
+  expect(screen.getByTestId('age').textContent).toBe('30');
+  act(() => useStore.getState().grow());
+  expect(screen.getByTestId('age').textContent).toBe('31');
+  useStore.destroy();
+});

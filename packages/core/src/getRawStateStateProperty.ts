@@ -43,6 +43,12 @@ const publicStatePathMeta = sharedRegistry.publicStatePathMeta as WeakMap<
 >;
 /** Reverse of the readonly proxy cache, so a proxy can hand back its source. */
 const readonlyProxySource = sharedRegistry.readonlyProxySource;
+/**
+ * Every object the state has frozen to hand out as itself. Such a value is a
+ * state value without a proxy, so carrying it out of a selector is tracked by
+ * identity -- and an object frozen by anyone else is plain data to traverse.
+ */
+const stateValues = sharedRegistry.stateValues;
 
 /**
  * The trie node a recorded path is tracked at. Holding it on the meta is what
@@ -117,6 +123,10 @@ export const registerReadonlyStateValuePath = <T extends CreateState>(
  * Framework adapters call this while their tracker is active so returning a
  * readonly state object is reactive even when the selector does not read a
  * primitive child.
+ *
+ * Returns whether the value is state. A value the state hands out as itself --
+ * an array element -- is, and has nothing further to track: reading it took
+ * the dependency on its identity.
  */
 export const trackReadonlyStateValue = (value: unknown) => {
   if ((typeof value !== 'object' && typeof value !== 'function') || !value) {
@@ -124,7 +134,7 @@ export const trackReadonlyStateValue = (value: unknown) => {
   }
   const meta = publicStatePathMeta.get(value as object);
   if (!meta) {
-    return false;
+    return stateValues.has(value as object);
   }
   if (isReactiveTrackingActive()) {
     for (let index = 0; index < meta.paths.length; index++) {
@@ -149,7 +159,8 @@ export const getReadonlyStateValueVersion = (value: unknown) => {
   }
   const meta = publicStatePathMeta.get(value as object);
   if (!meta) {
-    return undefined;
+    // A value handed out as itself never changes: its identity is the version.
+    return stateValues.has(value as object) ? 0 : undefined;
   }
   let version = 0;
   for (const path of meta.paths) {
@@ -252,6 +263,7 @@ const freezeStateValue = <V>(value: V): V => {
     // A shared object can be queued twice before it is first reached.
     if (Object.isFrozen(current)) continue;
     Object.freeze(current);
+    stateValues.add(current);
     // An array's values are its elements; listing its keys would allocate one
     // per element each time a write hands the scan a fresh copy. Its named
     // extras are state too: they follow the indexes in `Object.keys`, which

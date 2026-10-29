@@ -232,7 +232,9 @@ const trackReturnedStateValues = (value: unknown) => {
     }
     // A Coaction state proxy/facade is already a terminal path dependency.
     // Do not traverse large state arrays/objects merely because they escaped
-    // through a React prop.
+    // through a React prop. A value the state hands out as itself -- an array
+    // element -- is state too: its version is constant, so it is carried by
+    // its identity.
     if (trackReadonlyStateValue(current)) {
       const version = getReadonlyStateValueVersion(current);
       if (version !== undefined) carried.push({ value: object, version });
@@ -257,13 +259,6 @@ const trackReturnedStateValues = (value: unknown) => {
     // the first state value, so this only walks what the caller wrote.
     const prototype = Object.getPrototypeOf(current);
     if (prototype !== Object.prototype && prototype !== null) return;
-    // A frozen plain object is a value the store handed out -- an array
-    // element -- or one held inside it. It cannot carry a readonly proxy, so
-    // there is nothing below it to find; it is carried by identity instead.
-    if (Object.isFrozen(current)) {
-      carried.push({ value: object, version: 0 });
-      return;
-    }
     const record = current as Record<PropertyKey, unknown>;
     for (const key of Reflect.ownKeys(record)) {
       visit(record[key]);

@@ -25,6 +25,8 @@ type SharedRegistry = {
   reactiveSubscribers: WeakMap<object, unknown>;
   /** The dependency collection in progress, and the collection stamp clock. */
   reactiveCollector: { active: unknown; stamp: number };
+  /** State objects handed out as themselves, frozen, rather than as proxies. */
+  stateValues: WeakSet<object>;
 };
 
 const globalHolder = globalThis as unknown as Record<symbol, unknown>;
@@ -34,5 +36,6 @@ export const sharedRegistry = (globalHolder[registryKey] ??= {
   readonlyProxySource: new WeakMap<object, object>(),
   readonlyProxyCache: new WeakMap<object, WeakMap<object, object>>(),
   reactiveSubscribers: new WeakMap<object, unknown>(),
-  reactiveCollector: { active: undefined, stamp: 0 }
+  reactiveCollector: { active: undefined, stamp: 0 },
+  stateValues: new WeakSet<object>()
 } satisfies SharedRegistry) as SharedRegistry;

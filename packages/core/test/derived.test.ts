@@ -390,3 +390,54 @@ test('deep graph selection preserves cycles, shared references, prototypes and a
   }
   store.destroy();
 });
+
+test('result equality does not hide a change to a carried element', () => {
+  const store = create({ items: [{ id: 1, n: 1 }] });
+  const reused = { item: undefined as undefined | { id: number; n: number } };
+  const item = derive(store, (s) => s.items[0], {
+    deep: true,
+    equals: (before, after) => before.id === after.id
+  });
+  const wrapped = derive(store, (s) => ({ item: s.items[0] }), {
+    deep: true,
+    equals: () => true
+  });
+  const same = derive(
+    store,
+    (s) => {
+      reused.item = s.items[0];
+      return reused;
+    },
+    { deep: true }
+  );
+  const seen: number[] = [];
+  const stops = [item, () => wrapped().item, () => same().item].map((read) =>
+    effect(() => {
+      seen.push(read()!.n);
+    })
+  );
+  store.setState((s) => {
+    s.items[0].n = 2;
+  });
+  expect(seen).toEqual([1, 1, 1, 2, 2, 2]);
+  stops.forEach((stop) => stop());
+  store.destroy();
+});
+
+test('an output the selector froze itself is still compared with equals', () => {
+  const store = create({ a: 1 });
+  const parity = derive(store, (s) => Object.freeze({ odd: s.a % 2 === 1 }), {
+    equals: (before, after) => before.odd === after.odd
+  });
+  let notifications = 0;
+  const stop = effect(() => {
+    parity();
+    notifications++;
+  });
+  store.setState({ a: 3 });
+  expect(notifications).toBe(1);
+  store.setState({ a: 4 });
+  expect(notifications).toBe(2);
+  stop();
+  store.destroy();
+});
