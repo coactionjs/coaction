@@ -399,6 +399,8 @@ const toReadonlyStateValue = <T extends CreateState>(
   const getScan = (target: unknown[], key: PropertyKey, method: Function) => {
     let scan = scans?.get(key);
     if (!scan) {
+      const searches =
+        key === 'includes' || key === 'indexOf' || key === 'lastIndexOf';
       scan = function (this: unknown, ...args: unknown[]) {
         if (this !== proxy || !exposesStateValues(internal)) {
           return method.apply(this, args);
@@ -409,8 +411,10 @@ const toReadonlyStateValue = <T extends CreateState>(
           }
         }
         // An element searched for may be an alias reached through an object
-        // key, which is its readonly proxy.
-        if (typeof args[0] === 'object' && args[0] !== null) {
+        // key, which is its readonly proxy. Any other argument stays as given:
+        // `concat` reads an array proxy through its traps, which hand the
+        // elements out frozen, where its source would hand them out raw.
+        if (searches && typeof args[0] === 'object' && args[0] !== null) {
           args[0] = readonlyProxySource.get(args[0]) ?? args[0];
         }
         return method.apply(freezeStateValue(target), args);

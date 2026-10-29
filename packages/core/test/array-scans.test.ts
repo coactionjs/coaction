@@ -128,3 +128,15 @@ test('a scanned array stays the readonly proxy its key reaches', () => {
   expect(notifications).toBe(1);
   tracker.dispose();
 });
+
+test('concat hands out the elements of an array it is given frozen', () => {
+  const store = create(() => ({ a: [{ id: 1 }], b: [{ id: 2 }] }));
+  const state = store.getState();
+  const merged = state.a.concat(state.b);
+  expect(Object.isFrozen(merged[1])).toBe(true);
+  expect(() => {
+    (merged[1] as { id: number }).id = 3;
+  }).toThrow(TypeError);
+  expect(store.getPureState().b[0].id).toBe(2);
+  expect(merged[1]).toBe(state.b[0]);
+});
