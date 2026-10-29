@@ -674,3 +674,45 @@ test('re-renders re-track two trackers instead of creating one per render', asyn
   expect(created).toBeLessThanOrEqual(4);
   useStore.destroy();
 });
+
+test('a re-tracked observer keeps dependencies it reads in another order', async () => {
+  vi.resetModules();
+  const React = await import('react');
+  const { act, render, screen } = await import('@testing-library/react');
+  const { create, observer } = await import('../src');
+  const useStore = create((set: any) => ({
+    a: 'a',
+    b: 'b',
+    c: 'c',
+    setB(value: string) {
+      set(() => {
+        (this as { b: string }).b = value;
+      });
+    }
+  })) as any;
+  const Pair = observer(({ mode }: { mode: number }) => {
+    const state = useStore();
+    const text =
+      mode === 0
+        ? `${state.a}${state.b}`
+        : mode === 1
+          ? state.c
+          : `${state.b}${state.a}`;
+    return React.createElement('span', { 'data-testid': 'pair' }, text);
+  });
+  let setMode!: (mode: number) => void;
+  const Parent = () => {
+    const [mode, update] = React.useState(0);
+    setMode = update;
+    return React.createElement(Pair, { mode });
+  };
+  render(React.createElement(Parent) as any);
+  // No store write in between: the third render re-tracks the first
+  // render's tracker, in the reverse order, within one alien-signals cycle.
+  act(() => setMode(1));
+  act(() => setMode(2));
+  expect(screen.getByTestId('pair').textContent).toBe('ba');
+  act(() => useStore.getState().setB('B'));
+  expect(screen.getByTestId('pair').textContent).toBe('Ba');
+  useStore.destroy();
+});

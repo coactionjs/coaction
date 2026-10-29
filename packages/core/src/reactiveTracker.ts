@@ -148,6 +148,15 @@ export const createReactiveTracker = (): ReactiveTracker => {
         return fn();
       }
       beginReactiveSubscriberTrack(node);
+      // alien-signals takes a link that is already the last one on its
+      // dependency and stamped with the current cycle for a repeat read of this
+      // pass, and skips it. A tracker re-tracks outside alien-signals' own
+      // runs, so the cycle can still be the one its previous pass ran in: a
+      // dependency read in another order would be skipped, then purged as
+      // unread. Only this pass's links may carry the cycle.
+      for (let link = node.deps; link !== undefined; link = link.nextDep) {
+        link.version = -1;
+      }
       node.depsTail = undefined;
       node.flags = ReactiveFlags.Watching | ReactiveFlags.RecursedCheck;
       const prevSub = setActiveSub(node);
