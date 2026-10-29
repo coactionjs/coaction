@@ -414,25 +414,29 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
     state.nodes[index].slot = index;
   }
   const current = ++collector.stamp;
-  const nodes: ReactivePathNode[] = [];
-  const masks: number[] = [];
+  // Merge each node's entries in place: a nested collection can split a node
+  // into several, and the rules above need all of its reads at once.
+  const nodes = collection.nodes;
+  const masks = collection.masks;
   const previousMasks: number[] = [];
-  for (let index = 0; index < collection.nodes.length; index++) {
-    const node = liveReactiveNode(collection.nodes[index]);
+  let length = 0;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = liveReactiveNode(nodes[index]);
     if (node.stamp === current) {
-      masks[node.slot] |= collection.masks[index];
+      masks[node.slot] |= masks[index];
       continue;
     }
     previousMasks.push(node.stamp === previous ? state.masks[node.slot] : 0);
     node.stamp = current;
-    node.slot = nodes.length;
-    nodes.push(node);
-    masks.push(collection.masks[index]);
+    node.slot = length;
+    nodes[length] = node;
+    masks[length] = masks[index];
+    length += 1;
   }
-  // Compact the set in place. A node that keeps no dependency is unstamped,
-  // so the removal pass below reads it as gone.
-  let length = 0;
-  for (let index = 0; index < nodes.length; index++) {
+  // Then minimise and compact again. A node that keeps no dependency is
+  // unstamped, so the removal pass below reads it as gone.
+  let kept = 0;
+  for (let index = 0; index < length; index++) {
     const node = nodes[index];
     let mask = masks[index];
     if (
@@ -451,13 +455,13 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
     if (addedMask) {
       updateSubscriberCount(node, addedMask, 1);
     }
-    node.slot = length;
-    nodes[length] = node;
-    masks[length] = mask;
-    length += 1;
+    node.slot = kept;
+    nodes[kept] = node;
+    masks[kept] = mask;
+    kept += 1;
   }
-  nodes.length = length;
-  masks.length = length;
+  nodes.length = kept;
+  masks.length = kept;
   const removedNodes: ReactivePathNode[] = [];
   for (let index = 0; index < state.nodes.length; index++) {
     const node = state.nodes[index];
