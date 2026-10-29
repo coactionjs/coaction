@@ -114,6 +114,30 @@ test('freezing an element reaches the named extras of an array', () => {
   expect((store.getPureState().rows[0] as typeof row).meta.note).toBe('x');
 });
 
+test('a frozen object in the state hands out only its own values', () => {
+  const config = Object.freeze({ mode: 'dark', theme: { accent: 'red' } });
+  const store = create((set) => ({
+    config: { mode: 'light', theme: { accent: 'blue' } },
+    use(next: typeof config) {
+      set((draft) => {
+        draft.config = next;
+      });
+    }
+  }));
+  // Assigned in a recipe, the frozen object is kept as it is, and reads reach
+  // it through a readonly proxy.
+  store.getState().use(config);
+  const view = store.getState().config as typeof config & {
+    __proto__: object;
+  };
+  expect(view.theme).toBe(config.theme);
+  const tracker = createReactiveTracker();
+  tracker.track(() => (store.getState().config as typeof view).__proto__);
+  tracker.dispose();
+  void view.__proto__;
+  expect(Object.isFrozen(Object.prototype)).toBe(false);
+});
+
 test('a getter returns an element copied before any getter returned one', () => {
   const store = create<{
     items: { id: number; label: string }[];

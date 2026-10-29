@@ -470,9 +470,12 @@ const toReadonlyStateValue = <T extends CreateState>(
       // getter -- and a reader depends on its identity, which structural
       // sharing changes on any write inside it. A frozen target is one such
       // value reached through an alias; it cannot return proxies of its own.
+      // Either way only an own key holds state: an inherited one, such as the
+      // `Object.prototype` that `__proto__` reads, must never be frozen.
       const isValue =
         isStateObject &&
-        (Array.isArray(target) ? isOwn : Object.isFrozen(target)) &&
+        isOwn &&
+        (Array.isArray(target) || Object.isFrozen(target)) &&
         exposesStateValues(internal);
       // Nothing can be recorded without an active subscriber, so skip the
       // whole node-resolving step for untracked reads.
