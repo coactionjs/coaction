@@ -15,7 +15,9 @@ import type { Internal } from './internal';
 import {
   assertKnownStateShape,
   completeProducerPatches,
+  createRecordingMark,
   markLocalState,
+  type RecipeReads,
   needsRootSnapshot,
   shallowCloneOwnEnumerable,
   getOwnEnumerableKeys,
@@ -128,6 +130,7 @@ export const handleState = <T extends CreateState>(
     let nextNeedsSnapshot = false;
     let patches: Patches;
     let inversePatches: Patches;
+    const reads: RecipeReads = [];
     try {
       const result = createWithMutative(
         internal.rootState,
@@ -140,7 +143,9 @@ export const handleState = <T extends CreateState>(
           // positional cloning. This does not support editing inside a cyclic
           // draft or creating cycles from draft references.
           enablePatches: !snapshot,
-          mark: markLocalState
+          // A journal is certified below; what the recipe read tells whether
+          // it can skip the elements of the arrays along a written path.
+          mark: snapshot ? markLocalState : createRecordingMark(reads)
         }
       );
       const pair = result as [T, Patches, Patches];
@@ -175,7 +180,8 @@ export const handleState = <T extends CreateState>(
         producedState,
         patches,
         inversePatches,
-        snapshot || nextNeedsSnapshot
+        snapshot || nextNeedsSnapshot,
+        reads
       ));
     } finally {
       internal.rootState = internal.backupState;

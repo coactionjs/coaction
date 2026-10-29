@@ -82,3 +82,14 @@ wrapper per scanned method: **441 bytes** in the default core consumer (11,781)
 and **442 bytes** in the shared consumer (16,001). The derived consumer does
 not contain the proxy layer and is unchanged. Both baselines moved with their
 ceilings.
+
+## Recipe-read certification
+
+A store that consumes patches certified a single scalar write by comparing every
+element of each array along its path. The recipe's mark now records the objects
+it reads, and a write whose recipe read nothing beside its own path skips that
+comparison. The recording mark and the path check cost **166 bytes** in the
+default core consumer and **154 bytes** in the shared consumer. The fixes and
+optimisations that followed the array-values freeze had already added 206 and
+217 bytes inside the ceilings, so the baselines now record the measured 12,153
+and 16,372 bytes. Both moved with their ceilings.

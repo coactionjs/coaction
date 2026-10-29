@@ -1,6 +1,7 @@
 import {
   apply as applyWithMutative,
   create as createWithMutative,
+  isDraft,
   type Options,
   type Patches
 } from 'mutative';
@@ -14,6 +15,31 @@ export const markLocalState: Exclude<
   value != null && Object.getPrototypeOf(value) === null
     ? types.immutable
     : undefined;
+
+/** The objects a recipe read through its drafts, up to a bound. */
+export type RecipeReads = object[] & { overflowed?: boolean };
+
+const maxRecipeReads = 32;
+
+/**
+ * A `mark` for one recipe that also records the objects it reads.
+ *
+ * The producer hands `mark` every value read through a draft, and a value can
+ * only become a draft -- and so a copy -- by being read. The record lets a
+ * certification skip siblings no draft ever reached; past the bound it gives
+ * up and certifies the whole path. A draft read again is not recorded: its
+ * original was, on the read that drafted it, and the producer revokes the
+ * draft before the record is checked.
+ */
+export const createRecordingMark =
+  (reads: RecipeReads): typeof markLocalState =>
+  (value, types) => {
+    if (typeof value === 'object' && value !== null && !isDraft(value)) {
+      if (reads.length < maxRecipeReads) reads.push(value);
+      else reads.overflowed = true;
+    }
+    return markLocalState(value, types);
+  };
 
 export const isUnsafeKey = (key: string) =>
   key === '__proto__' || key === 'prototype' || key === 'constructor';
@@ -686,24 +712,73 @@ const matchesArraySiblings = (
   before: unknown[],
   after: unknown[],
   index: number
-) =>
-  before.length === after.length &&
-  after.every((value, i) => i === index || Object.is(value, before[i]));
+) => {
+  if (before.length !== after.length) return false;
+  // This runs over every element of an array written into, so siblings are
+  // compared with `!==` and only a mismatch pays for `Object.is`, which excuses
+  // NaN. A sign of zero needs no second look: the producer reports each value
+  // it assigns, comparing with `Object.is`, so all a sibling can do unreported
+  // is become another object -- a recipe whose writes cancelled out.
+  for (let i = 0; i < after.length; i += 1) {
+    const value = after[i];
+    if (value !== before[i] && i !== index && !Object.is(value, before[i])) {
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
+ * Whether a recipe's reads prove that no element of an array on a written path
+ * became a copy: every object it read is one of the containers the write went
+ * through, and each of those below the root was read. That last part is what
+ * shows the record saw the recipe's reads at all -- the write could not reach
+ * the leaf without them -- so a producer that stopped reporting reads only
+ * costs the full comparison, never a missed copy. A write into the root itself
+ * has no such container, so it keeps the comparison.
+ */
+const readsStayOnPath = (
+  root: any,
+  path: readonly PropertyKey[],
+  reads: RecipeReads
+) => {
+  if (reads.overflowed || path.length < 2) return false;
+  const chain = [root];
+  // Only objects are recorded, so a container that is not one stops here.
+  for (let index = 0; index < path.length - 1; index += 1) {
+    const container = chain[index][path[index]];
+    if (!reads.includes(container)) return false;
+    chain.push(container);
+  }
+  return reads.every((value) => chain.includes(value));
+};
 
 const matchesProducerPatches = (
   before: any,
   after: any,
   patches: Patches,
-  inverse?: Patches[number]
+  inverse?: Patches[number],
+  reads?: RecipeReads
 ) => {
   const patch = patches[0];
   if (inverse) {
     // The one edited branch is known. All other children must retain identity,
     // including copies from a recipe whose visible writes cancelled out.
-    for (const segment of normalizePatchPath(patch.path)) {
+    const path = normalizePatchPath(patch.path);
+    // Elements are what make this comparison long, and only a read can copy
+    // one. An object's keys are still compared: deleting a key and adding it
+    // back reorders them without a read or a patch.
+    const elementsKept =
+      reads !== undefined && readsStayOnPath(before, path, reads);
+    for (const segment of path) {
       if (!before || !after || typeof after !== 'object') return false;
       if (Array.isArray(after)) {
-        if (!matchesArraySiblings(before, after, Number(segment))) return false;
+        if (
+          elementsKept
+            ? before.length !== after.length
+            : !matchesArraySiblings(before, after, Number(segment))
+        )
+          return false;
       } else {
         const keys = Object.keys(after);
         const previous = Object.keys(before);
@@ -755,13 +830,18 @@ const matchesProducerPatches = (
   return compare(before, after, applyPatches(before, patches));
 };
 
-/** Complete a producer pair before middleware, validation or publication. */
+/**
+ * Complete a producer pair before middleware, validation or publication.
+ * `reads`, recorded with `createRecordingMark`, lets a single scalar write
+ * skip comparing the elements of the arrays along its path.
+ */
 export const completeProducerPatches = <T extends object>(
   before: T,
   after: T,
   patches: Patches,
   inversePatches: Patches,
-  snapshot = needsRootSnapshot(before) || needsRootSnapshot(after)
+  snapshot = needsRootSnapshot(before) || needsRootSnapshot(after),
+  reads?: RecipeReads
 ): { patches: Patches; inversePatches: Patches } => {
   if (snapshot || !patches.length) return createSnapshotPatches(before, after);
   try {
@@ -779,7 +859,7 @@ export const completeProducerPatches = <T extends object>(
           }
         : undefined;
     if (
-      matchesProducerPatches(before, after, patches, inverse) &&
+      matchesProducerPatches(before, after, patches, inverse, reads) &&
       (inverse || matchesProducerPatches(after, before, inversePatches))
     )
       return { patches, inversePatches: inverse ? [inverse] : inversePatches };
