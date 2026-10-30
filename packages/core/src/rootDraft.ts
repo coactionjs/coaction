@@ -9,6 +9,8 @@ type RootDraft = {
   copy: Root | undefined;
   /** The keys written to the copy, in order, for a draft taking over. */
   written: PropertyKey[] | undefined;
+  /** Whether a key written to the copy is one the root did not have. */
+  added: boolean;
   draft: Root | undefined;
   finalize: (() => unknown) | undefined;
 };
@@ -57,6 +59,7 @@ const rootHandler: ProxyHandler<RootDraft> = {
     root.copy ??= { ...root.base };
     root.copy[key] = value;
     (root.written ??= []).push(key);
+    if (!hasOwn.call(root.base, key)) root.added = true;
     return true;
   },
   has: (root, key) => Reflect.has(toDraft(root), key),
@@ -72,7 +75,9 @@ const rootHandler: ProxyHandler<RootDraft> = {
 };
 
 /**
- * Produce the next root of a recipe that needs no patch pair.
+ * Produce the next root of a recipe that needs no patch pair, and whether it
+ * kept exactly the keys of `base`: no draft took over, and every key written
+ * was already the root's.
  *
  * Creating and finalizing a Mutative draft is most of the cost of a write that
  * only sets a value on the root -- `count += 1` -- so the recipe starts on a
@@ -84,14 +89,15 @@ const rootHandler: ProxyHandler<RootDraft> = {
 export const produceLocalRoot = <T extends object>(
   base: T,
   recipe: (root: T) => void
-): T => {
+): [next: T, keysKept: boolean] => {
   if (Object.getPrototypeOf(base) !== Object.prototype) {
-    return createWithMutative(base, recipe, draftOptions) as T;
+    return [createWithMutative(base, recipe, draftOptions) as T, false];
   }
   const root: RootDraft = {
     base: base as Root,
     copy: undefined,
     written: undefined,
+    added: false,
     draft: undefined,
     finalize: undefined
   };
@@ -100,7 +106,9 @@ export const produceLocalRoot = <T extends object>(
   try {
     recipe(proxy as unknown as T);
     finished = true;
-    return (root.finalize?.() ?? root.copy ?? root.base) as T;
+    return root.finalize
+      ? [root.finalize() as T, false]
+      : [(root.copy ?? root.base) as T, !root.added];
   } finally {
     // A recipe that throws ends its drafts as a failed producer does.
     if (!finished && root.finalize) {

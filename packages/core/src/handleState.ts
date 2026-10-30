@@ -39,6 +39,8 @@ import {
   type StorePatchTransition
 } from './storeCommit';
 
+const requireSliceRoots = { requireSliceRoots: true } as const;
+
 export const handleState = <T extends CreateState>(
   store: MiddlewareStore<T>,
   internal: Internal<T>,
@@ -156,9 +158,7 @@ export const handleState = <T extends CreateState>(
         internal.backupState,
         internal.stateSchema,
         store.isSliceStore,
-        {
-          requireSliceRoots: true
-        }
+        requireSliceRoots
       );
       internal.validateState?.(internal.getTransportState?.() ?? producedState);
       patches = snapshot ? [] : pair[1];
@@ -285,21 +285,26 @@ export const handleState = <T extends CreateState>(
                 runRecipe(next);
               };
               // A slice is an object below the root, which only a draft writes.
-              const nextState = store.isSliceStore
-                ? (createWithMutative(internal.rootState, recipe, {
-                    enablePatches: false,
-                    mark: markLocalState
-                  }) as T)
+              const [nextState, keysKept] = store.isSliceStore
+                ? [
+                    createWithMutative(internal.rootState, recipe, {
+                      enablePatches: false,
+                      mark: markLocalState
+                    }) as T,
+                    false
+                  ]
                 : produceLocalRoot(internal.rootState as T, recipe);
-              assertKnownStateShape(
-                nextState,
-                internal.backupState,
-                internal.stateSchema,
-                store.isSliceStore,
-                {
-                  requireSliceRoots: true
-                }
-              );
+              // The committed root has the schema's shape, and a root that kept
+              // exactly its keys still has it.
+              if (!keysKept) {
+                assertKnownStateShape(
+                  nextState,
+                  internal.backupState,
+                  internal.stateSchema,
+                  store.isSliceStore,
+                  requireSliceRoots
+                );
+              }
               internal.rootState = nextState;
             } catch (error) {
               internal.rootState = internal.backupState;
@@ -336,9 +341,7 @@ export const handleState = <T extends CreateState>(
               internal.rootState,
               internal.stateSchema,
               store.isSliceStore,
-              {
-                requireSliceRoots: true
-              }
+              requireSliceRoots
             );
             internal.rootState = copy;
           }
@@ -373,9 +376,7 @@ export const handleState = <T extends CreateState>(
             internal.backupState ?? internal.rootState,
             internal.stateSchema,
             store.isSliceStore,
-            {
-              requireSliceRoots: true
-            }
+            requireSliceRoots
           );
         }
         const trustedDefaultResult =

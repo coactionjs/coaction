@@ -114,10 +114,10 @@ const recipes: [string, (root: Root) => unknown][] = [
 const runLocal = (recipe: (root: Root) => unknown) => {
   const before = base();
   let result: unknown;
-  const after = produceLocalRoot(before, (root) => {
+  const [after, keysKept] = produceLocalRoot(before, (root) => {
     result = recipe(root);
   });
-  return { before, after, result };
+  return { before, after, result, keysKept };
 };
 
 const runMutative = (recipe: (root: Root) => unknown) => {
@@ -158,13 +158,13 @@ test.each(recipes)('%s produces what a Mutative draft does', (_, recipe) => {
 
 test('roots other than plain objects are drafted from the start', () => {
   const array = [1, 2, 3] as unknown as Root;
-  const nextArray = produceLocalRoot(array, (root) => {
+  const [nextArray] = produceLocalRoot(array, (root) => {
     root[0] = 4;
   });
   expect(nextArray).toEqual([4, 2, 3]);
   expect(array).toEqual([1, 2, 3]);
   const record = Object.assign(Object.create(null), { count: 0 }) as Root;
-  const nextRecord = produceLocalRoot(record, (root) => {
+  const [nextRecord] = produceLocalRoot(record, (root) => {
     root.count = 1;
   });
   expect(Object.getPrototypeOf(nextRecord)).toBe(null);
@@ -283,6 +283,39 @@ test('a recipe returning an object, or throwing, keeps the store consistent', ()
     state.count += 1;
   });
   expect(store.getPureState()).toEqual({ count: 2, label: 'b' });
+  tracker.dispose();
+  store.destroy();
+});
+
+test.each<[string, (root: Root) => unknown, boolean]>([
+  ['nothing', () => {}, true],
+  ['writes to its own keys', (root) => void (root.count = 1), true],
+  [
+    'a write and its revert',
+    (root) => {
+      root.count = 1;
+      root.count = 0;
+    },
+    true
+  ],
+  ['a new key', (root) => void (root.extra = 1), false],
+  ['a read of an object', (root) => void root.user.name, false],
+  ['a deleted key', (root) => void delete root.count, false]
+])('a root that saw %s reports whether it kept its keys', (_, recipe, kept) => {
+  expect(runLocal(recipe).keysKept).toBe(kept);
+});
+
+test('a key the schema does not know is still refused', () => {
+  const store = create(() => ({ count: 0 }));
+  const tracker = createReactiveTracker();
+  tracker.track(() => store.getState().count);
+  const before = store.getPureState();
+  expect(() =>
+    store.setState(() => {
+      (store.getPureState() as Root).extra = 1;
+    })
+  ).toThrow("Unknown state key 'extra'");
+  expect(store.getPureState()).toBe(before);
   tracker.dispose();
   store.destroy();
 });

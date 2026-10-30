@@ -374,10 +374,13 @@ const getOwnSchemaKeys = (source: unknown) => {
 const formatSchemaPath = (path: PropertyKey[]) =>
   path.length ? path.map((key) => String(key)).join('.') : '<root>';
 
+/** The path of a root key, shared: only an error message copies it. */
+const rootPath: readonly PropertyKey[] = [];
+
 const assertKnownSchemaKey = (
   knownKeys: Set<PropertyKey>,
   key: PropertyKey,
-  path: PropertyKey[]
+  path: readonly PropertyKey[]
 ) => {
   if (typeof key === 'string' && isUnsafeKey(key)) {
     return;
@@ -458,7 +461,7 @@ export const assertKnownStateShape = (
     });
   }
   for (const key of getOwnEnumerableKeys(source)) {
-    assertKnownSchemaKey(rootKeys, key, []);
+    assertKnownSchemaKey(rootKeys, key, rootPath);
     if (!isSliceStore) {
       continue;
     }
