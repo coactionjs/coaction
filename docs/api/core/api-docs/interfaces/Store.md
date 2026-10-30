@@ -98,13 +98,21 @@ attached transport.
 
 > **getInitialState**: () => `T`
 
-Defined in: [packages/core/src/interface.ts:169](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L169)
+Defined in: [packages/core/src/interface.ts:176](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L176)
 
 Return the state produced during initialization before later mutations.
 
 #### Returns
 
 `T`
+
+#### Remarks
+
+For a native store this is a copy of the store's initial data, shaped like
+the object its factory returned and carrying that object's own methods,
+accessors and computed definitions; it is copied on the first call, and
+every call returns the same object. Changing it does not change the store.
+A store bound to another runtime returns what that runtime provided.
 
 ---
 
@@ -170,7 +178,7 @@ The name of the store.
 
 > `optional` **patch**: (`option`) => [`PatchTransform`](PatchTransform.md)
 
-Defined in: [packages/core/src/interface.ts:174](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L174)
+Defined in: [packages/core/src/interface.ts:181](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L181)
 
 #### Parameters
 
@@ -269,7 +277,7 @@ A function that removes the listener.
 
 > `optional` **trace**: (`options`) => `void`
 
-Defined in: [packages/core/src/interface.ts:179](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L179)
+Defined in: [packages/core/src/interface.ts:186](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L186)
 
 #### Parameters
 

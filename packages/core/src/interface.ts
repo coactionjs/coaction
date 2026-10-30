@@ -165,6 +165,13 @@ export interface Store<T extends ISlices = ISlices> {
   getPureState: () => T;
   /**
    * Return the state produced during initialization before later mutations.
+   *
+   * @remarks
+   * For a native store this is a copy of the store's initial data, shaped like
+   * the object its factory returned and carrying that object's own methods,
+   * accessors and computed definitions; it is copied on the first call, and
+   * every call returns the same object. Changing it does not change the store.
+   * A store bound to another runtime returns what that runtime provided.
    */
   getInitialState: () => T;
   /**

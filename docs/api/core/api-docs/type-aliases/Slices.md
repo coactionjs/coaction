@@ -8,7 +8,7 @@
 
 > **Slices**\<`T`, `K`\> = (`set`, `get`, `store`) => `T`\[`K`\]
 
-Defined in: [packages/core/src/interface.ts:279](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L279)
+Defined in: [packages/core/src/interface.ts:286](https://github.com/coactionjs/coaction/blob/main/packages/core/src/interface.ts#L286)
 
 Factory for a named slice inside a slices store.
 

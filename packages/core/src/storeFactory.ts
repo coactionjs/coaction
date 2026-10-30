@@ -8,7 +8,11 @@ import { applyThroughExternalRuntime } from './externalApply';
 import { updateImmutableStateSnapshot } from './immutableState';
 import { createNotifications } from './notifications';
 import { defaultName } from './constant';
-import { getInitialState } from './getInitialState';
+import {
+  createInitialStateReader,
+  getInitialState,
+  holdInitialState
+} from './getInitialState';
 import { getRawState, type LocalActionWrapper } from './getRawState';
 import type { ClientActionFactory } from './getRawStateClientAction';
 import { handleState } from './handleState';
@@ -443,7 +447,9 @@ export const createStore = <T extends CreateState>(
     if (!internal.getTransportState) {
       runtime.validateInitialState?.(initialState, store.isSliceStore);
     }
-    store.getInitialState = () => initialState;
+    // Made outside this function: a closure here would put the factory's object
+    // in the context every store method shares, and keep it alive with them.
+    store.getInitialState = holdInitialState(initialState);
     internal.rootState = getRawState(
       store,
       internal,
@@ -452,6 +458,20 @@ export const createStore = <T extends CreateState>(
       runtime.clientAction,
       runtime.wrapLocalAction
     ) as T;
+    // A native store's first root holds its initial data, so the factory's
+    // object is not kept alive for `getInitialState()`. A store bound to
+    // another runtime returns what that runtime gave it.
+    if (
+      !internal.mutableInstance &&
+      !internal.updateImmutable &&
+      !internal.externalApply
+    ) {
+      store.getInitialState = createInitialStateReader<T>(
+        initialState,
+        internal.rootState as object,
+        store.isSliceStore
+      );
+    }
     if (validatePatches && store.apply !== apply) {
       const applyWithAdapter = store.apply.bind(store);
       store.apply = (state, patches) => {

@@ -1,7 +1,14 @@
 import { bindSymbol } from './constant';
 import type { CreateState, ISlices, Slice, Store } from './interface';
 import { Internal } from './internal';
-import { getOwnEnumerableKeys, isUnsafeKey, setOwnEnumerable } from './utils';
+import { Computed } from './computed';
+import {
+  getOwnEnumerableKeys,
+  isUnsafeKey,
+  sanitizeInitialStateValue,
+  setOwnEnumerable,
+  type StateCopyMemo
+} from './utils';
 
 type StateFactory<T extends CreateState> = (
   setState: Store<T>['setState'],
@@ -125,4 +132,104 @@ export const getInitialState = <T extends CreateState>(
     },
     {} as ISlices<Slice<any>>
   );
+};
+
+/** The factory's own object, for a store bound to another runtime. */
+export const holdInitialState =
+  <T>(state: T): (() => T) =>
+  () =>
+    state;
+
+type InitialShape = {
+  prototype: object | null;
+  /** The factory's own descriptors, without the values of its data keys. */
+  descriptors: Record<PropertyKey, PropertyDescriptor>;
+  data: PropertyKey[];
+};
+
+const shapeOf = (source: object): InitialShape => {
+  const descriptors = Object.getOwnPropertyDescriptors(source) as Record<
+    PropertyKey,
+    PropertyDescriptor
+  >;
+  const data: PropertyKey[] = [];
+  for (const key of Reflect.ownKeys(descriptors)) {
+    const descriptor = descriptors[key];
+    if (typeof key === 'string' && isUnsafeKey(key)) {
+      delete descriptors[key];
+    } else if (
+      'value' in descriptor &&
+      typeof descriptor.value !== 'function' &&
+      !(descriptor.value instanceof Computed)
+    ) {
+      // The data is the store's root's, not the factory's.
+      delete descriptor.value;
+      data.push(key);
+    }
+  }
+  return { prototype: Object.getPrototypeOf(source), descriptors, data };
+};
+
+const readInitial = (
+  { prototype, descriptors, data }: InitialShape,
+  root: Record<PropertyKey, unknown>,
+  memo: StateCopyMemo
+) => {
+  for (const key of data) {
+    descriptors[key].value = sanitizeInitialStateValue(root[key], memo);
+  }
+  return Object.create(prototype, descriptors) as object;
+};
+
+const sliceShapesOf = (factoryState: object) =>
+  getOwnEnumerableKeys(factoryState)
+    .filter((key) => !(typeof key === 'string' && isUnsafeKey(key)))
+    .map(
+      (key) =>
+        [
+          key,
+          shapeOf((factoryState as Record<PropertyKey, object>)[key])
+        ] as const
+    );
+
+/**
+ * Read the initial state from what the store keeps of it.
+ *
+ * Its data is the store's first root, which the live state shares until it is
+ * written; the factory's methods, accessors and computed definitions are kept
+ * as they were. Keeping the factory's whole object held its data a second time
+ * for the life of the store. The first read copies that root into an object
+ * shaped like the factory's, and later reads return the same object, which the
+ * store never touches.
+ */
+export const createInitialStateReader = <T>(
+  factoryState: object,
+  initialRoot: object,
+  isSliceStore: boolean
+): (() => T) => {
+  const root = initialRoot as Record<PropertyKey, unknown>;
+  // Shaped outside this scope: a closure here that saw `factoryState` would
+  // share its context with the reader, and keep the factory's data alive.
+  const shapes = isSliceStore ? sliceShapesOf(factoryState) : undefined;
+  const shape = shapes ? undefined : shapeOf(factoryState);
+  let initial: T | undefined;
+  return () => {
+    if (initial === undefined) {
+      const memo: StateCopyMemo = new Map();
+      if (shape) {
+        initial = readInitial(shape, root, memo) as T;
+      } else {
+        const slices = {} as Record<PropertyKey, unknown>;
+        for (const [key, sliceShape] of shapes!) {
+          slices[key] = readInitial(
+            sliceShape,
+            root[key] as Record<PropertyKey, unknown>,
+            memo
+          );
+        }
+        initial = slices as T;
+      }
+    }
+    return initial;
+  };
 };

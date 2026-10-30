@@ -103,3 +103,17 @@ That costs **380 bytes** in the default core consumer and **375 bytes** in the
 shared consumer. The faster state copy before it had added 78 and 72 bytes
 inside the ceilings, so the baselines now record the measured 12,611 and 16,819
 bytes. Both moved with their ceilings.
+
+## Initial state from the store's own root
+
+`getInitialState()` reads a native store's first root, with the factory's own
+methods and accessors, instead of keeping the factory's object and all of its
+data alive beside the store's copy. The reader costs **231 bytes** in the
+default core consumer and **232 bytes** in the shared consumer; freezing values
+as they are copied in and skipping the kept-keys shape check had added 150 and
+147 bytes inside the ceilings. The baselines now record the measured 12,992 and
+17,198 bytes and moved with their ceilings.
+
+The published `dist/index` files carry every entry point's code, so they record
+all of the work above since their own baselines: 19,642 and 19,749 bytes. They
+moved with their ceilings too.

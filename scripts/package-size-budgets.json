@@ -262,12 +262,12 @@
         "maxGzipBytes": 4789
       },
       "dist/index.mjs": {
-        "baselineGzipBytes": 18083,
-        "maxGzipBytes": 19550
+        "baselineGzipBytes": 19642,
+        "maxGzipBytes": 21109
       },
       "dist/index.js": {
-        "baselineGzipBytes": 18183,
-        "maxGzipBytes": 19650
+        "baselineGzipBytes": 19749,
+        "maxGzipBytes": 21216
       },
       "dist/shared.mjs": {
         "baselineGzipBytes": 24883,
