@@ -100,6 +100,12 @@ export interface Internal<T extends CreateState = CreateState> {
   isBatching: boolean;
   /** Depth of a cached getter/computed evaluation over immutable state. */
   computedReadDepth?: number;
+  /**
+   * What the initial copy settled as values the store hands out, children
+   * before what holds them. Frozen and recorded the first time a value is
+   * handed out; dropped by a commit before that.
+   */
+  initialStateValues?: object[];
   /** Frozen snapshots keyed by immutable state object identity. */
   computedSnapshotCache?: WeakMap<object, unknown>;
   /** Immutable state sources keyed by frozen computed snapshot identity. */

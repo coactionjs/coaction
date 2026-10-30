@@ -171,16 +171,22 @@ test('a getter returns an element copied before any getter returned one', () => 
   expect(state.second.label).toBe('c');
 });
 
-test('the values a store hands out are frozen as its initial state is copied in', () => {
+test('the values a store hands out are frozen when it first hands one out', () => {
   const tags = ['x'];
   const initial = { items: [{ id: 1, tags }], owner: { name: 'Ada' } };
   const store = create(() => initial);
   const pure = store.getPureState();
-  // Nothing has read them yet.
+  // Reading the plain data hands nothing out.
+  expect(Object.isFrozen(pure.items)).toBe(false);
+  expect(trackReadonlyStateValue(pure.items[0])).toBe(false);
+  // The first object read through the state freezes every value the copy
+  // settled, not only the one read.
+  expect(store.getState().owner.name).toBe('Ada');
   expect(Object.isFrozen(pure.items)).toBe(true);
   expect(Object.isFrozen(pure.items[0])).toBe(true);
   expect(Object.isFrozen(pure.items[0].tags)).toBe(true);
   expect(trackReadonlyStateValue(pure.items[0])).toBe(true);
+  expect(trackReadonlyStateValue(pure.items[0].tags)).toBe(true);
   // Objects reached through object keys stay open behind their readonly views.
   expect(Object.isFrozen(pure)).toBe(false);
   expect(Object.isFrozen(pure.owner)).toBe(false);
@@ -188,6 +194,50 @@ test('the values a store hands out are frozen as its initial state is copied in'
   expect(Object.isFrozen(initial.items[0])).toBe(false);
   expect(Object.isFrozen(tags)).toBe(false);
   expect(store.getState().items[0]).toBe(pure.items[0]);
+  store.destroy();
+});
+
+test('a store read only as plain data freezes nothing, before or after a commit', () => {
+  const store = create((set) => ({
+    items: [{ id: 1, tags: ['x'] }],
+    other: 0,
+    touch() {
+      set(() => {
+        this.other += 1;
+      });
+    }
+  }));
+  const before = store.getPureState().items;
+  store.getState().touch();
+  const pure = store.getPureState();
+  expect(pure.items).toBe(before);
+  expect(Object.isFrozen(pure.items)).toBe(false);
+  expect(Object.isFrozen(pure.items[0])).toBe(false);
+  // What is handed out after the commit is frozen and recorded as it is.
+  const item = store.getState().items[0];
+  expect(item).toBe(pure.items[0]);
+  expect(Object.isFrozen(item)).toBe(true);
+  expect(Object.isFrozen(item.tags)).toBe(true);
+  expect(trackReadonlyStateValue(item)).toBe(true);
+  expect(trackReadonlyStateValue(item.tags)).toBe(true);
+  store.destroy();
+});
+
+test('an array holding an element of another array is frozen when it is first scanned', () => {
+  const shared = { id: 1, meta: { n: 1 } };
+  const store = create(() => ({ first: [shared], second: [shared] }));
+  const pure = store.getPureState();
+  expect(store.getState().first[0]).toBe(pure.first[0]);
+  // The element settled with the array copied first; the second array holds
+  // an alias of it and is left for its first scan.
+  expect(Object.isFrozen(pure.first)).toBe(true);
+  expect(Object.isFrozen(pure.second)).toBe(false);
+  const scanned = store.getState().second.map((item) => item);
+  expect(scanned[0]).toBe(pure.first[0]);
+  expect(Object.isFrozen(pure.second)).toBe(true);
+  expect(trackReadonlyStateValue(pure.second)).toBe(true);
+  expect(Object.isFrozen(pure.first[0].meta)).toBe(true);
+  store.destroy();
 });
 
 test('an array holding an alias or a cycle is frozen when it is first scanned', () => {

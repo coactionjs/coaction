@@ -105,6 +105,9 @@ export const createStore = <T extends CreateState>(
     validateState
   } as Internal<T>;
   internal.notifyStateChange = (patches, previous) => {
+    // Values the initial copy settled and nothing has handed out yet are
+    // frozen when they first are, like any value a commit leaves behind.
+    internal.initialStateValues = undefined;
     // Both callers are already inside the authoritative notification batch.
     if (previous)
       invalidateReactiveTransition(internal, previous, internal.rootState);

@@ -106,7 +106,7 @@ test('equals keeps the earlier result, across renders and across commits', () =>
   useStore.destroy();
 });
 
-test('a store read only through whole selectors writes without patches', () => {
+test('a store read only through whole selectors writes without patches or freezing', () => {
   let patchCalls = 0;
   const countPatches: Middleware<Rows> = (store) => {
     store.patch = (transition) => {
@@ -129,6 +129,10 @@ test('a store read only through whole selectors writes without patches', () => {
   act(() => useStore.getState().touchOther());
   expect(screen.getByTestId('done').textContent).toBe('2');
   expect(patchCalls).toBe(0);
+  // Nothing was handed out through the state, so nothing was frozen.
+  const { rows } = useStore.getPureState();
+  expect(Object.isFrozen(rows)).toBe(false);
+  expect(Object.isFrozen(rows[1])).toBe(false);
   useStore.destroy();
 });
 

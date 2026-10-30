@@ -295,6 +295,26 @@ const freezeStateValue = <V>(value: V): V => {
 };
 
 /**
+ * Freeze the values the store's initial copy settled, and record them as state
+ * values, before the store first hands one out. The copy lists them, children
+ * before what holds them, rather than freezing them itself: a store read only
+ * as plain data -- `getPureState()`, a whole selector -- never hands a value
+ * out, and keeps neither the frozen copies nor their record. A commit before
+ * the first value is handed out drops the list; what is handed out after it is
+ * frozen when it is, as every later value is.
+ */
+const settleInitialStateValues = <T extends CreateState>(
+  internal: Internal<T>
+) => {
+  const values = internal.initialStateValues!;
+  internal.initialStateValues = undefined;
+  for (let index = 0; index < values.length; index += 1) {
+    Object.freeze(values[index]);
+    stateValues.add(values[index]);
+  }
+};
+
+/**
  * Array methods that read every element and change nothing. Through the public
  * state each of them takes one dependency on the whole array -- what `whole()`
  * registers -- and runs over the array itself: the elements are values anyway,
@@ -407,6 +427,7 @@ const toReadonlyStateValue = <T extends CreateState>(
     }
     return getImmutableStateSnapshot(value, cache);
   }
+  if (internal.initialStateValues) settleInitialStateValues(internal);
   const publicValue = getPublicStateObject(internal, value, sliceKey);
   if (publicValue) {
     return publicValue;
@@ -638,13 +659,15 @@ export const prepareStateDescriptor = <T extends CreateState>({
     typeof sliceKey !== 'undefined'
       ? (internal.rootState as any)[sliceKey][key]
       : (internal.rootState as any)[key];
-  // A store that hands values out freezes them as they are copied in.
+  // A store that hands values out lists them as they are copied in.
   const initialValue = isComputed
     ? descriptor.value
     : copyInitialStateValue(
         descriptor.value,
         initialStateSeen,
-        exposesStateValues(internal) ? stateValues : undefined
+        exposesStateValues(internal)
+          ? (internal.initialStateValues ??= [])
+          : undefined
       );
   if (internal.mutableInstance) {
     Object.defineProperty(rawState, key, {
