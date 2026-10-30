@@ -101,7 +101,11 @@ const observerReleaseCleanupMs = 0;
  * render. Entries of one delay are queued in due order, which is what lets the
  * head's timer release each entry exactly when its own delay ends.
  */
-type CleanupEntry = { due: number; run: (() => void) | undefined };
+type CleanupEntry = {
+  due: number;
+  run: (() => void) | undefined;
+  queue: CleanupQueue;
+};
 type CleanupQueue = {
   delayMs: number;
   entries: CleanupEntry[];
@@ -155,20 +159,35 @@ const armCleanupQueue = (queue: CleanupQueue) => {
 const uncommittedCleanups = createCleanupQueue(observerUncommittedCleanupMs);
 const releaseCleanups = createCleanupQueue(observerReleaseCleanupMs);
 
-/** Run `run` once the delay ends, unless the returned cancel runs first. */
+/** Run `run` once the delay ends, unless the entry is cancelled first. */
 const scheduleCleanup = (delayMs: number, run: () => void) => {
   const queue =
     delayMs === observerReleaseCleanupMs
       ? releaseCleanups
       : uncommittedCleanups;
-  const entry: CleanupEntry = { due: Date.now() + queue.delayMs, run };
+  const entry: CleanupEntry = { due: Date.now() + queue.delayMs, run, queue };
   queue.entries.push(entry);
   if (queue.timer === undefined) {
     armCleanupQueue(queue);
   }
-  return () => {
-    entry.run = undefined;
-  };
+  return entry;
+};
+
+/**
+ * Cancel a pending release. A commit cancels the entry its own render queued,
+ * normally the newest one, so cancelled entries at the end of the queue are
+ * dropped at once rather than held until the oldest entry's timer runs -- for
+ * as long as ten seconds, one per render.
+ */
+const cancelCleanup = (entry: CleanupEntry) => {
+  entry.run = undefined;
+  const { entries } = entry.queue;
+  while (
+    entries.length > entry.queue.head &&
+    !entries[entries.length - 1].run
+  ) {
+    entries.pop();
+  }
 };
 
 const isObserverRendering = () => observerRenderDepth > 0;
@@ -286,7 +305,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
   let latestRender: TrackedRender | undefined;
   let version = 0;
   const listeners = new Set<() => void>();
-  const cleanupHandles = new Map<ReactiveTracker, () => void>();
+  const cleanupHandles = new Map<ReactiveTracker, CleanupEntry>();
 
   const notify = (snapshot?: number) => {
     if (activeTracker) {
@@ -305,9 +324,9 @@ const createObserverTrackerState = (): ObserverTrackerState => {
     }
   };
   const clearTrackerCleanup = (tracker: ReactiveTracker) => {
-    const cancelCleanup = cleanupHandles.get(tracker);
-    if (cancelCleanup !== undefined) {
-      cancelCleanup();
+    const entry = cleanupHandles.get(tracker);
+    if (entry !== undefined) {
+      cancelCleanup(entry);
       cleanupHandles.delete(tracker);
     }
   };
@@ -323,7 +342,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
     if (!canTrackObserverRender()) {
       return;
     }
-    const cancelCleanup = scheduleCleanup(delayMs, () => {
+    const entry = scheduleCleanup(delayMs, () => {
       cleanupHandles.delete(tracker);
       if (activeTracker === tracker) {
         activeUnsubscribe?.();
@@ -336,7 +355,7 @@ const createObserverTrackerState = (): ObserverTrackerState => {
       }
       tracker.dispose();
     });
-    cleanupHandles.set(tracker, cancelCleanup);
+    cleanupHandles.set(tracker, entry);
   };
   const disposeSpareTracker = () => {
     if (spareTracker) {
@@ -467,12 +486,12 @@ const createSelectorTrackerState = <TState extends object>(
   let latestRender: TrackedSelection<TState, any> | undefined;
   let version = 0;
   const listeners = new Set<() => void>();
-  const cleanupHandles = new Map<ReactiveTracker, () => void>();
+  const cleanupHandles = new Map<ReactiveTracker, CleanupEntry>();
 
   const clearCleanup = (tracker: ReactiveTracker) => {
-    const cancelCleanup = cleanupHandles.get(tracker);
-    if (cancelCleanup !== undefined) {
-      cancelCleanup();
+    const entry = cleanupHandles.get(tracker);
+    if (entry !== undefined) {
+      cancelCleanup(entry);
       cleanupHandles.delete(tracker);
     }
   };
@@ -487,7 +506,7 @@ const createSelectorTrackerState = <TState extends object>(
   ) => {
     clearCleanup(selection.tracker);
     if (!canTrackObserverRender()) return;
-    const cancelCleanup = scheduleCleanup(delayMs, () => {
+    const entry = scheduleCleanup(delayMs, () => {
       cleanupHandles.delete(selection.tracker);
       if (activeSelection?.tracker === selection.tracker) {
         activeUnsubscribe?.();
@@ -499,7 +518,7 @@ const createSelectorTrackerState = <TState extends object>(
       }
       selection.tracker.dispose();
     });
-    cleanupHandles.set(selection.tracker, cancelCleanup);
+    cleanupHandles.set(selection.tracker, entry);
   };
   const evaluate = <TValue>(
     selector: SelectorFn<TState, TValue>,
