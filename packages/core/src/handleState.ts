@@ -27,6 +27,7 @@ import {
   transformPatches
 } from './utils';
 import { handleDraft } from './handleDraft';
+import { produceLocalRoot } from './rootDraft';
 import { Computed } from './computed';
 import { hasReactivePathNodes } from './reactivePath';
 import {
@@ -279,17 +280,17 @@ export const handleState = <T extends CreateState>(
           if (typeof next === 'function') {
             try {
               internal.backupState = internal.rootState;
-              const nextState = createWithMutative(
-                internal.rootState,
-                (draft) => {
-                  internal.rootState = draft as Draft<T>;
-                  runRecipe(next);
-                },
-                {
-                  enablePatches: false,
-                  mark: markLocalState
-                }
-              ) as T;
+              const recipe = (draft: unknown) => {
+                internal.rootState = draft as Draft<T>;
+                runRecipe(next);
+              };
+              // A slice is an object below the root, which only a draft writes.
+              const nextState = store.isSliceStore
+                ? (createWithMutative(internal.rootState, recipe, {
+                    enablePatches: false,
+                    mark: markLocalState
+                  }) as T)
+                : produceLocalRoot(internal.rootState as T, recipe);
               assertKnownStateShape(
                 nextState,
                 internal.backupState,

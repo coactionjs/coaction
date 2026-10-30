@@ -93,3 +93,13 @@ default core consumer and **154 bytes** in the shared consumer. The fixes and
 optimisations that followed the array-values freeze had already added 206 and
 217 bytes inside the ceilings, so the baselines now record the measured 12,153
 and 16,372 bytes. Both moved with their ceilings.
+
+## Root writes without a draft
+
+A recipe that only writes values to the root's own keys -- `count += 1` -- no
+longer creates and finalizes a Mutative draft: the root starts as a plain copy,
+and any other access hands it to the draft, with the writes so far replayed.
+That costs **380 bytes** in the default core consumer and **375 bytes** in the
+shared consumer. The faster state copy before it had added 78 and 72 bytes
+inside the ceilings, so the baselines now record the measured 12,611 and 16,819
+bytes. Both moved with their ceilings.
