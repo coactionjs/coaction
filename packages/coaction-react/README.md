@@ -75,6 +75,28 @@ Explicit selectors use the same reactive path graph as `observer()`. After the s
 
 If a selector reads an external/mutable adapter value that cannot establish a Coaction reactive-path dependency, the React adapter automatically falls back to the store subscription contract. This preserves compatibility without imposing whole-store selector reruns on normal immutable Coaction paths.
 
+A selector that scans most of the state anyway gains little from tracking each read. Pass `{ whole: true }` to run it over the store's plain data instead:
+
+```tsx
+const openCount = useStore(
+  (state) => state.todos.filter((todo) => !todo.done).length,
+  { whole: true }
+);
+```
+
+A whole selector receives `getPureState()` — the store's own data as plain objects, without getters or methods — and records no dependencies. It runs again on every commit, and the component re-renders only when the result changes by `Object.is`, or by the `equals` you pass:
+
+```tsx
+const ids = useStore((state) => state.todos.map((todo) => todo.id), {
+  whole: true,
+  equals: (previous, next) =>
+    previous.length === next.length &&
+    previous.every((id, index) => id === next[index])
+});
+```
+
+While no tracked selector or `observer()` reads a store, its writes skip the patch bookkeeping that tracking needs. The selector is handed the store's own data: read it, never mutate it. Keep each hook call in one mode — switching a call between `{ whole: true }` and a tracked selector changes the hooks it runs.
+
 For selector-heavy components, `autoSelector` returns a cached selector map instead of values. Hook calls stay explicit:
 
 ```tsx

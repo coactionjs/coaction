@@ -36,6 +36,23 @@ const count = useCounter((state) => state.count);
 
 `<Observer>` 可创建更小的追踪区域，`useCounter.auto()` 返回缓存字段 selector map。
 
+### Whole selector
+
+如果 selector 本来就要扫描大部分 state，逐个追踪读取几乎没有收益。传入 `{ whole: true }`，让它直接在 store 的纯数据上运行：
+
+```tsx
+const openCount = useTodos(
+  (state) => state.todos.filter((todo) => !todo.done).length,
+  {
+    whole: true
+  }
+);
+```
+
+whole selector 接收的是 `getPureState()`：store 自有的纯对象数据，不含 getter 和方法。它不登记任何依赖，每次提交都会重新运行；只有结果按 `Object.is`（或你传入的 `equals`）判断发生变化时，组件才重新渲染。当没有 tracked selector 或 `observer()` 读取某个 store 时，它的写入会跳过追踪所需的 patch 记账。
+
+selector 拿到的是 store 自己的数据：只读，不要修改。每个 hook 调用只用一种模式，因为在 `{ whole: true }` 与 tracked selector 之间切换会改变它运行的 hooks。
+
 ### 服务端渲染
 
 服务端没有任何可订阅的东西，所以读取 store 的每一种方式都只是一次普通读取，读到的是那一刻的

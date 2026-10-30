@@ -211,6 +211,17 @@ function Counter() {
 
 `useStore({ autoSelector: true })` remains available as an alias, but `useStore.auto()` is the clearer form for new code.
 
+A Zustand selector runs again on every change and re-renders when its result changes. `{ whole: true }` gives a selector that contract, over the store's plain data (`getPureState()`, without getters or methods). It suits selectors that scan most of the state, where tracking each read costs more than running the scan again:
+
+```tsx
+const openCount = useStore(
+  (state) => state.todos.filter((todo) => !todo.done).length,
+  { whole: true }
+);
+```
+
+Pass `equals` where Zustand code used `useShallow` or a custom equality function.
+
 ## 8. Replace Middleware One at a Time
 
 Map common Zustand middleware to Coaction features deliberately:

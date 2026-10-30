@@ -36,10 +36,17 @@ test('every way of reading a store agrees on the server', () => {
       String((useStore as any)((state: any) => state.count))
     )
   );
+  const untracked = () =>
+    React.createElement(
+      'span',
+      null,
+      String(useStore((state) => state.count, { whole: true }))
+    );
 
   expect(html(React.createElement(selected))).toBe('<span>1</span>');
   expect(html(React.createElement(whole))).toBe('<span>1</span>');
   expect(html(React.createElement(observed))).toBe('<span>1</span>');
+  expect(html(React.createElement(untracked))).toBe('<span>1</span>');
   useStore.destroy();
 });
 

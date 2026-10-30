@@ -27,6 +27,27 @@ type SelectorOptions = {
   autoSelector?: boolean;
 };
 
+/**
+ * Run a selector over the store's plain data, tracking nothing.
+ *
+ * @remarks
+ * The selector receives `getPureState()`: the store's own data as plain
+ * objects -- no getters, no methods -- read at plain-object speed, the way
+ * `whole()` reads one value. It depends on the whole store: every commit runs
+ * it again, and the component re-renders only when `equals` says the result
+ * changed. Use it for a selector that scans most of the state anyway, where
+ * tracking each read costs more than running the scan again. Read what it is
+ * given; never mutate it.
+ */
+export type WholeSelectorOptions<P> = {
+  whole: true;
+  /**
+   * Whether two results are the same. Defaults to `Object.is`. While it holds,
+   * the component keeps the earlier result and does not re-render.
+   */
+  equals?: (previous: P, next: P) => boolean;
+};
+
 type SelectorFn<TState extends object, TValue> = (state: TState) => TValue;
 type ObserverRender<P extends object> = ((props: P) => React.ReactNode) & {
   displayName?: string;
@@ -751,6 +772,52 @@ const useTrackedSelector = <TState extends object, TValue>(
   return selected;
 };
 
+/** No selection made yet, as opposed to one that is `undefined`. */
+const unselected = {};
+
+/**
+ * Select from the store's plain data, tracking nothing.
+ *
+ * The selector reads `getPureState()` -- the store's own objects, as `whole()`
+ * hands them out -- so a scan pays for no proxy and records no dependency.
+ * The selection depends on the whole store instead: each commit runs it again,
+ * and the component renders when `equals` says it changed. A store notifies
+ * its version listener before any reader, so a selection cached against the
+ * version is never read stale, and React asking for it again costs nothing.
+ * The version, not the state's identity, is what is compared: an adapter's
+ * mutable state keeps its identity across commits.
+ */
+const useWholeSelector = <TState extends object, TValue>(
+  store: Store<TState>,
+  subscribe: (listener: () => void) => () => void,
+  getVersion: () => number,
+  selector: SelectorFn<TState, TValue>,
+  equals: (previous: TValue, next: TValue) => boolean = Object.is
+) => {
+  // The last selection this component made. A new selector -- an inline one
+  // is new on every render -- compares its first selection with it, so a
+  // value `equals` holds unchanged keeps its identity across renders.
+  const last = React.useRef<unknown>(unselected);
+  const getSelection = React.useMemo(() => {
+    let version = -1;
+    let value: TValue;
+    return () => {
+      const current = getVersion();
+      if (version === current) return value;
+      const next = selector(store.getPureState());
+      const previous = version === -1 ? last.current : value;
+      value =
+        previous !== unselected && equals(previous as TValue, next)
+          ? (previous as TValue)
+          : next;
+      version = current;
+      last.current = value;
+      return value;
+    };
+  }, [store, getVersion, selector, equals]);
+  return useSyncExternalStore(subscribe, getSelection, getSelection);
+};
+
 export const observer = <P extends object>(
   Component: ObserverRender<P>
 ): React.MemoExoticComponent<ObserverRender<P>> => {
@@ -805,7 +872,7 @@ export type AutoSelectors<T extends object> = {
 };
 
 export type StoreReturn<T extends object> = Store<T> & {
-  <P>(selector: (state: T) => P): P;
+  <P>(selector: (state: T) => P, options?: WholeSelectorOptions<P>): P;
   (options: { autoSelector: true }): AutoSelectors<T>;
   (options?: SelectorOptions): T;
   auto: () => AutoSelectors<T>;
@@ -816,7 +883,10 @@ export type StoreWithAsyncFunction<
   D extends true | false = false
 > = Omit<Store<Asyncify<T, D>>, 'getInitialState'> & {
   getInitialState: () => T;
-  <P>(selector: (state: Asyncify<T, D>) => P): P;
+  <P>(
+    selector: (state: Asyncify<T, D>) => P,
+    options?: WholeSelectorOptions<P>
+  ): P;
   (options: { autoSelector: true }): AutoSelectors<Asyncify<T, D>>;
   (options?: SelectorOptions): Asyncify<T, D>;
   auto: () => AutoSelectors<Asyncify<T, D>>;
@@ -983,6 +1053,7 @@ export const createReactStore = (
     fullStateListeners.add(listener);
     return () => fullStateListeners.delete(listener);
   };
+  const getFullStateVersion = () => fullStateVersion;
   let autoSelectors: AutoSelectors<any> | undefined;
   const getAutoSelectors = () => {
     if (!autoSelectors) {
@@ -990,9 +1061,17 @@ export const createReactStore = (
     }
     return autoSelectors;
   };
-  const useStore = wrapStore(store, (selector: any) => {
+  const useStore = wrapStore(store, (selector: any, options?: any) => {
     if (typeof selector === 'function') {
-      return useTrackedSelector(store, selector);
+      return options?.whole
+        ? useWholeSelector(
+            store,
+            subscribeFullState,
+            getFullStateVersion,
+            selector,
+            options.equals
+          )
+        : useTrackedSelector(store, selector);
     }
     if (selector?.autoSelector) {
       return getAutoSelectors();
@@ -1000,11 +1079,7 @@ export const createReactStore = (
     if (isObserverRendering()) {
       return store.getState();
     }
-    useSyncExternalStore(
-      subscribeFullState,
-      () => fullStateVersion,
-      () => 0
-    );
+    useSyncExternalStore(subscribeFullState, getFullStateVersion, () => 0);
     return store.getState();
   }) as StoreReturn<any>;
   useStore.auto = getAutoSelectors;

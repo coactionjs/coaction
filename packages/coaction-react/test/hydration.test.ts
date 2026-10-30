@@ -54,7 +54,7 @@ const createCounter = () =>
     }
   }));
 
-/** The four ways to read a store, rendered side by side. */
+/** The five ways to read a store, rendered side by side. */
 const readers = (useStore: ReturnType<typeof createCounter>) => {
   const Selected = () =>
     h('span', null, String(useStore((state) => state.count)));
@@ -68,8 +68,18 @@ const readers = (useStore: ReturnType<typeof createCounter>) => {
       null,
       useStore((state) => state.user.name)
     );
+  const Untracked = () =>
+    h('span', null, String(useStore((state) => state.count, { whole: true })));
   return () =>
-    h(React.Fragment, null, h(Selected), h(Whole), h(Observed), h(Nested));
+    h(
+      React.Fragment,
+      null,
+      h(Selected),
+      h(Whole),
+      h(Observed),
+      h(Nested),
+      h(Untracked)
+    );
 };
 
 const hydrate = async (
@@ -106,7 +116,7 @@ test('hydrates without a mismatch when nothing has been written', async () => {
   const useStore = createCounter();
   const { text, mismatches, unmount } = await hydrate(h(readers(useStore)));
   expect(mismatches).toEqual([]);
-  expect(text).toBe('000anonymous');
+  expect(text).toBe('000anonymous0');
   unmount();
   useStore.destroy();
 });
@@ -122,9 +132,9 @@ test('hydrates without a mismatch when the store was written before rendering', 
   );
   expect(mismatches).toEqual([]);
   expect(html).toBe(
-    '<span>7</span><span>7</span><span>7</span><span>Michael</span>'
+    '<span>7</span><span>7</span><span>7</span><span>Michael</span><span>7</span>'
   );
-  expect(text).toBe('777Michael');
+  expect(text).toBe('777Michael7');
   unmount();
   useStore.destroy();
 });
@@ -136,7 +146,7 @@ test('hydrates under StrictMode', async () => {
     strict: true
   });
   expect(mismatches).toEqual([]);
-  expect(text).toBe('777Michael');
+  expect(text).toBe('777Michael7');
   unmount();
   useStore.destroy();
 });
@@ -148,7 +158,7 @@ test('a hydrated store stays subscribed', async () => {
   act(() => {
     useStore.getState().load();
   });
-  expect(document.body.textContent).toContain('777Michael');
+  expect(document.body.textContent).toContain('777Michael7');
 
   act(() => {
     useStore.setState({ user: { name: 'Jordan' } });
@@ -163,13 +173,13 @@ test('a write between the server render and hydration reaches every reader', asy
   const App = readers(useStore);
   const html = renderOnServer(h(App));
   expect(html).toBe(
-    '<span>0</span><span>0</span><span>0</span><span>anonymous</span>'
+    '<span>0</span><span>0</span><span>0</span><span>anonymous</span><span>0</span>'
   );
 
   // The store moves on after the markup was produced -- a preload resolving, a
   // persisted state rehydrating. React renders against the new value, so a
   // mismatch here is expected and not what is being asserted: what matters is
-  // that all four readers agree afterwards, and go on agreeing.
+  // that all five readers agree afterwards, and go on agreeing.
   useStore.getState().load();
 
   const container = document.createElement('div');
@@ -186,12 +196,12 @@ test('a write between the server render and hydration reaches every reader', asy
   });
   // React noticed, recovered, and rendered the current state.
   expect(reported.join(' ')).toMatch(/[Hh]ydrat/);
-  expect(container.textContent).toBe('777Michael');
+  expect(container.textContent).toBe('777Michael7');
 
   act(() => {
     useStore.setState({ count: 9 });
   });
-  expect(container.textContent).toBe('999Michael');
+  expect(container.textContent).toBe('999Michael9');
   act(() => root?.unmount());
   container.remove();
   useStore.destroy();

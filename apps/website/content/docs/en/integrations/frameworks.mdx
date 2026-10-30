@@ -41,6 +41,29 @@ const count = useCounter((state) => state.count);
 `<Observer>` creates a smaller tracked render region, and `useCounter.auto()` returns a cached
 field-selector map.
 
+### Whole selectors
+
+A selector that scans most of the state anyway gains little from tracking each read. Pass
+`{ whole: true }` to run it over the store's plain data instead:
+
+```tsx
+const openCount = useTodos(
+  (state) => state.todos.filter((todo) => !todo.done).length,
+  {
+    whole: true
+  }
+);
+```
+
+A whole selector receives `getPureState()`: the store's own data as plain objects, without getters
+or methods. It records no dependencies, runs again on every commit, and re-renders the component
+only when the result changes by `Object.is`, or by the `equals` you pass. While no tracked selector
+or `observer()` reads a store, its writes skip the patch bookkeeping that tracking needs.
+
+The selector is handed the store's own data: read it, never mutate it. Keep each hook call in one
+mode, since switching a call between `{ whole: true }` and a tracked selector changes the hooks it
+runs.
+
 ### Server rendering
 
 On a server there is nothing to subscribe to, so every way of reading a store is

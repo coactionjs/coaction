@@ -56,7 +56,13 @@ const source = `
   // effect with no dependency array, which runs once per committed render;
   // the selector call is counted inside the callback, which the compiler
   // already treats as an effectful boundary.
-  const counts = { observerRenders: 0, selectorRenders: 0, selectorRuns: 0 };
+  const counts = {
+    observerRenders: 0,
+    selectorRenders: 0,
+    selectorRuns: 0,
+    wholeRenders: 0,
+    wholeRuns: 0
+  };
 
   function ObserverCounter() {
     React.useEffect(() => { counts.observerRenders += 1; });
@@ -73,6 +79,15 @@ const source = `
       return state.user.name;
     });
     return <span id="selector-value">{name}</span>;
+  }
+
+  export function CompiledWholeSelector() {
+    React.useEffect(() => { counts.wholeRenders += 1; });
+    const name = useStore((state) => {
+      counts.wholeRuns += 1;
+      return state.user.name;
+    }, { whole: true });
+    return <span id="whole-value">{name}</span>;
   }
 
   export const counters = () => ({ ...counts });
@@ -116,7 +131,8 @@ try {
         React.Fragment,
         null,
         React.createElement(fixture.CompiledObserver),
-        React.createElement(fixture.CompiledSelector)
+        React.createElement(fixture.CompiledSelector),
+        React.createElement(fixture.CompiledWholeSelector)
       )
     );
   });
@@ -126,6 +142,11 @@ try {
   }
   if (container.querySelector('#selector-value')?.textContent !== 'Michael') {
     throw new Error('Compiled selector did not render its initial value.');
+  }
+  if (container.querySelector('#whole-value')?.textContent !== 'Michael') {
+    throw new Error(
+      'Compiled whole selector did not render its initial value.'
+    );
   }
 
   await act(async () => {
@@ -145,6 +166,16 @@ try {
   if (afterSibling.selectorRuns !== initial.selectorRuns) {
     throw new Error('Compiled selector re-ran for an unrelated sibling path.');
   }
+  // A whole selector tracks nothing: it runs on every commit, and renders
+  // only when its result changes.
+  if (afterSibling.wholeRuns <= initial.wholeRuns) {
+    throw new Error('Compiled whole selector did not re-run for a commit.');
+  }
+  if (afterSibling.wholeRenders !== initial.wholeRenders) {
+    throw new Error(
+      'Compiled whole selector re-rendered for an unchanged result.'
+    );
+  }
 
   await act(async () => {
     fixture.useStore.getState().setName('Lin');
@@ -155,6 +186,14 @@ try {
   }
   if (container.querySelector('#selector-value')?.textContent !== 'Lin') {
     throw new Error('Compiled selector did not update for its tracked path.');
+  }
+  if (container.querySelector('#whole-value')?.textContent !== 'Lin') {
+    throw new Error('Compiled whole selector did not update for its result.');
+  }
+  if (afterTarget.wholeRenders <= afterSibling.wholeRenders) {
+    throw new Error(
+      'Compiled whole selector did not re-render for its result.'
+    );
   }
   if (afterTarget.observerRenders <= afterSibling.observerRenders) {
     throw new Error(
@@ -176,5 +215,5 @@ try {
 }
 
 console.log(
-  'React Compiler runtime integration passed for observer + tracked selector.'
+  'React Compiler runtime integration passed for observer, tracked selector and whole selector.'
 );

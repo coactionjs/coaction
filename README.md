@@ -311,14 +311,15 @@ const useCart = create((set, get) => ({
 
 Reading `state.user.profile.name` is very different from scanning `state.items.reduce(...)` across 100,000 records. Coaction exposes several derived-state modes so you can choose the trade-off.
 
-| Primitive                     | Best for                          | Dependency model                                      |
-| :---------------------------- | :-------------------------------- | :---------------------------------------------------- |
-| Native `get value()`          | Normal derived state, large scans | Cached frozen snapshot, store/slice field granularity |
-| `get(deps, fn)`               | Explicit computed dependencies    | Explicit dependency selection                         |
-| `derive(..., { deep: true })` | Sparse or dynamic deep reads      | Leaf and structure tracking                           |
-| `derivePath()`                | Known static data paths           | Exact path subscription                               |
-| Array methods                 | Scans of one array                | One dependency on the array, direct data traversal    |
-| `whole()`                     | Full collection scans             | One coarse dependency, direct data traversal          |
+| Primitive                       | Best for                               | Dependency model                                      |
+| :------------------------------ | :------------------------------------- | :---------------------------------------------------- |
+| Native `get value()`            | Normal derived state, large scans      | Cached frozen snapshot, store/slice field granularity |
+| `get(deps, fn)`                 | Explicit computed dependencies         | Explicit dependency selection                         |
+| `derive(..., { deep: true })`   | Sparse or dynamic deep reads           | Leaf and structure tracking                           |
+| `derivePath()`                  | Known static data paths                | Exact path subscription                               |
+| Array methods                   | Scans of one array                     | One dependency on the array, direct data traversal    |
+| `whole()`                       | Full collection scans                  | One coarse dependency, direct data traversal          |
+| `useStore(fn, { whole: true })` | React selectors over most of the state | No tracking; reruns on each commit, renders on change |
 
 ### Native getters: the default
 
@@ -411,6 +412,8 @@ function CartSummary() {
 ```
 
 `useStore(selector)` and `observer()` track nested paths: an age-only recipe leaves a reader of `user.profile.name` cached. Parent replacements, array structure changes and graph snapshot patches can invalidate more broadly. A React selector still compares its result with `Object.is`; returning a fresh object each run can trigger a re-render.
+
+A selector that scans most of the state can skip tracking altogether. `useStore(selector, { whole: true })` runs it over the store's plain data (`getPureState()`, without getters or methods) on every commit, and re-renders when the result changes by `Object.is` or by an `equals` you pass. While nothing tracks a store, its writes skip the patch bookkeeping that tracking needs.
 
 Arrays hold values. An element read by index, found by a scan or returned by a getter is the element itself, frozen, not a readonly proxy, so it compares equal however it was reached. A reader depends on the identity of the elements it reads, and structural sharing gives an element a new identity whenever anything inside it changes: a reader of `items[0].name` reruns when `items[0]` changes, not when `items[1]` does. Writing to an element outside `set()` throws a `TypeError`.
 

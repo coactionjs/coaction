@@ -206,6 +206,13 @@ describe.each(cases)(
         return React.createElement('span', { 'data-testid': 'auto' }, count);
       };
 
+      // The adapter's state keeps its identity across commits, so a whole
+      // selection has to be recomputed on the store's version, not identity.
+      const WholeCounter = () => {
+        const count = useStore((state) => state.count, { whole: true });
+        return React.createElement('span', { 'data-testid': 'whole' }, count);
+      };
+
       const ObserverCounter = observer(() => {
         const state = useStore();
         return React.createElement(
@@ -222,6 +229,7 @@ describe.each(cases)(
           React.createElement(FullStateCounter),
           React.createElement(SelectorCounter),
           React.createElement(AutoSelectorCounter),
+          React.createElement(WholeCounter),
           React.createElement(ObserverCounter)
         ) as any
       );
@@ -229,6 +237,7 @@ describe.each(cases)(
       expect(screen.getByTestId('full').textContent).toBe('0');
       expect(screen.getByTestId('selector').textContent).toBe('0');
       expect(screen.getByTestId('auto').textContent).toBe('0');
+      expect(screen.getByTestId('whole').textContent).toBe('0');
       expect(screen.getByTestId('observer').textContent).toBe('0');
 
       await act(async () => {
@@ -239,6 +248,7 @@ describe.each(cases)(
         expect(screen.getByTestId('full').textContent).toBe('1');
         expect(screen.getByTestId('selector').textContent).toBe('1');
         expect(screen.getByTestId('auto').textContent).toBe('1');
+        expect(screen.getByTestId('whole').textContent).toBe('1');
         expect(screen.getByTestId('observer').textContent).toBe('1');
       });
 
@@ -250,6 +260,7 @@ describe.each(cases)(
         expect(screen.getByTestId('full').textContent).toBe('2');
         expect(screen.getByTestId('selector').textContent).toBe('2');
         expect(screen.getByTestId('auto').textContent).toBe('2');
+        expect(screen.getByTestId('whole').textContent).toBe('2');
         expect(screen.getByTestId('observer').textContent).toBe('2');
       });
     });
