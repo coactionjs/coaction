@@ -134,17 +134,29 @@ export const sanitizePatches = <T extends { path: unknown; value?: unknown }>(
   );
 };
 
+/**
+ * The copies one state copy has made so far, by source, so an alias or a cycle
+ * keeps its shape. It lives as long as that copy, so a `Map` serves: it holds
+ * its objects no longer than the copy does, and is cheaper to fill than a
+ * `WeakMap`. Callers may still pass either.
+ */
+export type StateCopyMemo = {
+  get(source: object): unknown;
+  has(source: object): boolean;
+  set(source: object, copy: unknown): unknown;
+};
+
 const clonePatchValues = <T extends { path: unknown; value?: unknown }>(
   patches: T[] | undefined
 ) => {
-  let seen: WeakMap<object, unknown> | undefined;
+  let seen: StateCopyMemo | undefined;
   return patches?.map((patch) =>
     Object.prototype.hasOwnProperty.call(patch, 'value')
       ? {
           ...patch,
           value:
             typeof patch.value === 'object' && patch.value !== null
-              ? sanitizeReplacementState(patch.value, (seen ??= new WeakMap()))
+              ? sanitizeReplacementState(patch.value, (seen ??= new Map()))
               : patch.value
         }
       : patch
@@ -160,17 +172,14 @@ export const sanitizeCheckedPatches = (
 };
 
 const copyPatches = (patches: Patches) => {
-  let seen: WeakMap<object, unknown> | undefined;
+  let seen: StateCopyMemo | undefined;
   return patches.map((patch) => {
     const copy = {
       ...patch,
       path: Array.isArray(patch.path) ? [...patch.path] : patch.path
     };
     if (typeof patch.value === 'object' && patch.value !== null) {
-      copy.value = sanitizeReplacementState(
-        patch.value,
-        (seen ??= new WeakMap())
-      );
+      copy.value = sanitizeReplacementState(patch.value, (seen ??= new Map()));
     }
     return copy;
   }) as Patches;
@@ -271,7 +280,7 @@ const createRootStateFromPatches = <T extends object>(
     PropertyKey,
     unknown
   >;
-  const seen = new WeakMap<object, unknown>();
+  const seen: StateCopyMemo = new Map();
   for (const patch of patches) {
     if (
       !Array.isArray(patch.path) ||
@@ -489,7 +498,7 @@ export const isArrayIndexKey = (key: PropertyKey) => {
 export const assignOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   source: Record<PropertyKey, unknown>,
-  seen = new WeakMap<object, unknown>()
+  seen: StateCopyMemo = new Map()
 ) => {
   if (!seen.has(source)) {
     seen.set(source, target);
@@ -503,7 +512,7 @@ export const replaceOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
   source: Record<PropertyKey, unknown>
 ) => {
-  const seen = new WeakMap<object, unknown>();
+  const seen: StateCopyMemo = new Map();
   seen.set(source, target);
   const nextKeys = new Set<PropertyKey>();
   for (const key of getOwnEnumerableKeys(source)) {
@@ -558,7 +567,7 @@ export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
 
 const cloneStateValue = <T>(
   source: T,
-  seen: WeakMap<object, unknown>,
+  seen: StateCopyMemo,
   preserveFunctions: boolean
 ): T => {
   if (typeof source !== 'object' || source === null) {
@@ -568,42 +577,62 @@ const cloneStateValue = <T>(
   if (cached) {
     return cached as T;
   }
-  const array = Array.isArray(source);
-  const prototype = Object.getPrototypeOf(source);
-  if (!array && prototype !== Object.prototype && prototype !== null) {
-    return source;
-  }
-  const target = (
-    array ? new Array(source.length) : Object.create(prototype)
-  ) as Record<PropertyKey, unknown>;
-  seen.set(source, target);
-  const keys = array ? Reflect.ownKeys(source) : getOwnEnumerableKeys(source);
-  // A dense array without named extras lists exactly its indexes and then its
-  // length; a hole moves `length` earlier. Copy that by index instead of
-  // classifying every key -- it is what nearly every state array is.
-  if (
-    array &&
-    keys.length === source.length + 1 &&
-    keys[source.length] === 'length'
-  ) {
-    for (let index = 0; index < source.length; index += 1) {
-      target[index] = cloneStateValue(source[index], seen, preserveFunctions);
+  if (Array.isArray(source)) {
+    const target = new Array(source.length) as unknown[] &
+      Record<PropertyKey, unknown>;
+    seen.set(source, target);
+    const keys = Reflect.ownKeys(source);
+    // A dense array without named extras lists exactly its indexes and then its
+    // length; a hole moves `length` earlier. Copy that by index instead of
+    // classifying every key -- it is what nearly every state array is.
+    if (keys.length === source.length + 1 && keys[source.length] === 'length') {
+      for (let index = 0; index < source.length; index += 1) {
+        target[index] = cloneStateValue(source[index], seen, preserveFunctions);
+      }
+      return target as T;
+    }
+    // Array indices include non-enumerable slots. Named extras and symbols
+    // remain enumerable-only, matching the object replacement boundary.
+    for (const key of keys) {
+      const index = isArrayIndexKey(key);
+      if (
+        (typeof key === 'string' && isUnsafeKey(key)) ||
+        (!index && !Object.prototype.propertyIsEnumerable.call(source, key))
+      )
+        continue;
+      const value = (source as unknown as Record<PropertyKey, unknown>)[key];
+      if (!preserveFunctions && !index && typeof value === 'function') continue;
+      target[key] = cloneStateValue(value, seen, preserveFunctions);
     }
     return target as T;
   }
-  // Array indices include non-enumerable slots. Named extras and symbols
-  // remain enumerable-only, matching the object replacement boundary.
-  for (const key of keys) {
-    const index = array && isArrayIndexKey(key);
-    if (
-      (typeof key === 'string' && isUnsafeKey(key)) ||
-      (array &&
-        !index &&
-        !Object.prototype.propertyIsEnumerable.call(source, key))
-    )
-      continue;
-    const value = (source as Record<PropertyKey, unknown>)[key];
-    if (!preserveFunctions && !index && typeof value === 'function') continue;
+  const prototype = Object.getPrototypeOf(source);
+  if (prototype !== Object.prototype && prototype !== null) {
+    return source;
+  }
+  const target = (prototype === null ? Object.create(null) : {}) as Record<
+    PropertyKey,
+    unknown
+  >;
+  seen.set(source, target);
+  const record = source as Record<PropertyKey, unknown>;
+  // Own enumerable string keys and then symbols -- what `getOwnEnumerableKeys`
+  // lists -- read where they are listed rather than gathered into one list.
+  // Every object of the state passes through here when it is copied in.
+  const keys = Object.keys(record);
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index];
+    if (isUnsafeKey(key)) continue;
+    const value = record[key];
+    if (!preserveFunctions && typeof value === 'function') continue;
+    target[key] = cloneStateValue(value, seen, preserveFunctions);
+  }
+  const symbols = Object.getOwnPropertySymbols(record);
+  for (let index = 0; index < symbols.length; index += 1) {
+    const key = symbols[index];
+    if (!Object.prototype.propertyIsEnumerable.call(record, key)) continue;
+    const value = record[key];
+    if (!preserveFunctions && typeof value === 'function') continue;
     target[key] = cloneStateValue(value, seen, preserveFunctions);
   }
   return target as T;
@@ -611,7 +640,7 @@ const cloneStateValue = <T>(
 
 export const sanitizeReplacementState = <T>(
   source: T,
-  seen = new WeakMap<object, unknown>()
+  seen: StateCopyMemo = new Map()
 ): T => cloneStateValue(source, seen, false);
 
 const normalizePatchPath = (path: unknown): PropertyKey[] => {
@@ -1025,7 +1054,7 @@ export const applyPatches = <T>(state: T, patches: Patches): T => {
   // Incoming non-root patches can carry graphs too. Clone their values with
   // one memo, then assign them into a draft without Mutative's tree-only clone.
   assertSafePatches(patches, 'applyPatches()');
-  const seen = new WeakMap<object, unknown>();
+  const seen: StateCopyMemo = new Map();
   let start = 0;
   for (let index = patches.length - 1; index >= 0; index -= 1) {
     const patch = patches[index];
@@ -1086,7 +1115,7 @@ export const applyPatches = <T>(state: T, patches: Patches): T => {
 
 export const sanitizeInitialStateValue = <T>(
   source: T,
-  seen = new WeakMap<object, unknown>()
+  seen: StateCopyMemo = new Map()
 ): T => cloneStateValue(source, seen, true);
 
 export const areShallowEqualWithArray = (

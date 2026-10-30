@@ -8,7 +8,11 @@ import {
   isImmutableStateObject
 } from './immutableState';
 import { sharedRegistry } from './sharedRegistry';
-import { isArrayIndexKey, sanitizeInitialStateValue } from './utils';
+import {
+  isArrayIndexKey,
+  sanitizeInitialStateValue,
+  type StateCopyMemo
+} from './utils';
 import {
   getReactivePathNode,
   getReactivePathVersion,
@@ -209,7 +213,7 @@ export const whole = <T>(value: T): T => {
 type PrepareStateDescriptorOptions<T extends CreateState> = {
   descriptor: PropertyDescriptor;
   internal: Internal<T>;
-  initialStateSeen: WeakMap<object, unknown>;
+  initialStateSeen: StateCopyMemo;
   key: PropertyKey;
   rawState: Record<PropertyKey, any>;
   sliceKey?: PropertyKey;

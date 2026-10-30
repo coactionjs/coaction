@@ -12,7 +12,12 @@ import {
   prepareStateDescriptor,
   registerReadonlyStateValuePath
 } from './getRawStateStateProperty';
-import { getOwnEnumerableKeys, isUnsafeKey, setOwnEnumerable } from './utils';
+import {
+  getOwnEnumerableKeys,
+  isUnsafeKey,
+  setOwnEnumerable,
+  type StateCopyMemo
+} from './utils';
 
 const defaultClientExecuteSyncTimeoutMs = 1500;
 
@@ -56,7 +61,7 @@ export const getRawState = <T extends CreateState>(
     sliceKey?: PropertyKey
   ) => {
     internal.mutableInstance = internal.toMutableRaw?.(_initialState);
-    const initialStateSeen = new WeakMap<object, unknown>();
+    const initialStateSeen: StateCopyMemo = new Map();
     initialStateSeen.set(_initialState, _rawState);
     const safeDescriptors: PropertyDescriptorMap = {};
     const descriptors = Object.getOwnPropertyDescriptors(_initialState);
