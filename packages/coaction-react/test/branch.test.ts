@@ -820,3 +820,41 @@ test('an observer traverses a frozen wrapper of its own that it renders', async 
   expect(screen.getByTestId('age').textContent).toBe('31');
   useStore.destroy();
 });
+
+test('an observer rendering keyed elements leaves their key unread', async () => {
+  vi.resetModules();
+  const React = await import('react');
+  const { act, render, screen } = await import('@testing-library/react');
+  const { create, observer } = await import('../src');
+  const useStore = create((set: any) => ({
+    items: [{ id: 1 }, { id: 2 }],
+    add() {
+      set(() => {
+        (this as { items: { id: number }[] }).items.push({ id: 3 });
+      });
+    }
+  })) as any;
+  // Development builds give a keyed element's props a non-enumerable `key`
+  // getter that reports reading it as a mistake. Walking the rendered tree for
+  // state must not trip it.
+  const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+  const List = observer(() =>
+    React.createElement(
+      'ul',
+      { 'data-testid': 'list' },
+      useStore().items.map((item: { id: number }) =>
+        React.createElement('li', { key: item.id }, item.id)
+      )
+    )
+  );
+  render(React.createElement(List) as any);
+  act(() => useStore.getState().add());
+  expect(screen.getByTestId('list').textContent).toBe('123');
+  expect(
+    errors.mock.calls.filter(([message]) =>
+      String(message).includes('is not a prop')
+    )
+  ).toEqual([]);
+  errors.mockRestore();
+  useStore.destroy();
+});

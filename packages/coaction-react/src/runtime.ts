@@ -209,46 +209,51 @@ const trackReturnedStateValues = (value: unknown) => {
   // Only what is below the value can be reached twice -- through a shared
   // reference or a cycle -- so the set that stops a revisit is created on the
   // first step down. A leaf result, an element with primitive props, needs none.
-  let seen: WeakSet<object> | undefined;
+  // The set lives for one walk, so it holds its objects strongly.
+  let seen: Set<object> | undefined;
   let root = true;
   const visit = (current: unknown) => {
-    if (typeof current === 'function') {
-      const version = trackReadonlyStateValue(current)
-        ? getReadonlyStateValueVersion(current)
-        : undefined;
-      if (version !== undefined) carried.push({ value: current, version });
+    // State facades, readonly views and the values the state hands out are all
+    // objects, so a function -- an event handler, a callback prop -- is never
+    // state and holds none.
+    if (typeof current !== 'object' || current === null) {
       return;
     }
-    if (typeof current !== 'object' || !current) {
-      return;
-    }
-    const object = current as object;
     if (root) {
       root = false;
     } else {
-      seen ??= new WeakSet<object>();
-      if (seen.has(object)) return;
-      seen.add(object);
+      seen ??= new Set<object>();
+      if (seen.has(current)) return;
+      seen.add(current);
     }
+    const element = React.isValidElement(current);
     // A Coaction state proxy/facade is already a terminal path dependency.
     // Do not traverse large state arrays/objects merely because they escaped
     // through a React prop. A value the state hands out as itself -- an array
     // element -- is state too: its version is constant, so it is carried by
-    // its identity.
-    if (trackReadonlyStateValue(current)) {
-      const version = getReadonlyStateValueVersion(current);
-      if (version !== undefined) carried.push({ value: object, version });
+    // its identity. A rendered element is neither: only an element the state
+    // holds can be, and the state freezes what it hands out, while production
+    // builds leave rendered elements unfrozen.
+    if (!element || Object.isFrozen(current)) {
+      if (trackReadonlyStateValue(current)) {
+        const version = getReadonlyStateValueVersion(current);
+        if (version !== undefined) carried.push({ value: current, version });
+        return;
+      }
+    }
+    // React copies props in with `for...in`, so that lists all of them, and
+    // leaves out the non-enumerable `key` and `ref` warning getters of
+    // development builds.
+    if (element) {
+      const props = current.props as Record<string, unknown> | null;
+      if (props) {
+        for (const key in props) visit(props[key]);
+      }
       return;
     }
     if (Array.isArray(current)) {
-      current.forEach(visit);
-      return;
-    }
-    if (React.isValidElement(current)) {
-      const props = current.props as Record<PropertyKey, unknown> | null;
-      if (!props) return;
-      for (const key of Reflect.ownKeys(props)) {
-        visit(props[key]);
+      for (let index = 0; index < current.length; index++) {
+        visit(current[index]);
       }
       return;
     }
