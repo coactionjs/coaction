@@ -127,3 +127,75 @@ test.each([
     ]);
   }
 );
+
+test.each([
+  ['an initial copy', sanitizeInitialStateValue, true],
+  ['a replacement', sanitizeReplacementState, false]
+] as const)(
+  '%s reads each getter once and keeps the order of what it copies',
+  (_, copyOf, keepsFunctions) => {
+    const visible = Symbol('visible');
+    const hidden = Symbol('hidden');
+    const method = () => 1;
+    const nested = { n: 1 };
+    let reads = 0;
+    const input: Record<PropertyKey, unknown> = {
+      b: 1,
+      method,
+      a: nested,
+      [visible]: method
+    };
+    Object.defineProperty(input, 'computed', {
+      enumerable: true,
+      get() {
+        reads += 1;
+        return { from: 'getter' };
+      }
+    });
+    Object.defineProperty(input, hidden, { value: nested });
+    input.self = input;
+
+    const copy = copyOf(input) as Record<PropertyKey, unknown>;
+    expect(reads).toBe(1);
+    expect(Reflect.ownKeys(copy)).toEqual(
+      keepsFunctions
+        ? ['b', 'method', 'a', 'computed', 'self', visible]
+        : ['b', 'a', 'computed', 'self']
+    );
+    expect(copy.a).toEqual({ n: 1 });
+    expect(copy.a).not.toBe(nested);
+    expect(copy.self).toBe(copy);
+    expect(Object.getOwnPropertyDescriptor(copy, 'computed')).toEqual({
+      value: { from: 'getter' },
+      writable: true,
+      enumerable: true,
+      configurable: true
+    });
+  }
+);
+
+test.each(['__proto__', 'constructor', 'prototype'])(
+  'a copy never reads an own %s key',
+  (unsafe) => {
+    for (const prototype of [Object.prototype, null]) {
+      const input = Object.create(prototype) as Record<PropertyKey, unknown>;
+      input.keep = { n: 1 };
+      Object.defineProperty(input, unsafe, {
+        enumerable: true,
+        get() {
+          throw new Error(`read ${unsafe}`);
+        }
+      });
+      for (const copyOf of [
+        sanitizeInitialStateValue,
+        sanitizeReplacementState
+      ]) {
+        const copy = copyOf(input) as Record<PropertyKey, unknown>;
+        expect(Object.getPrototypeOf(copy)).toBe(prototype);
+        expect(Reflect.ownKeys(copy)).toEqual(['keep']);
+        expect(copy.keep).toEqual({ n: 1 });
+        expect(copy.keep).not.toBe(input.keep);
+      }
+    }
+  }
+);

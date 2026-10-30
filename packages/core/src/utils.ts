@@ -569,6 +569,8 @@ export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
   return target;
 };
 
+const { hasOwnProperty, propertyIsEnumerable } = Object.prototype;
+
 /**
  * Whether a copy is a state object not frozen yet. A frozen state object has
  * everything below it frozen too -- what lets a value skip a second visit --
@@ -656,22 +658,36 @@ const cloneStateValue = <T>(
   if (prototype !== Object.prototype && prototype !== null) {
     return source;
   }
-  const target = (prototype === null ? Object.create(null) : {}) as Record<
-    PropertyKey,
-    unknown
-  >;
-  seen.set(source, target);
   const record = source as Record<PropertyKey, unknown>;
+  // A spread copies the own enumerable string keys and then symbols -- what
+  // `getOwnEnumerableKeys` lists -- reading each once, into an object laid out
+  // like the source: a literal keeps all of its properties in the object
+  // itself, where one built up from `{}` keeps four there and the rest in an
+  // array of their own. The copy is then read in place of the source, so no
+  // getter runs twice. An unsafe key is never read at all, so a source that
+  // has one is copied key by key instead.
+  const spread =
+    !hasOwnProperty.call(record, '__proto__') &&
+    !hasOwnProperty.call(record, 'constructor') &&
+    !hasOwnProperty.call(record, 'prototype');
+  const target: Record<PropertyKey, unknown> = spread ? { ...record } : {};
+  if (prototype === null) Object.setPrototypeOf(target, null);
+  seen.set(source, target);
+  const from = spread ? target : record;
   let settled = handedOut !== undefined && inArray;
-  // Own enumerable string keys and then symbols -- what `getOwnEnumerableKeys`
-  // lists -- read where they are listed rather than gathered into one list.
-  // Every object of the state passes through here when it is copied in.
-  const keys = Object.keys(record);
+  const keys = Object.keys(from);
   for (let index = 0; index < keys.length; index += 1) {
     const key = keys[index];
-    if (isUnsafeKey(key)) continue;
-    const value = record[key];
-    if (!preserveFunctions && typeof value === 'function') continue;
+    if (isUnsafeKey(key)) {
+      if (spread) delete target[key];
+      continue;
+    }
+    const value = from[key];
+    if (!preserveFunctions && typeof value === 'function') {
+      if (spread) delete target[key];
+      continue;
+    }
+    if (spread && (typeof value !== 'object' || value === null)) continue;
     const copy = cloneStateValue(
       value,
       seen,
@@ -682,12 +698,17 @@ const cloneStateValue = <T>(
     target[key] = copy;
     if (settled && isOpenStateObject(copy)) settled = false;
   }
-  const symbols = Object.getOwnPropertySymbols(record);
+  // A spread copies only the enumerable symbols.
+  const symbols = Object.getOwnPropertySymbols(from);
   for (let index = 0; index < symbols.length; index += 1) {
     const key = symbols[index];
-    if (!Object.prototype.propertyIsEnumerable.call(record, key)) continue;
-    const value = record[key];
-    if (!preserveFunctions && typeof value === 'function') continue;
+    if (!spread && !propertyIsEnumerable.call(record, key)) continue;
+    const value = from[key];
+    if (!preserveFunctions && typeof value === 'function') {
+      if (spread) delete target[key];
+      continue;
+    }
+    if (spread && (typeof value !== 'object' || value === null)) continue;
     const copy = cloneStateValue(
       value,
       seen,
