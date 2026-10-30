@@ -6,6 +6,7 @@ import {
   type Patches
 } from 'mutative';
 import type { MiddlewareStore, PatchTransform } from './interface';
+import { isImmutableStateObject } from './immutableState';
 
 /** Null-prototype records are local data, not mutable atomic instances. */
 export const markLocalState: Exclude<
@@ -565,10 +566,35 @@ export const cloneOwnEnumerable = <T extends Record<PropertyKey, unknown>>(
   return target;
 };
 
+/**
+ * Whether a copy is a state object not frozen yet. A frozen state object has
+ * everything below it frozen too -- what lets a value skip a second visit --
+ * so a copy is frozen only when none of what it holds is open.
+ */
+const isOpenStateObject = (value: unknown) =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Object.isFrozen(value) &&
+  isImmutableStateObject(value);
+
+const settle = <T extends object>(
+  target: T,
+  settled: boolean,
+  handedOut: WeakSet<object> | undefined
+) => {
+  if (settled) {
+    Object.freeze(target);
+    handedOut!.add(target);
+  }
+  return target;
+};
+
 const cloneStateValue = <T>(
   source: T,
   seen: StateCopyMemo,
-  preserveFunctions: boolean
+  preserveFunctions: boolean,
+  handedOut?: WeakSet<object>,
+  inArray = false
 ): T => {
   if (typeof source !== 'object' || source === null) {
     return source;
@@ -582,14 +608,23 @@ const cloneStateValue = <T>(
       Record<PropertyKey, unknown>;
     seen.set(source, target);
     const keys = Reflect.ownKeys(source);
+    let settled = handedOut !== undefined;
     // A dense array without named extras lists exactly its indexes and then its
     // length; a hole moves `length` earlier. Copy that by index instead of
     // classifying every key -- it is what nearly every state array is.
     if (keys.length === source.length + 1 && keys[source.length] === 'length') {
       for (let index = 0; index < source.length; index += 1) {
-        target[index] = cloneStateValue(source[index], seen, preserveFunctions);
+        const copy = cloneStateValue(
+          source[index],
+          seen,
+          preserveFunctions,
+          handedOut,
+          true
+        );
+        target[index] = copy;
+        if (settled && isOpenStateObject(copy)) settled = false;
       }
-      return target as T;
+      return settle(target, settled, handedOut) as T;
     }
     // Array indices include non-enumerable slots. Named extras and symbols
     // remain enumerable-only, matching the object replacement boundary.
@@ -602,9 +637,17 @@ const cloneStateValue = <T>(
         continue;
       const value = (source as unknown as Record<PropertyKey, unknown>)[key];
       if (!preserveFunctions && !index && typeof value === 'function') continue;
-      target[key] = cloneStateValue(value, seen, preserveFunctions);
+      const copy = cloneStateValue(
+        value,
+        seen,
+        preserveFunctions,
+        handedOut,
+        true
+      );
+      target[key] = copy;
+      if (settled && isOpenStateObject(copy)) settled = false;
     }
-    return target as T;
+    return settle(target, settled, handedOut) as T;
   }
   const prototype = Object.getPrototypeOf(source);
   if (prototype !== Object.prototype && prototype !== null) {
@@ -616,6 +659,7 @@ const cloneStateValue = <T>(
   >;
   seen.set(source, target);
   const record = source as Record<PropertyKey, unknown>;
+  let settled = handedOut !== undefined && inArray;
   // Own enumerable string keys and then symbols -- what `getOwnEnumerableKeys`
   // lists -- read where they are listed rather than gathered into one list.
   // Every object of the state passes through here when it is copied in.
@@ -625,7 +669,15 @@ const cloneStateValue = <T>(
     if (isUnsafeKey(key)) continue;
     const value = record[key];
     if (!preserveFunctions && typeof value === 'function') continue;
-    target[key] = cloneStateValue(value, seen, preserveFunctions);
+    const copy = cloneStateValue(
+      value,
+      seen,
+      preserveFunctions,
+      handedOut,
+      inArray
+    );
+    target[key] = copy;
+    if (settled && isOpenStateObject(copy)) settled = false;
   }
   const symbols = Object.getOwnPropertySymbols(record);
   for (let index = 0; index < symbols.length; index += 1) {
@@ -633,9 +685,17 @@ const cloneStateValue = <T>(
     if (!Object.prototype.propertyIsEnumerable.call(record, key)) continue;
     const value = record[key];
     if (!preserveFunctions && typeof value === 'function') continue;
-    target[key] = cloneStateValue(value, seen, preserveFunctions);
+    const copy = cloneStateValue(
+      value,
+      seen,
+      preserveFunctions,
+      handedOut,
+      inArray
+    );
+    target[key] = copy;
+    if (settled && isOpenStateObject(copy)) settled = false;
   }
-  return target as T;
+  return settle(target, settled, handedOut) as T;
 };
 
 export const sanitizeReplacementState = <T>(
@@ -1117,6 +1177,18 @@ export const sanitizeInitialStateValue = <T>(
   source: T,
   seen: StateCopyMemo = new Map()
 ): T => cloneStateValue(source, seen, true);
+
+/**
+ * Copy an initial state value in, freezing what the store will hand out as
+ * values -- arrays and what they hold -- as it is copied, and recording it in
+ * `handedOut`. Freezing it later visits all of it a second time, on the first
+ * scan of each array.
+ */
+export const copyInitialStateValue = <T>(
+  source: T,
+  seen: StateCopyMemo,
+  handedOut: WeakSet<object> | undefined
+): T => cloneStateValue(source, seen, true, handedOut);
 
 export const areShallowEqualWithArray = (
   prev: any[] | null | IArguments,

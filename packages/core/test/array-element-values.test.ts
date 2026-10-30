@@ -1,5 +1,6 @@
 import { create } from '../src';
 import { createReactiveTracker } from '../src/reactiveTracker';
+import { trackReadonlyStateValue } from '../src/getRawStateStateProperty';
 
 type Item = { id: number; label: string; tags: string[] };
 type Shape = {
@@ -168,4 +169,45 @@ test('a getter returns an element copied before any getter returned one', () => 
   const state = store.getState();
   expect(state.second).toBe(state.items[1]);
   expect(state.second.label).toBe('c');
+});
+
+test('the values a store hands out are frozen as its initial state is copied in', () => {
+  const tags = ['x'];
+  const initial = { items: [{ id: 1, tags }], owner: { name: 'Ada' } };
+  const store = create(() => initial);
+  const pure = store.getPureState();
+  // Nothing has read them yet.
+  expect(Object.isFrozen(pure.items)).toBe(true);
+  expect(Object.isFrozen(pure.items[0])).toBe(true);
+  expect(Object.isFrozen(pure.items[0].tags)).toBe(true);
+  expect(trackReadonlyStateValue(pure.items[0])).toBe(true);
+  // Objects reached through object keys stay open behind their readonly views.
+  expect(Object.isFrozen(pure)).toBe(false);
+  expect(Object.isFrozen(pure.owner)).toBe(false);
+  // The factory's own objects are copied, never frozen.
+  expect(Object.isFrozen(initial.items[0])).toBe(false);
+  expect(Object.isFrozen(tags)).toBe(false);
+  expect(store.getState().items[0]).toBe(pure.items[0]);
+});
+
+test('an array holding an alias or a cycle is frozen when it is first scanned', () => {
+  const shared = { id: 1, meta: { n: 1 } };
+  const node: Record<string, unknown> = { id: 2 };
+  node.self = node;
+  const store = create(() => ({
+    selected: shared,
+    items: [shared],
+    nodes: [node]
+  }));
+  const pure = store.getPureState();
+  // The alias is copied through `selected` first, outside any array, and a
+  // cycle holds itself open: neither array can be frozen as it is copied.
+  expect(Object.isFrozen(pure.items)).toBe(false);
+  expect(Object.isFrozen(pure.nodes)).toBe(false);
+  const scanned: object[] = [];
+  store.getState().items.forEach((item) => scanned.push(item));
+  store.getState().nodes.forEach((item) => scanned.push(item as object));
+  expect(scanned.every((value) => Object.isFrozen(value))).toBe(true);
+  expect(Object.isFrozen((scanned[0] as typeof shared).meta)).toBe(true);
+  expect(Object.isFrozen(pure.items)).toBe(true);
 });

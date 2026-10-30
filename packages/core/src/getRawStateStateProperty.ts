@@ -9,8 +9,8 @@ import {
 } from './immutableState';
 import { sharedRegistry } from './sharedRegistry';
 import {
+  copyInitialStateValue,
   isArrayIndexKey,
-  sanitizeInitialStateValue,
   type StateCopyMemo
 } from './utils';
 import {
@@ -638,9 +638,14 @@ export const prepareStateDescriptor = <T extends CreateState>({
     typeof sliceKey !== 'undefined'
       ? (internal.rootState as any)[sliceKey][key]
       : (internal.rootState as any)[key];
+  // A store that hands values out freezes them as they are copied in.
   const initialValue = isComputed
     ? descriptor.value
-    : sanitizeInitialStateValue(descriptor.value, initialStateSeen);
+    : copyInitialStateValue(
+        descriptor.value,
+        initialStateSeen,
+        exposesStateValues(internal) ? stateValues : undefined
+      );
   if (internal.mutableInstance) {
     Object.defineProperty(rawState, key, {
       get: () => internal.mutableInstance[key],
