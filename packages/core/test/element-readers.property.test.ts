@@ -120,10 +120,8 @@ test.each([
                 rows[other] = held;
               }
             } else if (kind === 7) rows.length = length;
-            else if (kind === 8) {
-              // Past the end, a draft's delete lengthens the array.
-              if (at < rows.length) delete rows[at];
-            } else if (kind === 9) {
+            else if (kind === 8) delete rows[at];
+            else if (kind === 9) {
               if (at < rows.length) rows[at] = rows[other];
             } else if (kind === 10) rows.unshift(value);
           };

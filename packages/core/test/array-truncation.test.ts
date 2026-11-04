@@ -1,5 +1,6 @@
 import { create } from '../src';
 import { createReactiveTracker } from '../src/reactiveTracker';
+import { onStoreCommit } from '../src/storeCommit';
 
 const createList = () =>
   create<{
@@ -76,3 +77,31 @@ test('a plain element write is unaffected by the truncation handling', () => {
   expect(notifications).toBe(1);
   tracker.dispose();
 });
+
+test.each([
+  ['no commit listener', false],
+  ['a commit listener', true]
+] as const)(
+  'deleting an index past the end of an array changes nothing, with %s',
+  (_, watched) => {
+    const store = createList();
+    const commits: unknown[] = [];
+    if (watched) onStoreCommit(store, (commit) => commits.push(commit));
+    const tracker = createReactiveTracker();
+    let notifications = 0;
+    tracker.subscribe(() => notifications++);
+    expect(tracker.track(() => store.getState().items.length)).toBe(3);
+    const before = store.getPureState().items;
+
+    store.setState((state) => {
+      delete state.items[5];
+    });
+
+    expect(store.getPureState().items).toBe(before);
+    expect(store.getPureState().items).toEqual([1, 2, 3]);
+    expect(notifications).toBe(0);
+    expect(commits).toEqual([]);
+    tracker.dispose();
+    store.destroy();
+  }
+);
