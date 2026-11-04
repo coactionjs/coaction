@@ -11,5 +11,4 @@ factory's object: the same keys and attributes, the factory's own functions,
 and data equal to what the factory returned. Every call returns that same
 object, and changing it does not change the store. It is no longer the
 factory's object itself. Stores bound to another runtime, such as MobX or
-Zustand, return what that runtime provided, as before. A 1,000-task store
-keeps about 200 KB less heap.
+Zustand, return what that runtime provided, as before.

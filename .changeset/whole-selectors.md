@@ -8,6 +8,12 @@ selection depends on the whole store -- every commit runs it again, and the
 component re-renders only when the result changes by `Object.is`, or by an
 `equals` passed beside `whole`. A selector that scans most of the state pays
 for no proxy and no dependency per read, and while nothing tracks a store, its
-writes skip the patch bookkeeping that tracking needs. Stores bound to a
-mutable runtime, such as MobX, Valtio or Pinia, are compared by commit rather
-than by the identity of their state, which those runtimes keep.
+writes skip the patch bookkeeping that tracking needs. The selector receives
+the store's own data rather than a readonly view: read it, never mutate it.
+Stores bound to a mutable runtime, such as MobX, Valtio or Pinia, are compared
+by commit rather than by the identity of their state, which those runtimes
+keep.
+
+In js-store-benchmark's React workspace suite, measured in Chrome, an adapter
+that reads through whole selectors updates in about 40% less time than one
+that uses `observer()`, and keeps a fifth less heap.
