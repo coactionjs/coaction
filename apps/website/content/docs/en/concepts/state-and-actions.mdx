@@ -76,7 +76,7 @@ functions when the action needs `this`; arrow functions capture lexical `this`.
 ```ts
 const state = store.getState(); // data + actions + computed getters
 const data = store.getPureState(); // data only
-const initial = store.getInitialState();
+const initial = store.getInitialState(); // a copy, shaped like the factory's object
 
 const unsubscribe = store.subscribe(() => {
   console.log(store.getPureState());

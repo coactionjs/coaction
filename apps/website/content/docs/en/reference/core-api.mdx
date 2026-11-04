@@ -54,7 +54,7 @@ Client options add:
 | `isSliceStore`            | Whether the input was materialized as slices                     |
 | `getState()`              | Public data, bound methods, and computed getters                 |
 | `getPureState()`          | Data-only representation                                         |
-| `getInitialState()`       | State produced during initialization                             |
+| `getInitialState()`       | A copy of the initial state, shaped like the factory's object    |
 | `setState(next)`          | Merge a deep partial or run a draft updater; rejected on clients |
 | `subscribe(listener)`     | Subscribe and receive an unsubscribe function                    |
 | `apply(state?, patches?)` | Low-level integration/transport update; rejected on clients      |

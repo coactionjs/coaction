@@ -47,6 +47,8 @@ pnpm benchmark:check
 
 原生 immutable store 上的 `useStore(selector)` 与 `observer()` 都使用可回收的深层路径追踪。读取 `state.user.name` 的 reader 可以在仅更新 age 的 recipe 后继续使用缓存。Selector 仍以 `Object.is` 比较结果；`observer()` 直接收集 render 中的读取，不需要额外 selector。请分别测量 selector 执行次数与组件 render 次数。
 
+数组元素是值：reader 依赖它读取的每个元素的身份，`filter`、`map` 等数组方法只对整个数组登记一个依赖。渲染 `todos[0].title` 的 `observer()` 会在 `todos[0]` 内部的任何写入后重新渲染，渲染扫描结果的 `observer()` 会在任一元素被写入后重新渲染。返回该字段或扫描结果的 selector 会重跑，但只有结果变化时才重新渲染。
+
 原生 getter 与 `get(deps, fn)` 仍以 store/slice 字段为边界。读取 `this.user.name` 的 getter 可能因 `user.age` 变化而重算，即使结果相同、消费者没有额外工作。需要更细依赖的派生读取可使用 `derive(..., { deep: true })` 或 `derivePath`。
 
 父对象 replacement、数组结构变化和 graph snapshot patches 可能扩大失效范围；外部 adapter 遵守各自的更新和快照 contract。具体边界见 [computed 追踪粒度](/zh/docs/concepts/computed)。
@@ -57,5 +59,6 @@ pnpm benchmark:check
 - 非必要时不设置 `enablePatches`，同时考虑会自动请求 patches 的消费者；
 - 缓存 getter 用于重复派生读取，不承载副作用；
 - 在确实减少 selector 组合时使用 `observer()`；
+- 若 `observer()` 会因元素中其他字段的写入而重新渲染，改用 selector 读取数组元素的字段或扫描结果；
 - profile production build 与代表性状态；
 - 把 benchmark floor 当作回归检测，并在目标机器重跑可发布数字。

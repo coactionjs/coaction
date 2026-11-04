@@ -74,7 +74,10 @@ are separate: an unchanged primitive result can suppress downstream work.
 
 React selectors and `observer` use managed deep path tracking. A selector reading
 `state.user.name` can ignore an age-only recipe update. Parent replacement, array structure,
-and graph snapshot patches can invalidate more broadly.
+and graph snapshot patches can invalidate more broadly. Array elements are read as values: a
+reader of `state.todos[0].title` depends on `todos[0]` itself, so an `observer` re-renders after
+any write inside that element, while a selector reruns but re-renders only when its result
+changes.
 
 ## Managed derived reads
 
@@ -141,7 +144,8 @@ Array elements are values rather than readonly proxies. An element read by index
 scan or returned by a getter is the frozen element itself, so it compares equal however it was
 reached, and reading it depends on its identity: any write inside an element gives it a new
 identity, while writes to its siblings do not. A write to an element outside `set()` throws a
-`TypeError`.
+`TypeError` in strict-mode code and is silently ignored in sloppy-mode scripts; either way the
+state is unchanged.
 
 Array methods that read every element without changing it, such as `filter`, `map`, `find`,
 `reduce`, `slice` and `for...of`, take one dependency on the array and run over the array itself.

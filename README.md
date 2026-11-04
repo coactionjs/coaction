@@ -413,9 +413,9 @@ function CartSummary() {
 
 `useStore(selector)` and `observer()` track nested paths: an age-only recipe leaves a reader of `user.profile.name` cached. Parent replacements, array structure changes and graph snapshot patches can invalidate more broadly. A React selector still compares its result with `Object.is`; returning a fresh object each run can trigger a re-render.
 
-A selector that scans most of the state can skip tracking altogether. `useStore(selector, { whole: true })` runs it over the store's plain data (`getPureState()`, without getters or methods) on every commit, and re-renders when the result changes by `Object.is` or by an `equals` you pass. While nothing tracks a store, its writes skip the patch bookkeeping that tracking needs.
+A selector that scans most of the state can skip tracking altogether. `useStore(selector, { whole: true })` runs it over the store's plain data (`getPureState()`, without getters or methods) on every commit, and re-renders when the result changes by `Object.is` or by an `equals` you pass. While nothing tracks a store, its writes skip the patch bookkeeping that tracking needs. The selector is handed the store's own data, not a readonly view: read it, never mutate it.
 
-Arrays hold values. An element read by index, found by a scan or returned by a getter is the element itself, frozen, not a readonly proxy, so it compares equal however it was reached. A reader depends on the identity of the elements it reads, and structural sharing gives an element a new identity whenever anything inside it changes: a reader of `items[0].name` reruns when `items[0]` changes, not when `items[1]` does. Writing to an element outside `set()` throws a `TypeError`.
+Arrays hold values. An element read by index, found by a scan or returned by a getter is the element itself, frozen, not a readonly proxy, so it compares equal however it was reached. A reader depends on the identity of the elements it reads, and structural sharing gives an element a new identity whenever anything inside it changes: a reader of `items[0].name` reruns when `items[0]` changes, not when `items[1]` does. An `observer()` that renders `items[0].name` therefore re-renders after a write to `items[0].done` as well; a selector, `useStore((state) => state.items[0].name)`, reruns but re-renders only when the name changes. Writing to an element outside `set()` throws a `TypeError` in strict-mode code and is silently ignored in sloppy-mode scripts; either way the state is unchanged. [Upgrading to Coaction 4.2](./docs/migration/v4.2.md) compares this with 4.1.
 
 ### React concurrency is part of the contract
 
@@ -805,7 +805,7 @@ Run the standard local gate with `pnpm check`. The full process additionally run
 
 - [Documentation website](https://coactionjs.github.io/coaction/en/docs/) · [中文文档](https://coactionjs.github.io/coaction/zh/docs/)
 - [Computed state](https://coactionjs.github.io/coaction/en/docs/concepts/computed/)
-- [Migrating to Coaction 4.0](./docs/migration/v4.md) · [`store.apply` belongs to Coaction (4.0)](./docs/migration/adapter-write-boundary.md) · [Upgrading to Mutative 2 (4.1)](./docs/migration/mutative-2.md)
+- [Migrating to Coaction 4.0](./docs/migration/v4.md) · [`store.apply` belongs to Coaction (4.0)](./docs/migration/adapter-write-boundary.md) · [Upgrading to Mutative 2 (4.1)](./docs/migration/mutative-2.md) · [Upgrading to Coaction 4.2](./docs/migration/v4.2.md)
 - [Migrating from Zustand](./docs/migration/from-zustand.md)
 - [Why Coaction Without Multithreading](./docs/comparison/single-thread.md) · [Coaction vs Zustand](./docs/comparison/zustand.md)
 - [Architecture Overview](./docs/architecture/overview.md) · [Core Runtime](./docs/architecture/core-runtime.md) · [Threading Model](./docs/architecture/threading-model.md)

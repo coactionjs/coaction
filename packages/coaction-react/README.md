@@ -56,6 +56,8 @@ Wrap components with `observer()` when you want MobX/Vue-style automatic render 
 
 Object traversal is collapsed to the deepest value actually read, so `state.user.profile.name` does not retain broad `user`/`profile` subscriptions. When a Coaction object is returned by a selector or passed directly as a React element prop, that object path is marked terminal and nested changes invalidate it. If object identity itself is used only as an opaque hook dependency inside `observer()` (for example `useMemo(..., [state.user])`) while deeper fields are also read, prefer an explicit selector for that object identity.
 
+Array elements are the exception. An element is handed out as the frozen value the store holds, and a reader depends on its identity, so an `observer()` that renders `state.todos[0].title` re-renders after any write inside `todos[0]`, and one that renders `state.todos.filter(...)` after a write to any element. Read through a selector — `useStore((state) => state.todos[0].title)` — where the component should re-render only when that result changes; the selector reruns, but the component does not.
+
 For smaller render regions, use `<Observer>`:
 
 ```tsx

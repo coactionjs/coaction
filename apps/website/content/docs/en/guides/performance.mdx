@@ -69,6 +69,12 @@ stores. A reader of `state.user.name` can stay cached after an age-only recipe u
 still compare their results with `Object.is`; `observer()` collects reads during render without
 requiring a selector. Measure selector executions and render counts separately.
 
+Array elements are values: a reader depends on the identity of each element it reads, and array
+methods such as `filter` and `map` take one dependency on the array. An `observer()` rendering
+`todos[0].title` re-renders after any write inside `todos[0]`, and one rendering a scan after a
+write to any element. A selector returning the field or the scan's result reruns, but re-renders
+only when that result changes.
+
 Native getters and `get(deps, fn)` retain the store/slice field boundary. A getter reading
 `this.user.name` can recompute when `user.age` changes, even if its result stays equal and its
 consumers do no extra work. Use `derive(..., { deep: true })` or `derivePath` when a managed
@@ -84,6 +90,8 @@ broadly. External adapters follow their own update and snapshot contracts. See
 - Leave `enablePatches` unset unless needed; account for consumers that request patches automatically.
 - Use cached getters for repeated derived reads, not side-effectful work.
 - Use `observer()` where it removes real selector composition.
+- Read a field of an array element, or the result of a scan, through a selector where an
+  `observer()` would re-render for writes elsewhere in the elements.
 - Profile production builds and representative state, not development mode alone.
 - Treat benchmark floors as regression detection and rerun publishable numbers on the target
   machine.

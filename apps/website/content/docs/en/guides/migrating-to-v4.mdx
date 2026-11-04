@@ -1,6 +1,6 @@
 ---
 title: Migrating to 4.0
-description: Update shared imports, check integration contracts, keep local React applications on supported versions, and check the Mutative 2 changes of 4.1.
+description: Update shared imports, check integration contracts, keep local React applications on supported versions, and check the Mutative 2 changes of 4.1 and the array element changes of 4.2.
 ---
 
 Native local applications using actions, selectors and getters generally keep the same APIs.
@@ -97,3 +97,21 @@ compare patch arrays need new expectations. In production, errors from Mutative 
 `Minified Mutative error #<code>`; match the code, and define `process.env.NODE_ENV` in every
 bundle. The [repository guide](https://github.com/coactionjs/coaction/blob/main/docs/migration/mutative-2.md)
 covers loading without a bundler and the draft checks of development builds.
+
+## Check array elements and `getInitialState()` in 4.2
+
+Coaction 4.2 hands array elements out as frozen values instead of readonly proxies. A reader
+depends on the identity of each element it reads, so an `observer()` rendering `todos[0].title`
+re-renders after any write inside `todos[0]`, and read-only array methods such as `filter` take
+one dependency on the array. Where a component renders more often than before, read the field or
+the scan's result through a selector, which re-renders only when its result changes. Objects
+reached through object keys are tracked as before.
+
+A write to an element outside `set()` throws the engine's `TypeError` in strict-mode code and is
+silently ignored in sloppy-mode scripts, instead of throwing Coaction's direct-mutation error.
+`getInitialState()` returns a copy of the initial state shaped like the factory's object, the
+same object on every call, rather than the factory's object itself. `@coaction/react` adds opt-in
+whole selectors, `useStore(selector, { whole: true })`, whose selector receives the store's own
+data and must never mutate it. The
+[repository guide](https://github.com/coactionjs/coaction/blob/main/docs/migration/v4.2.md)
+compares each change with 4.1.

@@ -54,7 +54,7 @@ Client options 额外包含：
 | `isSliceStore`            | 输入是否被 materialize 为 slices                    |
 | `getState()`              | Public 数据、绑定方法与 computed getter             |
 | `getPureState()`          | 仅数据表示                                          |
-| `getInitialState()`       | 初始化阶段生成的状态                                |
+| `getInitialState()`       | 初始状态的副本，结构与工厂返回的对象相同            |
 | `setState(next)`          | 合并 deep partial 或运行 draft updater；client 拒绝 |
 | `subscribe(listener)`     | 订阅并返回 unsubscribe function                     |
 | `apply(state?, patches?)` | 底层集成/transport 更新；client 拒绝                |

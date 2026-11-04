@@ -1,6 +1,6 @@
 ---
 title: 迁移到 4.0
-description: 更新 shared 导入，检查集成 contract，让本地 React 应用使用受支持的版本，并检查 4.1 中 Mutative 2 带来的变化。
+description: 更新 shared 导入，检查集成 contract，让本地 React 应用使用受支持的版本，并检查 4.1 中 Mutative 2 带来的变化和 4.2 中数组元素的变化。
 ---
 
 使用 action、selector 和 getter 的原生本地应用通常可以保留现有 API。请使用 React 18 或 19，
@@ -82,3 +82,16 @@ Commit 中的 patch 遵循 Mutative 2：嵌套值的 patch 排在父级之前，
 它们 replay 后得到相同的状态，因此只有比较 patch 数组的测试需要更新预期。生产构建中 Mutative 抛出的错误为
 `Minified Mutative error #<code>`，请匹配错误码，并在每个 bundle 中定义 `process.env.NODE_ENV`。
 无 bundler 加载方式和开发构建新增的 draft 检查，见[仓库指南](https://github.com/coactionjs/coaction/blob/main/docs/migration/mutative-2.md)。
+
+## 检查 4.2 中的数组元素与 `getInitialState()`
+
+Coaction 4.2 把数组元素作为冻结的值交出，而不是 readonly 代理。reader 依赖它读取的每个元素的身份，
+因此渲染 `todos[0].title` 的 `observer()` 会在 `todos[0]` 内部的任何写入后重新渲染；`filter` 等只读数组方法
+只对整个数组登记一个依赖。如果某个组件比以前渲染得更频繁，请改用 selector 读取该字段或扫描结果，
+selector 只在结果变化时才重新渲染。通过对象键访问的对象仍按原来的方式追踪。
+
+在 `set()` 之外写入元素时，严格模式代码会抛出引擎的 `TypeError`，非严格模式脚本则静默忽略这次写入，
+不再抛出 Coaction 的直接修改错误。`getInitialState()` 返回初始状态的副本，结构与工厂返回的对象相同，
+每次调用返回同一个对象，而不再是工厂返回的对象本身。`@coaction/react` 新增可选的 whole selector：
+`useStore(selector, { whole: true })`，它的 selector 拿到的是 store 自己的数据，绝不能修改。
+[仓库指南](https://github.com/coactionjs/coaction/blob/main/docs/migration/v4.2.md)逐项对比了与 4.1 的差别。
