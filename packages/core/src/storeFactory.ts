@@ -469,11 +469,13 @@ export const createStore = <T extends CreateState>(
       !internal.updateImmutable &&
       !internal.externalApply
     ) {
-      store.getInitialState = createInitialStateReader<T>(
+      const [read, toState] = createInitialStateReader<T>(
         initialState,
         internal.rootState as object,
         store.isSliceStore
       );
+      store.getInitialState = read;
+      internal.initialStateToState = toState;
     }
     if (validatePatches && store.apply !== apply) {
       const applyWithAdapter = store.apply.bind(store);

@@ -181,6 +181,26 @@ const readInitial = (
   return Object.create(prototype, descriptors) as object;
 };
 
+/**
+ * An object's own enumerable keys, without the factory's methods, accessors and
+ * computed values, which `shape` describes beside its data.
+ */
+const dataOf = (
+  { descriptors, data }: InitialShape,
+  source: Record<PropertyKey, unknown>
+) => {
+  const kept = new Set(data);
+  const values: Record<PropertyKey, unknown> = {};
+  for (const key of getOwnEnumerableKeys(source)) {
+    if (
+      kept.has(key) ||
+      !Object.prototype.hasOwnProperty.call(descriptors, key)
+    )
+      setOwnEnumerable(values, key, source[key]);
+  }
+  return values;
+};
+
 const sliceShapesOf = (factoryState: object) =>
   getOwnEnumerableKeys(factoryState)
     .filter((key) => !(typeof key === 'string' && isUnsafeKey(key)))
@@ -206,14 +226,14 @@ export const createInitialStateReader = <T>(
   factoryState: object,
   initialRoot: object,
   isSliceStore: boolean
-): (() => T) => {
+): [read: () => T, toState: (value: object) => object] => {
   const root = initialRoot as Record<PropertyKey, unknown>;
   // Shaped outside this scope: a closure here that saw `factoryState` would
   // share its context with the reader, and keep the factory's data alive.
   const shapes = isSliceStore ? sliceShapesOf(factoryState) : undefined;
   const shape = shapes ? undefined : shapeOf(factoryState);
   let initial: T | undefined;
-  return () => {
+  const read = () => {
     if (initial === undefined) {
       const memo: StateCopyMemo = new Map();
       if (shape) {
@@ -232,4 +252,22 @@ export const createInitialStateReader = <T>(
     }
     return initial;
   };
+  // What the initial state holds beside its data -- the factory's methods,
+  // accessors and computed values -- is not state, so `setState()` rejected
+  // it as keys the state does not have, and a store with any method could not
+  // be reset with `setState(getInitialState())`. Given that object, it takes
+  // the data alone; any other value is left as it is.
+  const toState = (value: object) => {
+    if (value !== initial) return value;
+    if (shape) return dataOf(shape, value as Record<PropertyKey, unknown>);
+    const slices: Record<PropertyKey, unknown> = {};
+    for (const [key, sliceShape] of shapes!) {
+      slices[key] = dataOf(
+        sliceShape,
+        (value as Record<PropertyKey, Record<PropertyKey, unknown>>)[key]
+      );
+    }
+    return slices;
+  };
+  return [read, toState];
 };

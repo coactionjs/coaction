@@ -69,6 +69,7 @@ increment();
 const state = store.getState(); // 数据 + action + computed getter
 const data = store.getPureState(); // 仅数据
 const initial = store.getInitialState(); // 副本，结构与工厂返回的对象相同
+store.setState(initial); // 重置数据
 
 const unsubscribe = store.subscribe(() => {
   console.log(store.getPureState());

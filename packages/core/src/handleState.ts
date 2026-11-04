@@ -58,12 +58,15 @@ export const handleState = <T extends CreateState>(
   let patchBase: unknown;
   let patchBaseNeedsSnapshot = false;
   const runRecipe = (recipe: Function) => {
-    const result = recipe(internal.module);
+    let result = recipe(internal.module);
     if (result instanceof Promise) {
       result.catch(() => undefined);
       throw new Error('setState with async function is not supported');
     }
     if (typeof result === 'object' && result !== null) {
+      if (internal.initialStateToState) {
+        result = internal.initialStateToState(result);
+      }
       internal.validateState?.(result);
       assertKnownStateShape(
         result,
@@ -232,7 +235,7 @@ export const handleState = <T extends CreateState>(
     patchBaseNeedsSnapshot = nextNeedsSnapshot;
     return [internal.rootState as any, safePatches, safeInversePatches];
   };
-  const setState: Store['setState'] = (next, updater = defaultUpdater) =>
+  const setState: Store['setState'] = (value, updater = defaultUpdater) =>
     internal.runWithNotifications(() => {
       const commitSource = pendingCommitSource ?? 'setState';
       pendingCommitSource = undefined;
@@ -246,9 +249,15 @@ export const handleState = <T extends CreateState>(
       if (internal.isBatching) {
         throw new Error('setState cannot be called within the updater');
       }
-      if (next === null) {
+      if (value === null) {
         return [];
       }
+      // A store is reset with `setState(getInitialState())`, whose value also
+      // holds the factory's methods, accessors and computed values.
+      const next =
+        typeof value === 'object' && internal.initialStateToState
+          ? (internal.initialStateToState(value) as typeof value)
+          : value;
       if (typeof next === 'object') {
         internal.validateState?.(next);
         assertKnownStateShape(

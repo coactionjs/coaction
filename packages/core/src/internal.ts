@@ -132,6 +132,13 @@ export interface Internal<T extends CreateState = CreateState> {
    */
   stateSchema?: StateSchema;
   /**
+   * The data of the object `getInitialState()` returned, when `setState()` is
+   * given that object, which also holds the factory's methods, accessors and
+   * computed values; any other value as it is. Unset for a store bound to
+   * another runtime.
+   */
+  initialStateToState?: (value: object) => object;
+  /**
    * The act is used to run the function in the action for mutable state.
    */
   actMutable?: <T extends () => any>(fn: T) => ReturnType<T>;
