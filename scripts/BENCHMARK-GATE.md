@@ -22,10 +22,11 @@ single-process results below therefore have a different measurement boundary.
 Native stores compare the known read paths directly when no patch middleware,
 journal consumer, transport or computed snapshot cache needs a patch pair.
 Key/existence reads compare shape as well as values. The comparison descends
-only into subtrees whose identity changed, so its cost follows the subscribers
-of what a write touched; producing and certifying a journal compares every
-sibling of each written path as well, so read sets of any size skip it. This
-does not change dependency semantics or the public API.
+only into subtrees whose identity changed, visiting each tracked child of a node
+that did; producing and certifying a journal compares every sibling of each
+written path as well, so read sets of any size skip it. This does not change
+dependency semantics or the public API. What visiting every tracked child costs
+a list is described under [Rows of a list](#rows-of-a-list).
 
 Complete producer-patch certification also does real additional work. Checking
 unchanged siblings catches changes missing from an otherwise nonempty patch
@@ -167,3 +168,29 @@ coarse -- writing `items[2]` re-runs a getter that read `items[0]`, and writing
 an unrelated field does not -- so the coarse dependency `whole()` exists to
 register is the one already being registered. There is nothing for it to do
 there.
+
+## Rows of a list
+
+`Write cost with a reader for each element` writes one element of an array
+whose elements are each read by a tracker of their own, as the rows of a list
+are, and each notified row tracks again, as a component renders again. The row
+with a reader for one of 10,000 elements is the reference: the write copies the
+array either way.
+
+The group was added when a write to one element turned out to take a step for
+every row. Since `3511346` a local write that needs no patch pair compares the
+paths its readers observed for read sets of any size, and that comparison visits
+every tracked child of a node that changed: a write into a list of 10,000 rows
+looked up the element of each of the 10,000 element nodes to find the one that
+changed. 4.1 followed the patch journal instead once more than eight
+dependencies were live. This group alone, on Apple M1 Max, Node 24.22.0,
+Mutative 2.0.0, in writes per second:
+
+| A reader for            |  4.1.0 | `67698cf` |
+| :---------------------- | -----: | --------: |
+| one of 10,000 elements  | 47,001 |    45,656 |
+| each of 1,000 elements  | 66,362 |    41,713 |
+| each of 10,000 elements | 16,076 |     5,818 |
+
+The floors of the two rows with a reader for each element sit below what 4.1.0
+measured, with margin, and above what `67698cf` measured.

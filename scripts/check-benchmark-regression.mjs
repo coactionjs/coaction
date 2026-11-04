@@ -12,7 +12,10 @@ import {
   create as createWithCoaction,
   effect
 } from '../packages/core/dist/index.mjs';
-import { onStoreCommit } from '../packages/core/dist/adapter.mjs';
+import {
+  createReactiveTracker,
+  onStoreCommit
+} from '../packages/core/dist/adapter.mjs';
 
 const { Suite } = benchmark;
 const scriptDir = dirname(fileURLToPath(import.meta.url));
@@ -451,6 +454,68 @@ for (const [name, observe] of [
   );
 }
 runSuite('Write cost by observation kind', observedWrites);
+
+/**
+ * Rows of a list each read their own element, and a write to one element
+ * notifies the row that read it. Finding that row must not take a step per
+ * row: a reader for every element may cost little more than a reader for one
+ * of them, since the write copies the array either way.
+ */
+let rowStore;
+let rowReaders;
+let rowWrites;
+let rowNotifications;
+const elementReaderWrites = new Suite();
+for (const [name, size, readers] of [
+  ['a reader for one of 10,000 elements', 10000, 1],
+  ['a reader for each of 1,000 elements', 1000, 1000],
+  ['a reader for each of 10,000 elements', 10000, 10000]
+]) {
+  const spacing = size / readers;
+  elementReaderWrites.add(
+    `Coaction write, ${name}`,
+    () => {
+      rowStore.getState().toggle(((rowWrites * 7) % readers) * spacing);
+      rowWrites += 1;
+    },
+    {
+      onStart: () => {
+        rowStore = createWithCoaction((set) => ({
+          rows: Array.from({ length: size }, (_, id) => ({ id, done: false })),
+          toggle: (index) => {
+            set((state) => {
+              state.rows[index].done = !state.rows[index].done;
+            });
+          }
+        }));
+        rowWrites = 0;
+        rowNotifications = 0;
+        rowReaders = Array.from({ length: readers }, (_, reader) => {
+          const tracker = createReactiveTracker();
+          const render = () => rowStore.getState().rows[reader * spacing].done;
+          // A notified row renders again, as a component would.
+          tracker.subscribe(() => {
+            rowNotifications += 1;
+            tracker.track(render);
+          });
+          tracker.track(render);
+          return tracker;
+        });
+      },
+      onComplete: () => {
+        // Each write was to an element one row read, and notified that row.
+        if (rowNotifications !== rowWrites) {
+          throw new Error(
+            `${rowWrites} element writes notified ${rowNotifications} rows.`
+          );
+        }
+        rowReaders.forEach((tracker) => tracker.dispose());
+        rowStore.destroy();
+      }
+    }
+  );
+}
+runSuite('Write cost with a reader for each element', elementReaderWrites);
 
 // Build the same replacement from raw immutable state for both forms. This
 // isolates normalization from the public readonly facade and getter tracking.

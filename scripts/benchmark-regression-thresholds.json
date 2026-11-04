@@ -13,6 +13,9 @@
     "Coaction write, a plain subscriber": 250000,
     "Coaction write, a commit listener": 125000,
     "Coaction write, a path effect": 100000,
+    "Coaction write, a reader for one of 10,000 elements": 30000,
+    "Coaction write, a reader for each of 1,000 elements": 60000,
+    "Coaction write, a reader for each of 10,000 elements": 11000,
     "Coaction object replacement, nothing watching": 2000,
     "Coaction recipe replacement, nothing watching": 400000
   },
