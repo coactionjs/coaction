@@ -3,12 +3,15 @@ import type { Patches } from 'mutative';
 import type { CreateState } from './interface';
 import type { Internal } from './internal';
 import { sharedRegistry } from './sharedRegistry';
+import { isArrayIndexKey } from './arrayIndex';
 import { areShallowEqualWithArray } from './utils';
 
 export type ReactivePath = readonly PropertyKey[];
 
 export type ReactivePathNode = {
   children?: Map<PropertyKey, ReactivePathNode>;
+  /** How many of the children are keyed by an array index. */
+  indexChildren: number;
   parent?: ReactivePathNode;
   key?: PropertyKey;
   valueVersion?: ReturnType<typeof signal<number>>;
@@ -77,6 +80,7 @@ const createNode = (
   owner,
   parent,
   key,
+  indexChildren: 0,
   valueTick: 0,
   structureTick: 0,
   valueSubscribers: 0,
@@ -84,6 +88,13 @@ const createNode = (
   stamp: 0,
   slot: 0
 });
+
+const addChild = (parent: ReactivePathNode, key: PropertyKey) => {
+  const child = createNode(parent.owner, parent, key);
+  (parent.children ??= new Map()).set(key, child);
+  if (isArrayIndexKey(key)) parent.indexChildren += 1;
+  return child;
+};
 
 const normalizePointerSegment = (segment: string) =>
   segment.replace(/~1/g, '/').replace(/~0/g, '~');
@@ -123,8 +134,7 @@ const getNode = <T extends CreateState>(
       if (!create) {
         return undefined;
       }
-      child = createNode(internal, node, segment);
-      (node.children ??= new Map()).set(segment, child);
+      child = addChild(node, segment);
     }
     node = child;
   }
@@ -141,14 +151,7 @@ export const getReactivePathNode = <T extends CreateState>(
 export const getChildReactiveNode = (
   parent: ReactivePathNode,
   key: PropertyKey
-) => {
-  let child = parent.children?.get(key);
-  if (!child) {
-    child = createNode(parent.owner, parent, key);
-    (parent.children ??= new Map()).set(key, child);
-  }
-  return child;
-};
+) => parent.children?.get(key) ?? addChild(parent, key);
 
 /** @internal A held node, or the node now in the trie at its path. */
 export const liveReactiveNode = (node: ReactivePathNode) => {
@@ -186,6 +189,7 @@ const pruneNode = (node: ReactivePathNode) => {
   }
   if (parent.children?.get(node.key) === node) {
     parent.children.delete(node.key);
+    if (isArrayIndexKey(node.key)) parent.indexChildren -= 1;
     if (parent.children.size === 0) {
       parent.children = undefined;
     }
@@ -552,6 +556,85 @@ const getValueAtPath = (root: unknown, path: readonly PropertyKey[]) => {
   return value;
 };
 
+/** Fewer element nodes than this are visited one by one, which costs little. */
+const minElementNodes = 16;
+/**
+ * Comparing a pair of elements takes about a quarter of the time visiting an
+ * element's node does, so the elements are compared once the array holds no
+ * more than this many for each node.
+ */
+const elementsPerNode = 4;
+
+// Held as they were when this module loaded; an entry that never compares
+// arrays drops them.
+const arrayIteration = /* @__PURE__ */ (() => {
+  const values = Array.prototype[Symbol.iterator];
+  const iterator = Object.getPrototypeOf(values.call([]));
+  return { values, iterator, next: iterator.next };
+})();
+
+/**
+ * The elements of an array, in an array V8 reads at full speed. Reading an
+ * element of a frozen array takes about four times as long, and a read that has
+ * seen a frozen array stays slow for the arrays after it; a spread copies one in
+ * a fraction of that time. A scan freezes the array it runs over, so the array
+ * a write replaces often is one. An array whose iteration could run code of its
+ * own is read as it is.
+ */
+const readableElements = (array: readonly unknown[]) =>
+  Object.isFrozen(array) &&
+  Object.getPrototypeOf(array) === Array.prototype &&
+  !Object.prototype.hasOwnProperty.call(array, Symbol.iterator) &&
+  Array.prototype[Symbol.iterator] === arrayIteration.values &&
+  arrayIteration.iterator.next === arrayIteration.next
+    ? [...array]
+    : array;
+
+/**
+ * Queue the children of a changed array whose value changed: compare the two
+ * arrays element by element, and look up the node of only an element that
+ * changed. Rows of a list that each read their own element give the array a
+ * node per element, and a write changes one of them, so looking up each node's
+ * element took a step per row. Declines, for the caller to visit each child,
+ * when a child is keyed by neither an index nor `length`, or when the arrays
+ * are too long for the nodes there are.
+ */
+const queueChangedElements = (
+  node: ReactivePathNode,
+  previous: readonly unknown[],
+  next: readonly unknown[],
+  nodes: ReactivePathNode[],
+  previousValues: unknown[],
+  nextValues: unknown[]
+) => {
+  const children = node.children!;
+  let named = children.size - node.indexChildren;
+  const lengthNode = named > 0 ? children.get('length') : undefined;
+  if (lengthNode !== undefined) named -= 1;
+  const length = Math.max(previous.length, next.length);
+  if (named > 0 || length > node.indexChildren * elementsPerNode) return false;
+  if (lengthNode !== undefined && previous.length !== next.length) {
+    nodes.push(lengthNode);
+    previousValues.push(previous.length);
+    nextValues.push(next.length);
+  }
+  // An index at or past the end of both arrays holds nothing on either side.
+  const before = readableElements(previous);
+  const after = readableElements(next);
+  for (let index = 0; index < length; index += 1) {
+    const previousValue = before[index];
+    const nextValue = after[index];
+    if (Object.is(previousValue, nextValue)) continue;
+    const child = children.get(String(index));
+    if (child !== undefined) {
+      nodes.push(child);
+      previousValues.push(previousValue);
+      nextValues.push(nextValue);
+    }
+  }
+  return true;
+};
+
 /** A read set can be checked directly without producing a patch journal.
  * Walk only its trie, including existence/key-order dependencies. Immutable
  * identity skips unchanged subtrees; an iterative walk also handles deep paths.
@@ -599,7 +682,22 @@ export const invalidateReactiveTransition = <T extends CreateState>(
     ) {
       invalidateStructure(node);
     }
-    node.children?.forEach(queueChanged);
+    if (node.children === undefined) continue;
+    if (
+      node.indexChildren < minElementNodes ||
+      !Array.isArray(previous) ||
+      !Array.isArray(next) ||
+      !queueChangedElements(
+        node,
+        previous,
+        next,
+        nodes,
+        previousValues,
+        nextValues
+      )
+    ) {
+      node.children.forEach(queueChanged);
+    }
   }
 };
 

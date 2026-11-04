@@ -23,10 +23,11 @@ Native stores compare the known read paths directly when no patch middleware,
 journal consumer, transport or computed snapshot cache needs a patch pair.
 Key/existence reads compare shape as well as values. The comparison descends
 only into subtrees whose identity changed, visiting each tracked child of a node
-that did; producing and certifying a journal compares every sibling of each
-written path as well, so read sets of any size skip it. This does not change
-dependency semantics or the public API. What visiting every tracked child costs
-a list is described under [Rows of a list](#rows-of-a-list).
+that did -- or, below an array most of whose elements are tracked, comparing the
+two arrays element by element; producing and certifying a journal compares every
+sibling of each written path as well, so read sets of any size skip it. This
+does not change dependency semantics or the public API. Why arrays are compared
+differently is described under [Rows of a list](#rows-of-a-list).
 
 Complete producer-patch certification also does real additional work. Checking
 unchanged siblings catches changes missing from an otherwise nonempty patch
@@ -179,18 +180,36 @@ array either way.
 
 The group was added when a write to one element turned out to take a step for
 every row. Since `3511346` a local write that needs no patch pair compares the
-paths its readers observed for read sets of any size, and that comparison visits
-every tracked child of a node that changed: a write into a list of 10,000 rows
-looked up the element of each of the 10,000 element nodes to find the one that
-changed. 4.1 followed the patch journal instead once more than eight
-dependencies were live. This group alone, on Apple M1 Max, Node 24.22.0,
+paths its readers observed for read sets of any size, and that comparison
+visited every tracked child of a node that changed: a write into a list of
+10,000 rows looked up the element of each of the 10,000 element nodes to find
+the one that changed. 4.1 followed the patch journal instead once more than
+eight dependencies were live.
+
+The walk now compares the two arrays element by element once at least sixteen
+of an array's elements have nodes and the array holds no more than four
+elements for each of them, and looks up the node of only an element that
+changed: comparing a pair of elements takes about a quarter of the time looking
+an element up through its node does. A frozen array -- a scan freezes the array
+it runs over -- is copied by a spread first, since V8 reads the elements of a
+frozen array about four times as slowly. A node with a child keyed by neither an
+index nor `length` is visited child by child as before.
+
+This group, run back to back for each build on Apple M1 Max, Node 24.22.0,
 Mutative 2.0.0, in writes per second:
 
-| A reader for            |  4.1.0 | `67698cf` |
-| :---------------------- | -----: | --------: |
-| one of 10,000 elements  | 47,001 |    45,656 |
-| each of 1,000 elements  | 66,362 |    41,713 |
-| each of 10,000 elements | 16,076 |     5,818 |
+| A reader for            |  4.1.0 | `67698cf` | element comparison |
+| :---------------------- | -----: | --------: | -----------------: |
+| one of 10,000 elements  | 50,276 |    45,488 |             45,472 |
+| each of 1,000 elements  | 72,288 |    42,212 |             82,560 |
+| each of 10,000 elements | 15,958 |     5,734 |             16,134 |
 
-The floors of the two rows with a reader for each element sit below what 4.1.0
-measured, with margin, and above what `67698cf` measured.
+A write into 10,000 rows still compares 10,000 elements, which costs about what
+4.1.0's journal did; doing less would take a journal of the write. The floors
+of the two rows with a reader for each element sit below what 4.1.0 measured,
+with margin, and above what `67698cf` measured, which fails both.
+
+The reference row is about a tenth slower than in 4.1.0 with or without the
+element comparison. Most of its time, in either version, goes to collecting the
+garbage of the 10,000-element array each write copies; what makes the
+difference is not yet established.

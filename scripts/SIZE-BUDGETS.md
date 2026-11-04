@@ -117,3 +117,20 @@ as they are copied in and skipping the kept-keys shape check had added 150 and
 The published `dist/index` files carry every entry point's code, so they record
 all of the work above since their own baselines: 19,642 and 19,749 bytes. They
 moved with their ceilings too.
+
+## Element comparison
+
+A local write that needs no patch pair compares the two arrays element by
+element below an array most of whose elements are tracked, instead of looking up
+the element of every tracked node: rows of a list that each read their own
+element made a write take a step per row. The comparison, the copy of a frozen
+array it reads, and the count of index-keyed children each trie node keeps cost
+**279 bytes** in the default core consumer and **265 bytes** in the shared
+consumer. The work since the initial-state reader had added 111 and 116 bytes
+inside the ceilings, so the baselines now record the measured 13,382 and 17,579
+bytes and moved with their ceilings.
+
+The derived consumer only creates and prunes trie nodes, so it takes the count
+and the index check, 90 bytes, inside its ceiling. The index check is a module
+of its own so that taking it does not bring in the rest of the state utilities,
+and `mutative` with them.

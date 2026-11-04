@@ -7,6 +7,7 @@ import {
 } from 'mutative';
 import type { MiddlewareStore, PatchTransform } from './interface';
 import { isImmutableStateObject } from './immutableState';
+import { isArrayIndexKey } from './arrayIndex';
 
 /** Null-prototype records are local data, not mutable atomic instances. */
 export const markLocalState: Exclude<
@@ -486,18 +487,7 @@ export const assertKnownStateShape = (
   }
 };
 
-export const isArrayIndexKey = (key: PropertyKey) => {
-  if (typeof key !== 'string') {
-    return false;
-  }
-  const index = Number(key);
-  return (
-    Number.isInteger(index) &&
-    index >= 0 &&
-    index < 2 ** 32 - 1 &&
-    String(index) === key
-  );
-};
+export { isArrayIndexKey };
 
 export const assignOwnEnumerable = (
   target: Record<PropertyKey, unknown>,
