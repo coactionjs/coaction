@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "coaction": "workspace:*",
-    "mutative": "^2.0.0"
+    "mutative": "^2.0.2"
   },
   "peerDependencies": {
     "coaction": "^4.1.0"

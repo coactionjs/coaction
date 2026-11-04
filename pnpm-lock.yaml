@@ -225,11 +225,11 @@ importers:
   packages/coaction-history:
     dependencies:
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       travels:
         specifier: ^3.0.1
-        version: 3.0.1(mutative@2.0.0)
+        version: 3.0.1(mutative@2.0.2)
     devDependencies:
       coaction:
         specifier: workspace:*
@@ -250,8 +250,8 @@ importers:
         specifier: workspace:*
         version: link:../core
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
 
   packages/coaction-mobx:
     devDependencies:
@@ -286,8 +286,8 @@ importers:
         specifier: ^6.15.0
         version: 6.15.0
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       react:
         specifier: ^19.2.4
         version: 19.2.4
@@ -319,8 +319,8 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       pinia:
         specifier: ^3.0.4
         version: 3.0.4(typescript@5.9.3)(vue@3.5.38(typescript@5.9.3))
@@ -419,8 +419,8 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
       valtio:
         specifier: ^2.3.1
         version: 2.3.1(@types/react@19.2.14)(react@19.2.4)
@@ -506,8 +506,8 @@ importers:
         specifier: ^5.0.3
         version: 5.0.3
       mutative:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^2.0.2
+        version: 2.0.2
 
 packages:
 
@@ -5573,8 +5573,8 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  mutative@2.0.0:
-    resolution: {integrity: sha512-HCb6TyEvwUChR3K+sssLk2LqEAOobSlu1ZATUvoa7Kh952kzhyX+huPddmIFc0LYEctFRJb0+ioQybKMkFLO6A==}
+  mutative@2.0.2:
+    resolution: {integrity: sha512-9mlCkp5FQ6eZ5LuKWVEgcrfhcm5P13jqPebLimb2OKGoziBOUzes8D3spqZ4WIOugAv9ZQMDNwh0LBueVGoYEg==}
     engines: {node: '>=14.0'}
 
   mute-stream@0.0.8:
@@ -12520,7 +12520,7 @@ snapshots:
 
   ms@2.1.3: {}
 
-  mutative@2.0.0: {}
+  mutative@2.0.2: {}
 
   mute-stream@0.0.8: {}
 
@@ -13639,9 +13639,9 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  travels@3.0.1(mutative@2.0.0):
+  travels@3.0.1(mutative@2.0.2):
     dependencies:
-      mutative: 2.0.0
+      mutative: 2.0.2
 
   tree-dump@1.1.0(tslib@2.8.1):
     dependencies:

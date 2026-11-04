@@ -53,7 +53,7 @@
     "dev": "node ../../scripts/build-package.mjs --watch"
   },
   "dependencies": {
-    "mutative": "^2.0.0",
+    "mutative": "^2.0.2",
     "travels": "^3.0.1"
   },
   "devDependencies": {
