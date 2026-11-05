@@ -1,4 +1,4 @@
-import { create } from '../src';
+import { create, whole } from '../src';
 import { createReactiveTracker } from '../src/reactiveTracker';
 import { createStore } from '../src/storeFactory';
 
@@ -139,4 +139,47 @@ test('concat hands out the elements of an array it is given frozen', () => {
   }).toThrow(TypeError);
   expect(store.getPureState().b[0].id).toBe(2);
   expect(merged[1]).toBe(state.b[0]);
+});
+
+test('a search finds an element given as the readonly proxy of its alias', () => {
+  const shared = { id: 1 };
+  const store = create(() => ({
+    selected: shared,
+    items: [{ id: 2 }, shared]
+  }));
+  const state = store.getState();
+  // `selected` is reached through an object key, so it reads as a proxy.
+  expect(state.selected).not.toBe(store.getPureState().selected);
+  expect(state.items.includes(state.selected)).toBe(true);
+  expect(state.items.indexOf(state.selected)).toBe(1);
+  expect(state.items.lastIndexOf(state.selected)).toBe(1);
+});
+
+test('a search and whole() leave an object that is not state unread', () => {
+  const store = create(() => ({ items: [{ id: 1 }] }));
+  const reads: PropertyKey[] = [];
+  const foreign = new Proxy(
+    { id: 1 },
+    {
+      get(target, key, receiver) {
+        reads.push(key);
+        return Reflect.get(target, key, receiver);
+      }
+    }
+  );
+  expect(store.getState().items.includes(foreign)).toBe(false);
+  expect(store.getState().items.indexOf(foreign)).toBe(-1);
+  expect(whole(foreign)).toBe(foreign);
+  expect(reads).toEqual([]);
+});
+
+test('a readonly proxy keeps the key to its source out of what it lists', () => {
+  const store = create(() => ({ nested: { id: 1 } }));
+  const { nested } = store.getState();
+  expect(whole(nested)).toBe(store.getPureState().nested);
+  expect(Reflect.ownKeys(nested)).toEqual(['id']);
+  expect(Object.getOwnPropertySymbols(store.getPureState().nested)).toEqual([]);
+  expect(Reflect.has(nested, Symbol.for('coaction.readonlySource'))).toBe(
+    false
+  );
 });

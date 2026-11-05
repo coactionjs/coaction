@@ -45,8 +45,19 @@ const publicStatePathMeta = sharedRegistry.publicStatePathMeta as WeakMap<
   object,
   ReactivePathMeta
 >;
-/** Reverse of the readonly proxy cache, so a proxy can hand back its source. */
-const readonlyProxySource = sharedRegistry.readonlyProxySource;
+/**
+ * The key a readonly proxy answers with the object it wraps, which its `get`
+ * trap holds already. A long-lived map from proxy to source would hold it a
+ * second time, and with an array copied on every write that makes young
+ * collections measurably slower. In the global symbol registry because a proxy
+ * made by one entry is read by another.
+ */
+const readonlySource = Symbol.for('coaction.readonlySource');
+
+/** What a value this module registered wraps, or the value itself. */
+const sourceOf = (value: object): object =>
+  (value as Record<symbol, object | undefined>)[readonlySource] ?? value;
+
 /**
  * Every object the state has frozen to hand out as itself. Such a value is a
  * state value without a proxy, so carrying it out of a selector is tracked by
@@ -204,9 +215,7 @@ export const getReadonlyStateValueVersion = (value: unknown) => {
  */
 export const whole = <T>(value: T): T => {
   return (
-    trackReadonlyStateValue(value)
-      ? (readonlyProxySource.get(value as object) ?? value)
-      : value
+    trackReadonlyStateValue(value) ? sourceOf(value as object) : value
   ) as T;
 };
 
@@ -464,8 +473,14 @@ const toReadonlyStateValue = <T extends CreateState>(
         // key, which is its readonly proxy. Any other argument stays as given:
         // `concat` reads an array proxy through its traps, which hand the
         // elements out frozen, where its source would hand them out raw.
-        if (searches && typeof args[0] === 'object' && args[0] !== null) {
-          args[0] = readonlyProxySource.get(args[0]) ?? args[0];
+        // Only a registered one is asked: any other may be a proxy of its own.
+        if (
+          searches &&
+          typeof args[0] === 'object' &&
+          args[0] !== null &&
+          publicStatePathMeta.has(args[0])
+        ) {
+          args[0] = sourceOf(args[0]);
         }
         return method.apply(freezeStateValue(target), args);
       };
@@ -479,6 +494,7 @@ const toReadonlyStateValue = <T extends CreateState>(
   };
   const proxy: object = new Proxy(value as Record<PropertyKey, unknown>, {
     get(target, key, receiver) {
+      if (key === readonlySource) return target;
       const nextValue = Reflect.get(target, key, receiver);
       const isStateObject = isImmutableStateObject(nextValue);
       const isOwn = Object.prototype.hasOwnProperty.call(target, key);
@@ -573,7 +589,6 @@ const toReadonlyStateValue = <T extends CreateState>(
     setPrototypeOf: rejectMutation
   });
   cache.set(value as object, proxy);
-  readonlyProxySource.set(proxy, value as object);
   publicStatePathMeta.set(proxy, meta);
   if (paths) {
     for (const path of paths) {
