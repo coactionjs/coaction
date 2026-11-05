@@ -913,8 +913,7 @@ describe('State Management Store Tests', () => {
     expect(initialList.length).toBe(2);
     expect(Object.prototype.hasOwnProperty.call(initialList, 0)).toBe(false);
     expect(initialList[1]).toBe('initial');
-    expect(initialList.label).toBe('initial');
-    expect(initialList[tag]).toBe('initial');
+    expect(Reflect.ownKeys(initialList)).toEqual(['1', 'length']);
 
     useStore.getState().replaceList();
     const nextList = useStore.getPureState().list as SparseArray;
@@ -922,8 +921,7 @@ describe('State Management Store Tests', () => {
     expect(Object.prototype.hasOwnProperty.call(nextList, 0)).toBe(true);
     expect(nextList[0]).toBeUndefined();
     expect(nextList[1]).toBe('next');
-    expect(nextList.label).toBe('next');
-    expect(nextList[tag]).toBe('next');
+    expect(Reflect.ownKeys(nextList)).toEqual(['0', '1', 'length']);
   });
 
   test('apply preserves non-plain object values while sanitizing plain objects', () => {

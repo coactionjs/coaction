@@ -16,7 +16,9 @@ is enforced by `scripts/check-core-entry-isolation.mjs`.
 
 Local state initialization, snapshots and complete value replacements preserve
 cycles, shared references, sparse arrays, enumerable symbols and null-prototype
-records. Snapshot comparison treats non-plain objects as atomic identity values.
+records. An array's state is its elements: these copies leave out its named keys
+and symbols, as a recipe's first write to it does through Mutative. Snapshot
+comparison treats non-plain objects as atomic identity values.
 Ordinary trees use precise commit patches; values that positional patch cloning
 cannot preserve use a complete root snapshot (`path: []`) in both directions.
 For an unrepresentable positional edit to an ordinary tree, fallback replaces

@@ -221,18 +221,19 @@ const indexes = (count: number) =>
   Array.from({ length: count }, (_, index) => String(index));
 
 test('the reader of a named key on an array is notified when only that key changes', () => {
-  // Numbers, so the replacement holds the same values; a draft cannot set a
-  // named key on an array.
+  // Numbers, so the replacement holds the same values. A recipe assigns the
+  // array as it is; a draft cannot set a named key on one, and an object
+  // replacement copies only the elements.
   const store = create<{ rows: unknown }>({
     rows: Array.from({ length: 32 }, (_, n) => n)
   });
   const notified: string[] = [];
   const trackers = mountRows(store, [...indexes(32), 'extra'], notified);
-  store.setState({
-    rows: Object.assign(
+  store.setState((draft) => {
+    draft.rows = Object.assign(
       Array.from({ length: 32 }, (_, n) => n),
       { extra: 1 }
-    )
+    );
   });
   expect(notified).toEqual(['extra']);
   trackers.forEach((tracker) => tracker.dispose());

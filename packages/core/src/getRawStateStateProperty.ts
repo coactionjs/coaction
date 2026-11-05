@@ -278,9 +278,10 @@ const freezeStateValue = <V>(value: V): V => {
     Object.freeze(current);
     stateValues.add(current);
     // An array's values are its elements; listing its keys would allocate one
-    // per element each time a write hands the scan a fresh copy. Its named
-    // extras are state too: they follow the indexes in `Object.keys`, which
-    // lists an array's keys several times faster than `Reflect.ownKeys`.
+    // per element each time a write hands the scan a fresh copy. A recipe can
+    // assign an array with named keys, which are not state but leave with it:
+    // they follow the indexes in `Object.keys`, which lists an array's keys
+    // several times faster than `Reflect.ownKeys`.
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index += 1) {
         queue(current[index]);

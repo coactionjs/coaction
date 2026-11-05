@@ -94,4 +94,6 @@ selector 只在结果变化时才重新渲染。通过对象键访问的对象�
 不再抛出 Coaction 的直接修改错误。`getInitialState()` 返回初始状态的副本，结构与工厂返回的对象相同，
 每次调用返回同一个对象，而不再是工厂返回的对象本身。`@coaction/react` 新增可选的 whole selector：
 `useStore(selector, { whole: true })`，它的 selector 拿到的是 store 自己的数据，绝不能修改。
+数组的状态只有元素：`create()` 和 `setState({ ... })` 不再保留数组上的命名属性和 symbol（recipe 第一次写入该数组时本来就会丢掉它们），
+并在开发环境警告一次。这类值请放在数组旁边的对象里。
 [仓库指南](https://github.com/coactionjs/coaction/blob/main/docs/migration/v4.2.md)逐项对比了与 4.1 的差别。

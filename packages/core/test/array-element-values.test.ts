@@ -104,7 +104,11 @@ test('freezing an element reaches the named extras of an array', () => {
     meta: { note: 'x' },
     [tag]: { note: 'y' }
   });
-  const store = create(() => ({ rows: [row] }));
+  // A recipe assigns an array as it is; a store's first copy keeps its elements.
+  const store = create<{ rows: unknown[] }>(() => ({ rows: [] }));
+  store.setState((draft) => {
+    draft.rows = [row];
+  });
   const first = store.getState().rows[0] as typeof row;
   expect(Object.isFrozen(first[0])).toBe(true);
   expect(Object.isFrozen(first.meta)).toBe(true);

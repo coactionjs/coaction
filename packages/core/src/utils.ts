@@ -581,6 +581,22 @@ const settle = <T extends object>(
   return target;
 };
 
+let hasWarnedDroppedArrayKey = false;
+
+const warnDroppedArrayKey = (source: object, key: PropertyKey) => {
+  if (
+    process.env.NODE_ENV !== 'development' ||
+    hasWarnedDroppedArrayKey ||
+    !propertyIsEnumerable.call(source, key)
+  ) {
+    return;
+  }
+  hasWarnedDroppedArrayKey = true;
+  console.warn(
+    `Coaction state arrays hold only their elements: dropped the key '${String(key)}'. Keep that value in an object beside the array.`
+  );
+};
+
 const cloneStateValue = <T>(
   source: T,
   seen: StateCopyMemo,
@@ -622,19 +638,17 @@ const cloneStateValue = <T>(
       }
       return settle(target, settled, settledValues) as T;
     }
-    // Array indices include non-enumerable slots. Named extras and symbols
-    // remain enumerable-only, matching the object replacement boundary.
+    // A hole or a named key. Only the elements are state, non-enumerable slots
+    // among them: a recipe's first write to an array copies only those, as
+    // Mutative and Immer both do, so anything else would vanish at that write.
     for (const key of keys) {
-      const index = isArrayIndexKey(key);
-      if (
-        (typeof key === 'string' && isUnsafeKey(key)) ||
-        (!index && !Object.prototype.propertyIsEnumerable.call(source, key))
-      )
+      if (!isArrayIndexKey(key)) {
+        if (key !== 'length') warnDroppedArrayKey(source, key);
         continue;
-      const value = (source as unknown as Record<PropertyKey, unknown>)[key];
-      if (!preserveFunctions && !index && typeof value === 'function') continue;
-      target[key] = cloneStateValue(
-        value,
+      }
+      const index = key as unknown as number;
+      target[index] = cloneStateValue(
+        source[index],
         seen,
         preserveFunctions,
         settledValues,

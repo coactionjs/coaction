@@ -112,6 +112,8 @@ silently ignored in sloppy-mode scripts, instead of throwing Coaction's direct-m
 `getInitialState()` returns a copy of the initial state shaped like the factory's object, the
 same object on every call, rather than the factory's object itself. `@coaction/react` adds opt-in
 whole selectors, `useStore(selector, { whole: true })`, whose selector receives the store's own
-data and must never mutate it. The
+data and must never mutate it. An array's state is its elements: `create()` and `setState({ ... })`
+leave out its named keys and symbols, as a recipe's first write to it always did, and warn once in
+development, so keep such a value in an object beside the array. The
 [repository guide](https://github.com/coactionjs/coaction/blob/main/docs/migration/v4.2.md)
 compares each change with 4.1.

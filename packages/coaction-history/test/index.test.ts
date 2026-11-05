@@ -243,7 +243,7 @@ test('local undo honors in-place root replacement patch transforms', () => {
   });
 });
 
-test('local undo with identity patch hook preserves array properties', () => {
+test('local undo with identity patch hook keeps array holes without named keys', () => {
   const tag = Symbol('history-patch-array-tag');
   type SparseArray = any[] & Record<PropertyKey, any>;
   const makeList = (label: string, includeUndefined: boolean) => {
@@ -284,8 +284,8 @@ test('local undo with identity patch hook preserves array properties', () => {
   expect(patch).toHaveBeenCalledTimes(1);
   expect(undone.length).toBe(1);
   expect(Object.prototype.hasOwnProperty.call(undone, 0)).toBe(false);
-  expect(undone.label).toBe('before');
-  expect(undone[tag]).toBe('before');
+  expect('label' in undone).toBe(false);
+  expect(tag in undone).toBe(false);
 });
 
 test('undo and redo restore array truncation', () => {
@@ -314,7 +314,7 @@ test('undo and redo restore array truncation', () => {
   expect(useStore.getState().list).toEqual([1, 2]);
 });
 
-test('undo and redo preserve sparse array holes and properties', () => {
+test('undo and redo keep sparse array holes without named keys', () => {
   const tag = Symbol('array-tag');
   type SparseArray = any[] & Record<PropertyKey, any>;
   const makeList = (label: string, includeUndefined: boolean) => {
@@ -347,23 +347,23 @@ test('undo and redo preserve sparse array holes and properties', () => {
   const pastList = api.getPast()[0].list as SparseArray;
   expect(pastList.length).toBe(1);
   expect(Object.prototype.hasOwnProperty.call(pastList, 0)).toBe(false);
-  expect(pastList.label).toBe('before');
-  expect(pastList[tag]).toBe('before');
+  expect('label' in pastList).toBe(false);
+  expect(tag in pastList).toBe(false);
 
   expect(api.undo()).toBeTruthy();
   const undone = useStore.getState().list as SparseArray;
   expect(undone.length).toBe(1);
   expect(Object.prototype.hasOwnProperty.call(undone, 0)).toBe(false);
-  expect(undone.label).toBe('before');
-  expect(undone[tag]).toBe('before');
+  expect('label' in undone).toBe(false);
+  expect(tag in undone).toBe(false);
 
   expect(api.redo()).toBeTruthy();
   const redone = useStore.getState().list as SparseArray;
   expect(redone.length).toBe(1);
   expect(Object.prototype.hasOwnProperty.call(redone, 0)).toBe(true);
   expect(redone[0]).toBeUndefined();
-  expect(redone.label).toBe('after');
-  expect(redone[tag]).toBe('after');
+  expect('label' in redone).toBe(false);
+  expect(tag in redone).toBe(false);
 });
 
 test('undo and redo track symbol keyed state', () => {

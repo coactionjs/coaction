@@ -40,9 +40,15 @@ test.each([false, true])(
     expect(result[0]).toEqual(value);
     expect(result[0]).not.toBe(value);
     expect(result[2]).toBe(fn);
-    expect(result[symbol]).toBe(result[0]);
-    expect(result.self).toBe(result);
-    for (const key of ['method', 'secret', '__proto__', hidden]) {
+    // Only the elements are state: a recipe's first write would drop the rest.
+    for (const key of [
+      symbol,
+      'self',
+      'method',
+      'secret',
+      '__proto__',
+      hidden
+    ]) {
       expect(Object.prototype.hasOwnProperty.call(result, key)).toBe(false);
     }
     value.count = 9;
@@ -52,8 +58,7 @@ test.each([false, true])(
       expect(commits).toHaveLength(1);
       const replayed = applyPatches(before, commits[0].patches)
         .items as typeof input;
-      expect(replayed[symbol]).toBe(replayed[0]);
-      expect(replayed.self).toBe(replayed);
+      expect(replayed).toEqual(result);
       expect(
         applyPatches(store.getPureState(), commits[0].inversePatches)
       ).toEqual(before);
