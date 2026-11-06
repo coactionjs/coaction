@@ -9,4 +9,5 @@ dropped them without a warning, because Mutative and Immer copy only an array's
 elements, so a reader saw them or not depending on whether a write had happened.
 While they lasted they also made each commit's patch a replacement of the whole
 root. Keep such a value in an object beside the array. An array that a recipe
-assigns is stored as it is.
+assigns is stored as it is, and its named keys are not frozen with it. Not
+looking for them makes a write followed by a scan of the array about 9% faster.

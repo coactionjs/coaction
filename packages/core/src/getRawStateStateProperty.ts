@@ -8,11 +8,7 @@ import {
   isImmutableStateObject
 } from './immutableState';
 import { sharedRegistry } from './sharedRegistry';
-import {
-  copyInitialStateValue,
-  isArrayIndexKey,
-  type StateCopyMemo
-} from './utils';
+import { copyInitialStateValue, type StateCopyMemo } from './utils';
 import {
   getReactivePathNode,
   getReactivePathVersion,
@@ -278,24 +274,11 @@ const freezeStateValue = <V>(value: V): V => {
     Object.freeze(current);
     stateValues.add(current);
     // An array's values are its elements; listing its keys would allocate one
-    // per element each time a write hands the scan a fresh copy. A recipe can
-    // assign an array with named keys, which are not state but leave with it:
-    // they follow the indexes in `Object.keys`, which lists an array's keys
-    // several times faster than `Reflect.ownKeys`.
+    // per element each time a write hands the scan a fresh copy. A named key on
+    // one that a recipe assigned is not state, so it is not looked for.
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index += 1) {
         queue(current[index]);
-      }
-      const keys = Object.keys(current);
-      for (
-        let index = keys.length - 1;
-        index >= 0 && !isArrayIndexKey(keys[index]);
-        index -= 1
-      ) {
-        queue(current[keys[index]]);
-      }
-      for (const symbol of Object.getOwnPropertySymbols(current)) {
-        queue(current[symbol]);
       }
     } else {
       for (const key of Reflect.ownKeys(current)) queue(current[key]);
