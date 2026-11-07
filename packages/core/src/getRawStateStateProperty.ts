@@ -518,7 +518,7 @@ const toReadonlyStateValue = <T extends CreateState>(
             ? (result: unknown, item: unknown, index: number) =>
                 callback(result, item, index, proxy)
             : function (this: unknown, item: unknown, index: number) {
-                return callback.call(this, item, index, proxy);
+                return Reflect.apply(callback, this, [item, index, proxy]);
               };
         }
         return method.apply(target, args);
