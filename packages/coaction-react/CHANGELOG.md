@@ -1,5 +1,83 @@
 # @coaction/react
 
+## 4.2.0
+
+### Minor Changes
+
+- 77b453d: Hand array elements out as values. An element read from the state of a native
+  store -- by index, found by a scan or returned by a getter -- is the element
+  itself, frozen, rather than a readonly proxy, so it is the same object however
+  it was reached, `getPureState()` included. Objects reached through object keys
+  are still readonly proxies, and stores bound to another runtime through an
+  adapter are unchanged. An object held both in an array and at an object key has
+  one public identity, the first it was read with: `state.selected` and
+  `state.items[0]` stay the same object, whichever is read first. An element with
+  an accessor stays a readonly proxy.
+
+  A reader depends on the identity of the elements it reads: structural sharing
+  gives an element a new identity when anything inside it changes, and leaves its
+  siblings untouched. Read-only array methods called through the state --
+  `filter`, `map`, `find`, `some`, `reduce`, `slice`, `for...of` and the rest --
+  take one dependency on the array and run over the array itself instead of
+  tracking every element they visit; state read inside a callback is still
+  tracked. An `observer()` that renders one field of an element therefore
+  re-renders after any write inside that element, and one that renders a scan
+  after a write to any element. A selector of the same field or scan result
+  re-renders only when its result changes, as before.
+
+  A write to an element outside `set()` throws a `TypeError` from the frozen value
+  in strict-mode code, and is silently ignored in sloppy-mode scripts, where the
+  readonly proxy threw Coaction's error. The values of the initial state are
+  frozen when the store first hands one out, so a store read only through
+  `getPureState()` or whole selectors freezes nothing.
+
+  In `coaction/adapter`, `trackReadonlyStateValue()` reports an element read from
+  the state as state, and `getReadonlyStateValueVersion()` gives it a constant
+  version: the element never changes, a write replaces it. A derived or selector
+  result that carries an element keeps propagating its changes even when result
+  equality calls the result unchanged.
+
+  See `docs/migration/v4.2.md`.
+
+- b5c9fc6: Add whole selectors: `useStore(selector, { whole: true })` runs the selector
+  over the store's plain data, `getPureState()`, and tracks nothing. The
+  selection depends on the whole store -- every commit runs it again, and the
+  component re-renders only when the result changes by `Object.is`, or by an
+  `equals` passed beside `whole`. A selector that scans most of the state pays
+  for no proxy and no dependency per read, and while nothing tracks a store, its
+  writes skip the patch bookkeeping that tracking needs. The selector receives
+  the store's own data rather than a readonly view: read it, never mutate it.
+  Stores bound to a mutable runtime, such as MobX, Valtio or Pinia, are compared
+  by commit rather than by the identity of their state, which those runtimes
+  keep.
+
+  In js-store-benchmark's React workspace suite, measured in Chrome, an adapter
+  that reads through whole selectors updates in about 40% less time than one
+  that uses `observer()`, and keeps a fifth less heap.
+
+### Patch Changes
+
+- 441657a: Do less work on each render. Every `observer()` and tracked selector keeps its
+  committed tracker and a spare, and a render tracks the spare again instead of
+  creating a tracker: a discarded render still leaves the committed dependencies
+  alone, and a commit swaps the two. Trackers of renders that never commit, and
+  of unmounted components, are released through one timer per delay instead of
+  one per render, and a commit drops its render's release at once. The walk of a
+  render or selector result for the state it carries allocates its revisit set
+  only below the result, and carries the frozen values a store hands out by
+  identity instead of walking them.
+
+  Together with this release's changes to `coaction`, js-store-benchmark's React
+  suites, measured in Chrome with `observer()`, update the workspace in about a
+  quarter of the time 4.1 took, keeping 40% less heap, and the counter in about a
+  fifth less time.
+
+- f98383f: Leave a rendered element's `key` and `ref` unread. An `observer` walks what it
+  renders for state carried out through props, and read every own key of each
+  element's props -- including the non-enumerable `key` getter that development
+  builds of React define to report reading it, so rendering a keyed list logged
+  "`key` is not a prop". The walk now lists props as React copies them in.
+
 ## 4.1.0
 
 ## 4.0.0

@@ -1,5 +1,152 @@
 # coaction
 
+## 4.2.0
+
+### Minor Changes
+
+- 77b453d: Hand array elements out as values. An element read from the state of a native
+  store -- by index, found by a scan or returned by a getter -- is the element
+  itself, frozen, rather than a readonly proxy, so it is the same object however
+  it was reached, `getPureState()` included. Objects reached through object keys
+  are still readonly proxies, and stores bound to another runtime through an
+  adapter are unchanged. An object held both in an array and at an object key has
+  one public identity, the first it was read with: `state.selected` and
+  `state.items[0]` stay the same object, whichever is read first. An element with
+  an accessor stays a readonly proxy.
+
+  A reader depends on the identity of the elements it reads: structural sharing
+  gives an element a new identity when anything inside it changes, and leaves its
+  siblings untouched. Read-only array methods called through the state --
+  `filter`, `map`, `find`, `some`, `reduce`, `slice`, `for...of` and the rest --
+  take one dependency on the array and run over the array itself instead of
+  tracking every element they visit; state read inside a callback is still
+  tracked. An `observer()` that renders one field of an element therefore
+  re-renders after any write inside that element, and one that renders a scan
+  after a write to any element. A selector of the same field or scan result
+  re-renders only when its result changes, as before.
+
+  A write to an element outside `set()` throws a `TypeError` from the frozen value
+  in strict-mode code, and is silently ignored in sloppy-mode scripts, where the
+  readonly proxy threw Coaction's error. The values of the initial state are
+  frozen when the store first hands one out, so a store read only through
+  `getPureState()` or whole selectors freezes nothing.
+
+  In `coaction/adapter`, `trackReadonlyStateValue()` reports an element read from
+  the state as state, and `getReadonlyStateValueVersion()` gives it a constant
+  version: the element never changes, a write replaces it. A derived or selector
+  result that carries an element keeps propagating its changes even when result
+  equality calls the result unchanged.
+
+  See `docs/migration/v4.2.md`.
+
+- a2cff4f: An array's state is its elements. `create()` and `setState({ ... })` now leave
+  out an array's named keys and symbols -- `Object.assign(rows, { meta })` -- and
+  warn once in development. A recipe's first write to such an array already
+  dropped them without a warning, because Mutative and Immer copy only an array's
+  elements, so a reader saw them or not depending on whether a write had happened.
+  While they lasted they also made each commit's patch a replacement of the whole
+  root. Keep such a value in an object beside the array. An array that a recipe
+  assigns is stored as it is, and its named keys are not frozen with it. Not
+  looking for them makes a write followed by a scan of the array about 9% faster.
+- 4db2b62: Read `getInitialState()` from the store's own first root. A native store kept
+  the object its factory returned for `getInitialState()`, holding all of its
+  data a second time beside the store's own copy for as long as the store lived.
+  It now keeps only the factory's methods, accessors and computed definitions,
+  and the first call returns a copy of the store's initial data shaped like the
+  factory's object: the same keys and attributes, the factory's own functions,
+  and data equal to what the factory returned. Every call returns that same
+  object, and changing it does not change the store. It is no longer the
+  factory's object itself. Stores bound to another runtime, such as MobX or
+  Zustand, return what that runtime provided, as before.
+
+### Patch Changes
+
+- 441657a: Track reads and commit local writes with less work. Measured in Node 24 against
+  4.1.0, with a store of 1,000 tasks:
+
+  - The first tracked scan of the tasks takes about 40% of the time, and a write
+    to one task followed by the same scan less than a tenth.
+  - A counter's thousand increments, each read again, take about 40% less time.
+  - With a row reading each task, as in a list, a write to one task followed by
+    that row reading it again takes about a sixth less time, and the write alone
+    about 40% less. With 10,000 tasks and rows the two take about as long, and the
+    write alone about a tenth longer.
+  - In a store that needs the patch pair -- `enablePatches`, a transport or a
+    commit listener -- a write to one element of 10,000 takes about a fifth of
+    the time.
+
+  A tracked read is recorded against the reactive path node its state proxy
+  already holds, deduplicated with a collection stamp, and linked once per
+  dependency when the collection ends, instead of building a path array and
+  walking the dependency trie on every read. A tracker from
+  `createReactiveTracker()` keeps its signal links until it tracks again, and
+  reuses them. A local write that needs no patch pair compares the paths its
+  readers observed, descending only into what changed identity, for read sets of
+  any size: below an array whose elements are mostly read through nodes of their
+  own, it compares the two arrays element by element and looks up the node of
+  only an element that changed. A write that only sets values on the root's own
+  keys copies the root instead of creating a Mutative draft, and keeps the root's
+  shape without checking it again. A store that needs the patch pair no longer
+  compares every element of each array along a written path when its recipe read
+  nothing beside that path.
+
+- 441657a: Read through an object that was frozen before a recipe assigned it to the
+  state, such as a constant passed through `Object.freeze()` or data another
+  library froze. Its readonly view returned proxies for the object's properties,
+  which JavaScript forbids for the read-only, non-configurable properties of a
+  frozen object, so reading one that held an object -- `state.config.theme` --
+  threw a `TypeError` saying the proxy "did not return its actual value". The
+  view now returns the object the property holds, frozen as the other values a
+  store hands out are, and a write through the view still throws.
+- 3c9a3d9: Depend on an inherited property that a tracked read returns, so a write that
+  shadows it with an own property notifies the reader.
+- 441657a: Create stores faster and keep less of their data. Measured in Node 24 against
+  4.1.0, creating a store of 1,000 tasks takes about a third less time, and,
+  with `getInitialState()` reading the store's own root, the store keeps about
+  70 KB -- 28% -- less heap.
+
+  The initial state is copied into the store with object literals laid out like
+  their source, dense arrays are copied by index, and the memo of a copy lives
+  only as long as the copy. Its values are no longer frozen as they are copied:
+  the copy lists them, children before what holds them, and the store freezes the
+  whole list in one pass when it first hands one out, so a store read only as
+  plain data -- `getPureState()`, or whole selectors in `@coaction/react` --
+  freezes nothing. After a write, the elements of the array a scan receives are
+  frozen by index, skipping those already frozen. `sanitizeInitialStateValue` and
+  `sanitizeReplacementState` still accept a `WeakMap` memo.
+
+- e504f9c: Require Mutative 2.0.2, as `@coaction/history` now does too. Under Mutative
+  2.0.0, deleting an index past the end of an array in a recipe --
+  `delete state.list[10]` on a shorter list -- lengthened the array through that
+  index with `undefined` elements, which notified the readers of its length and,
+  in a store with a commit listener, published a commit. Such a delete now leaves
+  the state as it was, as it does in JavaScript.
+- 4408581: Hand the deprecated `store.patch` hook copies of the patch pair. Patch values
+  are objects of the states on either side of a transition: after a recipe moves
+  an element, as `reverse()` or `splice()` does, an inverse value is an element
+  the next state still holds. A hook that edited a value in place therefore
+  rewrote the committed state, and the previous one, without a notification.
+  Edits a hook makes to the patches it returns still apply.
+- 034b72c: Reset a store with `store.setState(store.getInitialState())`. The object
+  `getInitialState()` returns holds the factory's methods, accessors and computed
+  values beside its data, and `setState()` rejected them as keys the state does
+  not have, so a store with any method threw `StateSchemaError` instead of
+  resetting -- in 4.1 as well. Given that object, directly or returned from a
+  recipe, `setState()` now takes its data alone. Any other value is checked as
+  before.
+- c949739: Keep every dependency of a tracker from `createReactiveTracker()` in
+  `coaction/adapter` that tracks again in another read order. alien-signals
+  skips relinking a signal whose last link already carries the current cycle,
+  and a tracker tracks outside alien-signals' own runs, so a second `track()`
+  with no signal written since the first dropped a dependency it read earlier
+  than before, and stopped hearing about it. The React bindings now track each
+  component's tracker again on every render, and rely on this.
+- b485adf: Keep a reactive tracker's dependencies when its callback calls `track()` on it
+  again, directly or through another tracker: the reads of the outer evaluation
+  were lost, so a change to them no longer notified. A tracker disposed from inside
+  its own callback now leaves no dependency behind, and no longer leaves its
+  collection active for the trackers that run after it.
+
 ## 4.1.0
 
 ### Minor Changes

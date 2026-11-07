@@ -1,6 +1,6 @@
 {
   "name": "@coaction/persist",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "A persist middleware for Coaction",
   "keywords": [
     "coaction",
