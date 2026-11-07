@@ -34,7 +34,8 @@ jobs:
 
   react-versions:
     name: React ${{ matrix.react }}
-    runs-on: ubuntu-latest
+    # Playwright 1.58.2 provides browser builds for Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         react: ['18', '19']

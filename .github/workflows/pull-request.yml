@@ -46,7 +46,8 @@ jobs:
   browser-e2e:
     name: Browser E2E (${{ matrix.browser }})
     if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    # Playwright 1.58.2 provides browser builds for Ubuntu 24.04.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
