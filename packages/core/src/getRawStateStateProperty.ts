@@ -568,15 +568,7 @@ const toReadonlyStateValue = <T extends CreateState>(
           ? nextValue
           : toReadonlyStateValue(internal, nextValue, sliceKey);
       }
-      // `Reflect.has` walks the prototype chain; an own key can never be
-      // missing, so only ask when the key is not the target's own.
-      const isTracked =
-        isOwn ||
-        !Reflect.has(target, key) ||
-        (Array.isArray(target) && key === 'length');
-      if (!isStateObject && !isTracked) {
-        return nextValue;
-      }
+      // Inherited values count too: a write can shadow one with an own property.
       // Each recorded path's child node is one map lookup from the node the
       // meta already holds, so a read never builds a path to be tracked.
       const basePaths = meta.paths;
