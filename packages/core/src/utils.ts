@@ -621,7 +621,8 @@ const cloneStateValue = <T>(
       Record<PropertyKey, unknown>;
     seen.set(source, target);
     const keys = Reflect.ownKeys(source);
-    let settled = settledValues !== undefined;
+    // An array at an object key stays open behind its readonly proxy.
+    let settled = settledValues !== undefined && inArray;
     // A dense array without named extras lists exactly its indexes and then its
     // length; a hole moves `length` earlier. Copy that by index instead of
     // classifying every key -- it is what nearly every state array is.
@@ -1207,7 +1208,7 @@ export const sanitizeInitialStateValue = <T>(
 
 /**
  * Copy an initial state value in, listing in `settledValues` what the store
- * will hand out as values -- arrays and what they hold -- in an order they can
+ * will hand out as values -- what arrays hold -- in an order they can
  * be frozen in. Finding them later visits all of them a second time, on the
  * first scan of each array; the store freezes the list instead, when it first
  * hands a value out.

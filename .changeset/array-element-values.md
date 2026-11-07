@@ -8,7 +8,9 @@ store -- by index, found by a scan or returned by a getter -- is the element
 itself, frozen, rather than a readonly proxy, so it is the same object however
 it was reached, `getPureState()` included. Objects reached through object keys
 are still readonly proxies, and stores bound to another runtime through an
-adapter are unchanged.
+adapter are unchanged. An object held both in an array and at an object key has
+one public identity, the first it was read with: `state.selected` and
+`state.items[0]` stay the same object, whichever is read first.
 
 A reader depends on the identity of the elements it reads: structural sharing
 gives an element a new identity when anything inside it changes, and leaves its

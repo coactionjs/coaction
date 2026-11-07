@@ -577,9 +577,9 @@ const arrayIteration = /* @__PURE__ */ (() => {
  * The elements of an array, in an array V8 reads at full speed. Reading an
  * element of a frozen array takes about four times as long, and a read that has
  * seen a frozen array stays slow for the arrays after it; a spread copies one in
- * a fraction of that time. A scan freezes the array it runs over, so the array
- * a write replaces often is one. An array whose iteration could run code of its
- * own is read as it is.
+ * a fraction of that time. An array held inside another array is frozen when it
+ * is handed out, so the array a write replaces can be one. An array whose
+ * iteration could run code of its own is read as it is.
  */
 const readableElements = (array: readonly unknown[]) =>
   Object.isFrozen(array) &&

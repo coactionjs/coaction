@@ -142,8 +142,9 @@ owned raw data for coarse scans, which must never be mutated.
 
 Array elements are values rather than readonly proxies. An element read by index, found by a
 scan or returned by a getter is the frozen element itself, so it compares equal however it was
-reached, and reading it depends on its identity: any write inside an element gives it a new
-identity, while writes to its siblings do not. A write to an element outside `set()` throws a
+reached, and an object also held at an object key has one identity across both. Reading an
+element depends on its identity: any write inside an element gives it a new identity, while
+writes to its siblings do not. A write to an element outside `set()` throws a
 `TypeError` in strict-mode code and is silently ignored in sloppy-mode scripts; either way the
 state is unchanged.
 

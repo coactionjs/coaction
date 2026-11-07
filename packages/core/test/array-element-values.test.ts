@@ -180,18 +180,18 @@ test('the values a store hands out are frozen when it first hands one out', () =
   const store = create(() => initial);
   const pure = store.getPureState();
   // Reading the plain data hands nothing out.
-  expect(Object.isFrozen(pure.items)).toBe(false);
+  expect(Object.isFrozen(pure.items[0])).toBe(false);
   expect(trackReadonlyStateValue(pure.items[0])).toBe(false);
   // The first object read through the state freezes every value the copy
   // settled, not only the one read.
   expect(store.getState().owner.name).toBe('Ada');
-  expect(Object.isFrozen(pure.items)).toBe(true);
   expect(Object.isFrozen(pure.items[0])).toBe(true);
   expect(Object.isFrozen(pure.items[0].tags)).toBe(true);
   expect(trackReadonlyStateValue(pure.items[0])).toBe(true);
   expect(trackReadonlyStateValue(pure.items[0].tags)).toBe(true);
-  // Objects reached through object keys stay open behind their readonly views.
+  // What is reached through object keys stays open behind its readonly views.
   expect(Object.isFrozen(pure)).toBe(false);
+  expect(Object.isFrozen(pure.items)).toBe(false);
   expect(Object.isFrozen(pure.owner)).toBe(false);
   // The factory's own objects are copied, never frozen.
   expect(Object.isFrozen(initial.items[0])).toBe(false);
@@ -231,14 +231,13 @@ test('an array holding an element of another array is frozen when it is first sc
   const store = create(() => ({ first: [shared], second: [shared] }));
   const pure = store.getPureState();
   expect(store.getState().first[0]).toBe(pure.first[0]);
-  // The element settled with the array copied first; the second array holds
-  // an alias of it and is left for its first scan.
-  expect(Object.isFrozen(pure.first)).toBe(true);
-  expect(Object.isFrozen(pure.second)).toBe(false);
+  // The element settled with the array copied first. Both arrays are reached
+  // through object keys, so they stay open however they are read.
   const scanned = store.getState().second.map((item) => item);
   expect(scanned[0]).toBe(pure.first[0]);
-  expect(Object.isFrozen(pure.second)).toBe(true);
-  expect(trackReadonlyStateValue(pure.second)).toBe(true);
+  expect(Object.isFrozen(scanned[0])).toBe(true);
+  expect(Object.isFrozen(pure.second)).toBe(false);
+  expect(trackReadonlyStateValue(store.getState().second)).toBe(true);
   expect(Object.isFrozen(pure.first[0].meta)).toBe(true);
   store.destroy();
 });
@@ -262,5 +261,5 @@ test('an array holding an alias or a cycle is frozen when it is first scanned', 
   store.getState().nodes.forEach((item) => scanned.push(item as object));
   expect(scanned.every((value) => Object.isFrozen(value))).toBe(true);
   expect(Object.isFrozen((scanned[0] as typeof shared).meta)).toBe(true);
-  expect(Object.isFrozen(pure.items)).toBe(true);
+  expect(Object.isFrozen(pure.items)).toBe(false);
 });

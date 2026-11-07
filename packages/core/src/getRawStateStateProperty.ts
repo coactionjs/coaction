@@ -248,44 +248,67 @@ const exposesStateValues = <T extends CreateState>(internal: Internal<T>) =>
   !internal.computedReadDepth;
 
 /**
- * Freeze a state value before it leaves the store as itself. A value is frozen
- * with everything below it, so a frozen state object needs no second visit and
- * a stray write fails as loudly as a write through a readonly proxy does.
- * Commits never edit a value in place -- a write copies the path it changes --
- * so freezing what is handed out costs only the first read of each value.
+ * Whether a value leaves the store as itself, frozen, rather than as its
+ * readonly proxy or facade. One object has one public identity, the first it
+ * was reached with, so that it compares equal however it is reached: a value
+ * that has a proxy keeps it, and `toReadonlyStateValue` hands a value frozen
+ * here out as itself even through an object key. Together they let this walk
+ * skip what is frozen already, which is nearly every element of an array that
+ * a write copied: no frozen value has a proxy, nor anything below it.
  */
-const freezeStateValue = <V>(value: V): V => {
-  if (Object.isFrozen(value) || !isImmutableStateObject(value)) return value;
-  const pending: object[] = [value];
-  const queue = (child: unknown) => {
-    if (
-      typeof child === 'object' &&
-      child !== null &&
-      !Object.isFrozen(child) &&
-      isImmutableStateObject(child)
-    ) {
-      pending.push(child);
-    }
-  };
+const freezeStateValues = <T extends CreateState>(
+  internal: Internal<T>,
+  pending: object[],
+  sliceKey?: PropertyKey
+) => {
+  const proxies = readonlyProxyCache.get(internal);
+  const seen = new Set<object>();
   while (pending.length) {
     const current = pending.pop() as Record<PropertyKey, unknown>;
-    // A shared object can be queued twice before it is first reached.
-    if (Object.isFrozen(current)) continue;
-    Object.freeze(current);
-    stateValues.add(current);
+    if (seen.has(current)) continue;
+    // Nothing is frozen until all of it can be: a value with a proxy below it
+    // reads through a proxy of its own, which returns that one.
+    if (
+      proxies?.has(current) ||
+      getPublicStateObject(internal, current, sliceKey)
+    )
+      return false;
+    seen.add(current);
     // An array's values are its elements; listing its keys would allocate one
     // per element each time a write hands the scan a fresh copy. A named key on
     // one that a recipe assigned is not state, so it is not looked for.
     if (Array.isArray(current)) {
       for (let index = 0; index < current.length; index += 1) {
-        queue(current[index]);
+        queueUnfrozenValue(current[index], pending);
       }
     } else {
-      for (const key of Reflect.ownKeys(current)) queue(current[key]);
+      for (const key of Reflect.ownKeys(current)) {
+        queueUnfrozenValue(current[key], pending);
+      }
     }
   }
-  return value;
+  for (const value of seen) stateValues.add(Object.freeze(value));
+  return true;
 };
+
+const queueUnfrozenValue = (value: unknown, pending: object[]) => {
+  if (!Object.isFrozen(value) && isImmutableStateObject(value)) {
+    pending.push(value as object);
+  }
+};
+
+/**
+ * Freeze a state value to hand it out as itself, unless it has another public
+ * identity. A value is frozen with everything below it, and a stray write fails
+ * as loudly as a write through a readonly proxy does. Commits never edit a value
+ * in place -- a write copies the path it changes -- so freezing costs only the
+ * first read of each value.
+ */
+const handOutAsValue = <T extends CreateState>(
+  internal: Internal<T>,
+  value: object,
+  sliceKey?: PropertyKey
+) => stateValues.has(value) || freezeStateValues(internal, [value], sliceKey);
 
 /**
  * Freeze the values the store's initial copy settled, and record them as state
@@ -346,6 +369,22 @@ const scanMethods = new Set<PropertyKey>([
   'values',
   'with',
   Symbol.iterator
+]);
+
+/** Scans that pass their callback the array, after the index. */
+const scanCallbacks = new Set<PropertyKey>([
+  'every',
+  'filter',
+  'find',
+  'findIndex',
+  'findLast',
+  'findLastIndex',
+  'flatMap',
+  'forEach',
+  'map',
+  'reduce',
+  'reduceRight',
+  'some'
 ]);
 
 // Key the cache by the immutable source object so obsolete snapshots and their
@@ -425,25 +464,35 @@ const toReadonlyStateValue = <T extends CreateState>(
   if (publicValue) {
     return publicValue;
   }
-  // A value reached through an object key stays a readonly proxy even once it
-  // is frozen -- a scan freezes the array it runs over -- so its identity does
-  // not depend on what read it before, and reads through it stay precise.
   const cache = getReadonlyProxyCache(internal);
   const cached = cache.get(value as object);
   if (cached) {
     mergeReadonlyStateValuePaths(cached, internal, paths, true);
     return cached;
   }
+  // An alias of a value already handed out as itself. A reader depends on its
+  // identity here too: no child read through it records that it was traversed.
+  if (stateValues.has(value as object)) return value;
   // The proxy holds its own meta rather than looking it up per property read.
   // The array is read at trap time, not captured, because a proxy can still
   // pick up further paths later when an alias of the same object is traversed.
   const meta: ReactivePathMeta = { internal, paths: [] };
   let scans: Map<PropertyKey, Function> | undefined;
+  // A write copies the array, and with it this proxy's state: the elements of
+  // this one are frozen once, and it stays open because it has this proxy.
+  let elementsFrozen = false;
+  const freezeElements = (target: unknown[]) => {
+    if (elementsFrozen) return true;
+    const pending: object[] = [];
+    for (let index = 0; index < target.length; index += 1) {
+      queueUnfrozenValue(target[index], pending);
+    }
+    return (elementsFrozen = freezeStateValues(internal, pending, sliceKey));
+  };
   const getScan = (target: unknown[], key: PropertyKey, method: Function) => {
     let scan = scans?.get(key);
     if (!scan) {
-      const searches =
-        key === 'includes' || key === 'indexOf' || key === 'lastIndexOf';
+      const passesArray = scanCallbacks.has(key);
       scan = function (this: unknown, ...args: unknown[]) {
         if (this !== proxy || !exposesStateValues(internal)) {
           return method.apply(this, args);
@@ -453,20 +502,19 @@ const toReadonlyStateValue = <T extends CreateState>(
             trackReactiveNode(metaNode(meta, index));
           }
         }
-        // An element searched for may be an alias reached through an object
-        // key, which is its readonly proxy. Any other argument stays as given:
-        // `concat` reads an array proxy through its traps, which hand the
-        // elements out frozen, where its source would hand them out raw.
-        // Only a registered one is asked: any other may be a proxy of its own.
-        if (
-          searches &&
-          typeof args[0] === 'object' &&
-          args[0] !== null &&
-          publicStatePathMeta.has(args[0])
-        ) {
-          args[0] = sourceOf(args[0]);
+        // An element with a proxy of its own has to be read through the traps.
+        if (!freezeElements(target)) return method.apply(this, args);
+        const callback = args[0] as Function;
+        // A callback is passed the array being scanned: the public one.
+        if (passesArray && typeof callback === 'function') {
+          args[0] = (key as string).startsWith('reduce')
+            ? (result: unknown, item: unknown, index: number) =>
+                callback(result, item, index, proxy)
+            : function (this: unknown, item: unknown, index: number) {
+                return callback.call(this, item, index, proxy);
+              };
         }
-        return method.apply(freezeStateValue(target), args);
+        return method.apply(target, args);
       };
       (scans ??= new Map()).set(key, scan);
     }
@@ -497,16 +545,20 @@ const toReadonlyStateValue = <T extends CreateState>(
       // value reached through an alias; it cannot return proxies of its own.
       // Either way only an own key holds state: an inherited one, such as the
       // `Object.prototype` that `__proto__` reads, must never be frozen.
+      // A frozen target has to return what it holds, as a proxy of a frozen
+      // object cannot report anything else.
       const isValue =
         isStateObject &&
         isOwn &&
-        (Array.isArray(target) || Object.isFrozen(target)) &&
-        exposesStateValues(internal);
+        exposesStateValues(internal) &&
+        (Object.isFrozen(target) ||
+          (Array.isArray(target) &&
+            handOutAsValue(internal, nextValue as object, sliceKey)));
       // Nothing can be recorded without an active subscriber, so skip the
       // whole node-resolving step for untracked reads.
       if (!isReactiveTrackingActive()) {
         return isValue
-          ? freezeStateValue(nextValue)
+          ? nextValue
           : toReadonlyStateValue(internal, nextValue, sliceKey);
       }
       // `Reflect.has` walks the prototype chain; an own key can never be
@@ -533,7 +585,7 @@ const toReadonlyStateValue = <T extends CreateState>(
         return nextValue;
       }
       if (isValue) {
-        return freezeStateValue(nextValue);
+        return nextValue;
       }
       return basePaths.length === 1 && !internal.computedReadDepth
         ? toReadonlyChildValue(
@@ -640,8 +692,10 @@ const toPublicComputedValue = <T extends CreateState>(
   internal.computedIdentityRequired = true;
   // A getter returning a value held inside an array returns that value, as
   // reading it through the state does.
-  return elementSnapshots.has(value as object) && exposesStateValues(internal)
-    ? freezeStateValue(source)
+  return elementSnapshots.has(value as object) &&
+    exposesStateValues(internal) &&
+    handOutAsValue(internal, source, sliceKey)
+    ? source
     : toReadonlyStateValue(internal, source, sliceKey);
 };
 
