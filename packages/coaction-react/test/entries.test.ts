@@ -172,3 +172,45 @@ test('a reused wrapper carrying an array element re-renders when it changes', ()
   expect(screen.getByTestId('element').textContent).toBe('Cy');
   useStore.destroy();
 });
+
+test.each([
+  ['default', createDefault],
+  ['shared', createShared as typeof createDefault]
+] as const)(
+  '%s entry retains repeated selector result positions',
+  (_, create) => {
+    const a = { id: 'a' };
+    const b = { id: 'b' };
+    const useStore = create({ items: [a, a, b] });
+    const wrapper = { items: [] as (typeof a)[] };
+    const App = () => {
+      const selected = useStore((state) => {
+        wrapper.items[0] = state.items[0];
+        wrapper.items[1] = state.items[1];
+        wrapper.items[2] = state.items[2];
+        return wrapper;
+      });
+      return React.createElement(
+        'span',
+        { 'data-testid': 'positions' },
+        selected.items.map((item) => item.id).join('')
+      );
+    };
+    const view = render(React.createElement(App));
+    expect(screen.getByTestId('positions').textContent).toBe('aab');
+    act(() =>
+      useStore.setState((state) => {
+        state.items[1] = state.items[2];
+      })
+    );
+    expect(screen.getByTestId('positions').textContent).toBe('abb');
+    act(() =>
+      useStore.setState((state) => {
+        state.items.reverse();
+      })
+    );
+    expect(screen.getByTestId('positions').textContent).toBe('bba');
+    view.unmount();
+    useStore.destroy();
+  }
+);

@@ -441,3 +441,35 @@ test('an output the selector froze itself is still compared with equals', () => 
   stop();
   store.destroy();
 });
+
+test.each([false, true])(
+  'reused wrappers preserve reordered and repeated state positions with deep=%s',
+  (deep) => {
+    const store = create({ items: [{ id: 'a' }, { id: 'b' }] });
+    const wrapper = { first: null as any, second: null as any };
+    const selected = derive(
+      store,
+      (state) => {
+        wrapper.first = state.items[0];
+        wrapper.second = state.items[1];
+        return wrapper;
+      },
+      { deep }
+    );
+    const seen: string[] = [];
+    const stop = effect(() => {
+      const value = selected();
+      seen.push(value.first.id + value.second.id);
+    });
+    store.setState((state) => {
+      state.items.reverse();
+    });
+    store.setState((state) => {
+      state.items[1] = state.items[0];
+    });
+    expect(seen).toEqual(['ab', 'ba', 'bb']);
+    expect(selected()).toBe(wrapper);
+    stop();
+    store.destroy();
+  }
+);

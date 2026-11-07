@@ -60,7 +60,7 @@ export type DeriveOptions<T> = DerivedOptions<T> & {
   deep?: boolean;
 };
 
-type StateRefs = Map<object, number> | undefined;
+type StateRefs = unknown[] | undefined;
 type Result<T> = { value: T; refs: StateRefs } | { error: unknown };
 
 // State objects returned inside plain data wrappers are terminal dependencies,
@@ -73,12 +73,14 @@ const trackResult = (value: unknown): StateRefs => {
   let refs: StateRefs;
   while (pending.length) {
     const current = pending.pop()!;
-    if (seen.has(current)) continue;
-    seen.add(current);
+    // Every occurrence, in order: a reused wrapper that swaps two state values
+    // holds the same set of them.
     if (trackReadonlyStateValue(current)) {
-      (refs ??= new Map()).set(current, getReadonlyStateValueVersion(current)!);
+      (refs ??= []).push(current, getReadonlyStateValueVersion(current));
       continue;
     }
+    if (seen.has(current)) continue;
+    seen.add(current);
     const proto = Object.getPrototypeOf(current);
     if (!Array.isArray(current) && proto !== Object.prototype && proto !== null)
       continue;
@@ -91,9 +93,8 @@ const trackResult = (value: unknown): StateRefs => {
 };
 
 const sameRefs = (left: StateRefs, right: StateRefs) =>
-  left?.size === right?.size &&
-  (!left ||
-    [...left].every(([value, version]) => right?.get(value) === version));
+  left?.length === right?.length &&
+  (!left || left.every((value, index) => value === right![index]));
 
 const getInternal = <T extends object>(store: StoreReader<T>) => {
   const state = store.getState();

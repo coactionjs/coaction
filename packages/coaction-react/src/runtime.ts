@@ -259,13 +259,6 @@ const trackReturnedStateValues = (value: unknown) => {
     if (typeof current !== 'object' || current === null) {
       return;
     }
-    if (root) {
-      root = false;
-    } else {
-      seen ??= new Set<object>();
-      if (seen.has(current)) return;
-      seen.add(current);
-    }
     const element = React.isValidElement(current);
     // A Coaction state proxy/facade is already a terminal path dependency.
     // Do not traverse large state arrays/objects merely because they escaped
@@ -280,6 +273,15 @@ const trackReturnedStateValues = (value: unknown) => {
         if (version !== undefined) carried.push({ value: current, version });
         return;
       }
+    }
+    // After the check above, so a state value counts at each place it is
+    // carried: `[a, a, b]` and `[a, b, b]` hold different state.
+    if (root) {
+      root = false;
+    } else {
+      seen ??= new Set<object>();
+      if (seen.has(current)) return;
+      seen.add(current);
     }
     // React copies props in with `for...in`, so that lists all of them, and
     // leaves out the non-enumerable `key` and `ref` warning getters of
