@@ -473,3 +473,76 @@ test.each([false, true])(
     store.destroy();
   }
 );
+
+test.each(['strings', 'symbols'])(
+  'custom equality ignores insertion order of %s with unchanged carried paths',
+  (kind) => {
+    const store = create({ items: [{ n: 1 }, { n: 2 }], flip: false });
+    const a = kind === 'strings' ? 'first' : Symbol('first');
+    const b = kind === 'strings' ? 'second' : Symbol('second');
+    const selected = derive(
+      store,
+      (state): Record<PropertyKey, { n: number }> =>
+        state.flip
+          ? { [a]: state.items[0], [b]: state.items[1] }
+          : { [b]: state.items[1], [a]: state.items[0] },
+      { equals: (left, right) => left[a] === right[a] && left[b] === right[b] }
+    );
+    let effects = 0;
+    const stop = effect(() => {
+      selected();
+      effects++;
+    });
+    const initial = selected();
+    store.setState({ flip: true });
+    expect(selected()).toBe(initial);
+    expect(effects).toBe(1);
+    store.setState((state) => {
+      state.items[0].n++;
+    });
+    expect(selected()[a].n).toBe(2);
+    expect(effects).toBe(2);
+    stop();
+    store.destroy();
+  }
+);
+
+test.each(['plain', 'cycle', 'diamond'])(
+  'custom equality ignores equivalent %s wrapper sharing',
+  (kind) => {
+    const store = create({ items: [{ n: 1 }], shared: true });
+    type Wrapper = { item?: { n: number }; a?: Wrapper; b?: Wrapper };
+    const wrap = (item: { n: number }): Wrapper => {
+      let result: Wrapper = { item };
+      if (kind === 'cycle') result.a = result;
+      if (kind === 'diamond') {
+        for (let i = 0; i < 30; i++) result = { a: result, b: result };
+      }
+      return result;
+    };
+    const selected = derive(
+      store,
+      (state) => {
+        const first = wrap(state.items[0]);
+        return { first, second: state.shared ? first : wrap(state.items[0]) };
+      },
+      { equals: () => true }
+    );
+    let effects = 0;
+    const stop = effect(() => {
+      selected();
+      effects++;
+    });
+    const initial = selected();
+    store.setState({ shared: false });
+    expect(selected() === initial).toBe(true);
+    expect(effects).toBe(1);
+    store.setState((state) => {
+      state.items[0].n++;
+    });
+    expect(selected() === initial).toBe(false);
+    expect(effects).toBe(2);
+    stop();
+    store.destroy();
+  }
+);

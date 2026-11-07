@@ -60,7 +60,7 @@ export type DeriveOptions<T> = DerivedOptions<T> & {
   deep?: boolean;
 };
 
-type StateRefs = unknown[] | undefined;
+type StateRefs = [object, number | undefined][] | undefined;
 type Result<T> = { value: T; refs: StateRefs } | { error: unknown };
 
 // State objects returned inside plain data wrappers are terminal dependencies,
@@ -76,7 +76,7 @@ const trackResult = (value: unknown): StateRefs => {
     // Every occurrence, in order: a reused wrapper that swaps two state values
     // holds the same set of them.
     if (trackReadonlyStateValue(current)) {
-      (refs ??= []).push(current, getReadonlyStateValueVersion(current));
+      (refs ??= []).push([current, getReadonlyStateValueVersion(current)]);
       continue;
     }
     if (seen.has(current)) continue;
@@ -92,9 +92,28 @@ const trackResult = (value: unknown): StateRefs => {
   return refs;
 };
 
-const sameRefs = (left: StateRefs, right: StateRefs) =>
-  left?.length === right?.length &&
-  (!left || left.every((value, index) => value === right![index]));
+/**
+ * Whether a result carries the same state. A reused wrapper has nothing else to
+ * compare, so where it holds each value counts. A new result the caller's
+ * `equals` accepted may arrange its wrappers as it likes.
+ */
+const sameRefs = (left: StateRefs, right: StateRefs, reused: boolean) => {
+  if (!left || !right) return left === right;
+  if (reused) {
+    return (
+      left.length === right.length &&
+      left.every(
+        ([value, version], index) =>
+          value === right[index][0] && version === right[index][1]
+      )
+    );
+  }
+  const after = new Map(right);
+  return (
+    new Map(left).size === after.size &&
+    left.every(([value, version]) => after.get(value) === version)
+  );
+};
 
 const getInternal = <T extends object>(store: StoreReader<T>) => {
   const state = store.getState();
@@ -154,7 +173,10 @@ const createDerived = <T extends object, R>(
       if (previous && 'value' in previous) {
         const subscriber = setActiveSub(undefined);
         try {
-          if (equals(previous.value, value) && sameRefs(previous.refs, refs)) {
+          if (
+            equals(previous.value, value) &&
+            sameRefs(previous.refs, refs, previous.value === value)
+          ) {
             // Record this evaluation's dependencies even when its output is
             // equivalent. A changed branch can otherwise leave the cache stale.
             return (cached = previous);
