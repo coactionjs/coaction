@@ -146,3 +146,14 @@ descriptor read per new key cost **277 bytes** in the default core consumer and
 4.2, and trimming them further left nothing that was not a guard, so the
 baselines now record the measured 13,659 and 17,858 bytes and moved with their
 ceilings.
+
+## Tracker reentry and carried positions
+
+A selector result now counts a state value at each place it carries it, and a
+tracker keeps its dependencies through a reentrant `track()` and through a
+`dispose()` from inside its own callback. The derived consumer carries both: with
+the 44 bytes these added to it inside its ceiling, it measures **230 bytes** over
+its baseline, and the `coaction/derived` artifacts **326 and 335 bytes** over
+theirs. These fix results that went stale and dependencies that were lost, so
+those baselines now record the measured 2,919, 4,351 and 4,761 bytes and moved
+with their ceilings.

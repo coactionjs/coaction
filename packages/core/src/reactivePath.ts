@@ -51,6 +51,10 @@ type ReactiveCollection = {
   nodes: ReactivePathNode[];
   masks: number[];
   outer: ReactiveCollection | undefined;
+  /** An unfinished evaluation of the same subscriber. */
+  previous?: ReactiveCollection;
+  /** Closed while a collection nested in it is still running. */
+  closed?: boolean;
 };
 
 type ReactiveSubscriberState = {
@@ -367,7 +371,8 @@ export const beginReactiveSubscriberTrack = (subscriber: object) => {
     stamp: ++collector.stamp,
     nodes: [],
     masks: [],
-    outer: collector.active
+    outer: collector.active,
+    previous: state.collection
   };
   state.collection = collection;
   collector.active = collection;
@@ -382,8 +387,11 @@ export const retainReactiveTraversalPaths = (subscriber: object) => {
 };
 
 const closeCollection = (collection: ReactiveCollection) => {
-  if (collector.active === collection) {
-    collector.active = collection.outer;
+  collection.closed = true;
+  // Disposal can close an ancestor of the active collection, which stays on
+  // the stack until what runs inside it has unwound.
+  while (collector.active?.closed) {
+    collector.active = collector.active.outer;
   }
 };
 
@@ -410,7 +418,7 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
   if (!state || !collection) {
     return;
   }
-  state.collection = undefined;
+  state.collection = collection.previous;
   closeCollection(collection);
   const previous = ++collector.stamp;
   for (let index = 0; index < state.nodes.length; index++) {
@@ -454,6 +462,13 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
       node.stamp = 0;
       continue;
     }
+    // A reentrant call belongs to the evaluation it runs in. Its reads have
+    // been minimised against its own traversals, so they stay terminal there.
+    if (state.collection) {
+      state.collection.nodes.push(node);
+      state.collection.masks.push(mask | TERMINAL_DEPENDENCY);
+      continue;
+    }
     linkSignals(node, mask);
     const addedMask = mask & ~previousMasks[index];
     if (addedMask) {
@@ -464,6 +479,7 @@ export const endReactiveSubscriberTrack = (subscriber: object) => {
     masks[kept] = mask;
     kept += 1;
   }
+  if (state.collection) return;
   nodes.length = kept;
   masks.length = kept;
   const removedNodes: ReactivePathNode[] = [];
@@ -487,9 +503,9 @@ export const disposeReactiveSubscriber = (subscriber: object) => {
   if (!state) {
     return;
   }
-  if (state.collection) {
+  while (state.collection) {
     closeCollection(state.collection);
-    state.collection = undefined;
+    state.collection = state.collection.previous;
   }
   for (let index = 0; index < state.nodes.length; index++) {
     updateSubscriberCount(state.nodes[index], state.masks[index], -1);

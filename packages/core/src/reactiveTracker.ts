@@ -97,6 +97,7 @@ export const purgeDeps = (sub: ReactiveNode) => {
 export const createReactiveTracker = (): ReactiveTracker => {
   let version = 0;
   let disposed = false;
+  let tracking = false;
   const listeners = new Set<() => void>();
   let trackedTail: Link | undefined;
   const node: ReactiveTrackerNode = {
@@ -126,10 +127,14 @@ export const createReactiveTracker = (): ReactiveTracker => {
     }
     disposed = true;
     listeners.clear();
+    trackedTail = undefined;
     node.depsTail = undefined;
     purgeDeps(node);
     node.flags = 0;
-    disposeReactiveSubscriber(node);
+    // A callback disposing its own tracker can read on. Those reads stay in its
+    // collection, discarded when it unwinds, rather than becoming links of
+    // whichever subscriber is left active.
+    if (!tracking) disposeReactiveSubscriber(node);
   };
   return {
     getSnapshot: () => version,
@@ -147,6 +152,8 @@ export const createReactiveTracker = (): ReactiveTracker => {
       if (disposed) {
         return fn();
       }
+      const nested = tracking;
+      tracking = true;
       beginReactiveSubscriberTrack(node);
       // alien-signals takes a link that is already the last one on its
       // dependency and stamped with the current cycle for a repeat read of this
@@ -154,11 +161,14 @@ export const createReactiveTracker = (): ReactiveTracker => {
       // runs, so the cycle can still be the one its previous pass ran in: a
       // dependency read in another order would be skipped, then purged as
       // unread. Only this pass's links may carry the cycle.
-      for (let link = node.deps; link !== undefined; link = link.nextDep) {
-        link.version = -1;
+      // A reentrant call continues that pass, so it keeps them.
+      if (!nested) {
+        for (let link = node.deps; link !== undefined; link = link.nextDep) {
+          link.version = -1;
+        }
+        node.depsTail = undefined;
+        node.flags = ReactiveFlags.Watching | ReactiveFlags.RecursedCheck;
       }
-      node.depsTail = undefined;
-      node.flags = ReactiveFlags.Watching | ReactiveFlags.RecursedCheck;
       const prevSub = setActiveSub(node);
       try {
         return fn();
@@ -166,12 +176,18 @@ export const createReactiveTracker = (): ReactiveTracker => {
         try {
           // Finalize provisional object-path dependencies while this tracker is
           // still active so surviving terminal paths can establish signal links.
-          endReactiveSubscriberTrack(node);
+          if (disposed && !nested) disposeReactiveSubscriber(node);
+          else endReactiveSubscriberTrack(node);
         } finally {
           setActiveSub(prevSub);
-          node.flags &= ~ReactiveFlags.RecursedCheck;
-          purgeDeps(node);
-          trackedTail = node.depsTail;
+          if (!nested) {
+            tracking = false;
+            node.flags &= ~ReactiveFlags.RecursedCheck;
+            // Nothing a callback read after disposing itself may survive it.
+            if (disposed) node.depsTail = undefined;
+            purgeDeps(node);
+            trackedTail = node.depsTail;
+          }
         }
       }
     },
