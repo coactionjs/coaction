@@ -103,7 +103,7 @@ covers loading without a bundler and the draft checks of development builds.
 Coaction 4.2 hands array elements out as frozen values instead of readonly proxies. A reader
 depends on the identity of each element it reads, so an `observer()` rendering `todos[0].title`
 re-renders after any write inside `todos[0]`, and read-only array methods such as `filter` take
-one dependency on the array. Where a component renders more often than before, read the field or
+one dependency on the array, even when they stop early, as `find` and `at` do. Where a component renders more often than before, read the field or
 the scan's result through a selector, which re-renders only when its result changes. Objects
 reached through object keys are tracked as before.
 
