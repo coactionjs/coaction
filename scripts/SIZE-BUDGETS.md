@@ -134,3 +134,15 @@ The derived consumer only creates and prunes trie nodes, so it takes the count
 and the index check, 90 bytes, inside its ceiling. The index check is a module
 of its own so that taking it does not bring in the rest of the state utilities,
 and `mutative` with them.
+
+## One public identity
+
+An object held both in an array and at an object key now has one public identity,
+and a value with an accessor stays behind its readonly proxy instead of being
+frozen: the first was a regression from 4.1 in `===`, the second let a setter run
+outside `set()`. The checks, the public array handed to scan callbacks, and a
+descriptor read per new key cost **277 bytes** in the default core consumer and
+**279 bytes** in the shared consumer. These correct the array values added for
+4.2, and trimming them further left nothing that was not a guard, so the
+baselines now record the measured 13,659 and 17,858 bytes and moved with their
+ceilings.

@@ -282,8 +282,13 @@ const freezeStateValues = <T extends CreateState>(
         queueUnfrozenValue(current[index], pending);
       }
     } else {
+      // Freezing leaves an accessor's setter working and cannot reach what its
+      // getter returns next, so a value that has one stays behind its proxy,
+      // and this walk runs no getter to find that out.
       for (const key of Reflect.ownKeys(current)) {
-        queueUnfrozenValue(current[key], pending);
+        const descriptor = Reflect.getOwnPropertyDescriptor(current, key)!;
+        if (!('value' in descriptor)) return false;
+        queueUnfrozenValue(descriptor.value, pending);
       }
     }
   }
@@ -464,6 +469,8 @@ const toReadonlyStateValue = <T extends CreateState>(
   if (publicValue) {
     return publicValue;
   }
+  // Another slice's facade that a recipe carried in is guarded already.
+  if (publicStatePathMeta.has(value as object)) return value;
   const cache = getReadonlyProxyCache(internal);
   const cached = cache.get(value as object);
   if (cached) {
