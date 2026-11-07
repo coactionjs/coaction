@@ -157,7 +157,7 @@ const armCleanupQueue = (queue: CleanupQueue) => {
       // The timer stays set while releases run, so one they cause does not arm
       // a second timer; the queue re-arms once, whatever a release throws.
       try {
-        const now = Date.now();
+        const now = performance.now();
         while (queue.head < entries.length) {
           const entry = entries[queue.head];
           if (entry.run && entry.due > now) break;
@@ -171,7 +171,7 @@ const armCleanupQueue = (queue: CleanupQueue) => {
         armCleanupQueue(queue);
       }
     },
-    Math.max(0, entries[queue.head].due - Date.now())
+    Math.max(0, entries[queue.head].due - performance.now())
   );
   (timer as { unref?: () => void }).unref?.();
   queue.timer = timer;
@@ -186,7 +186,11 @@ const scheduleCleanup = (delayMs: number, run: () => void) => {
     delayMs === observerReleaseCleanupMs
       ? releaseCleanups
       : uncommittedCleanups;
-  const entry: CleanupEntry = { due: Date.now() + queue.delayMs, run, queue };
+  const entry: CleanupEntry = {
+    due: performance.now() + queue.delayMs,
+    run,
+    queue
+  };
   queue.entries.push(entry);
   if (queue.timer === undefined) {
     armCleanupQueue(queue);
