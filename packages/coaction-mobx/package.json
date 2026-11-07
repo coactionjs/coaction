@@ -65,7 +65,7 @@
     "react-dom": "^19.2.4"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0",
+    "coaction": "^4.2.0",
     "mobx": "^6.13.2"
   },
   "authors": [

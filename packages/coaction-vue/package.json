@@ -57,7 +57,7 @@
     "vue": "^3.5.30"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0",
+    "coaction": "^4.2.0",
     "vue": "^3.0.0"
   },
   "authors": [

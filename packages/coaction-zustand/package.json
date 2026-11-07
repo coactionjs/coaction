@@ -66,7 +66,7 @@
     "zustand": "^5.0.11"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0",
+    "coaction": "^4.2.0",
     "zustand": "^4.0.0 || ^5.0.0"
   },
   "authors": [

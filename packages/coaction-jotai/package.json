@@ -55,7 +55,7 @@
     "jotai": "^2.18.1"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0",
+    "coaction": "^4.2.0",
     "jotai": "^2.0.0"
   },
   "authors": [

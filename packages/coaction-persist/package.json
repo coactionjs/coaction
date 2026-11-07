@@ -54,7 +54,7 @@
     "coaction": "workspace:*"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0"
+    "coaction": "^4.2.0"
   },
   "authors": [
     "Michael Lin <unadlib@gmail.com> (https://github.com/unadlib)"

@@ -55,7 +55,7 @@
     "svelte": "^5.53.11"
   },
   "peerDependencies": {
-    "coaction": "^4.1.0",
+    "coaction": "^4.2.0",
     "svelte": "^4.0.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
