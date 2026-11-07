@@ -8,7 +8,7 @@
 
 > **derivePath**\<`T`, `P`\>(`store`, `path`, `options?`): [`Derived`](../type-aliases/Derived.md)\<[`PathValue`](../type-aliases/PathValue.md)\<`T`, `P`\>\>
 
-Defined in: [packages/core/src/derived.ts:272](https://github.com/coactionjs/coaction/blob/main/packages/core/src/derived.ts#L272)
+Defined in: [packages/core/src/derived.ts:295](https://github.com/coactionjs/coaction/blob/main/packages/core/src/derived.ts#L295)
 
 Cache a state-data path without collecting intermediate object reads.
 

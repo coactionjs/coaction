@@ -8,7 +8,7 @@
 
 > **derive**\<`T`, `R`\>(`store`, `selector`, `options?`): [`Derived`](../type-aliases/Derived.md)\<`R`\>
 
-Defined in: [packages/core/src/derived.ts:248](https://github.com/coactionjs/coaction/blob/main/packages/core/src/derived.ts#L248)
+Defined in: [packages/core/src/derived.ts:271](https://github.com/coactionjs/coaction/blob/main/packages/core/src/derived.ts#L271)
 
 Create a lazy, disposable selector owned by one immutable Coaction store.
 
