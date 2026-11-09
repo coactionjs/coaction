@@ -86,6 +86,23 @@ for (const file of requiredFiles) {
   if (!isFile(join(outDir, file))) errors.push(`Missing export: ${file}`);
 }
 
+// The site root opens on the English homepage rather than a language picker,
+// and points search engines at `/en/` as the canonical copy.
+const rootIndex = join(outDir, 'index.html');
+if (isFile(rootIndex)) {
+  const rootHtml = readFileSync(rootIndex, 'utf8');
+  if (!rootHtml.includes(`rel="canonical" href="${siteUrl}/en/"`)) {
+    errors.push(`index.html: missing canonical ${siteUrl}/en/`);
+  }
+  if (
+    !rootHtml.includes('<html lang="en"') ||
+    !rootHtml.includes('id="nd-nav"') ||
+    !rootHtml.includes(`href="${basePath}/en/docs/"`)
+  ) {
+    errors.push('index.html: the root page is not the English homepage');
+  }
+}
+
 const contentFiles = (locale) =>
   walkFiles(join(contentDir, locale), (file) => /\.(?:json|mdx)$/.test(file))
     .map((file) => relative(join(contentDir, locale), file))

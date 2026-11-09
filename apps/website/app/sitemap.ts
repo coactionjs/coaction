@@ -6,18 +6,13 @@ import { source } from '@/lib/source';
 export const dynamic = 'force-static';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const landingPages: MetadataRoute.Sitemap = [
-    {
-      url: absoluteUrl(),
-      changeFrequency: 'monthly',
-      priority: 0.8
-    },
-    ...locales.map((locale) => ({
-      url: absoluteUrl(localePath(locale)),
-      changeFrequency: 'weekly' as const,
-      priority: 1
-    }))
-  ];
+  // The site root repeats the English homepage under the canonical `/en/`,
+  // so only the localized homepages are listed.
+  const landingPages: MetadataRoute.Sitemap = locales.map((locale) => ({
+    url: absoluteUrl(localePath(locale)),
+    changeFrequency: 'weekly' as const,
+    priority: 1
+  }));
   const documentationPages: MetadataRoute.Sitemap = locales.flatMap((locale) =>
     source.getPages(locale).map((page) => ({
       url: absoluteUrl(page.url),
