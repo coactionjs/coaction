@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Provider } from '@/components/provider';
+import { fontVariables } from '@/lib/fonts';
 import { localeMetadata } from '@/lib/metadata';
 import '../global.css';
 
@@ -9,7 +10,7 @@ export const metadata = localeMetadata('en');
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={fontVariables} suppressHydrationWarning>
       <body className="flex min-h-screen flex-col">
         <Provider locale="en">{children}</Provider>
       </body>

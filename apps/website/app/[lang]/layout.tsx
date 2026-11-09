@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Provider } from '@/components/provider';
+import { fontVariables } from '@/lib/fonts';
 import { isLocale, locales } from '@/lib/i18n';
 import { localeMetadata } from '@/lib/metadata';
 import '../global.css';
@@ -34,7 +35,11 @@ export default async function LocaleLayout({
   if (!isLocale(lang)) notFound();
 
   return (
-    <html lang={lang === 'zh' ? 'zh-CN' : 'en'} suppressHydrationWarning>
+    <html
+      lang={lang === 'zh' ? 'zh-CN' : 'en'}
+      className={fontVariables}
+      suppressHydrationWarning
+    >
       <body className="flex min-h-screen flex-col">
         <Provider locale={lang}>{children}</Provider>
       </body>
