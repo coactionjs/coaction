@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { ExtrudedOctopus } from '@/components/extruded-octopus';
 import { GitHubIcon } from '@/components/icons';
-import { octopus } from '@/lib/brand';
 import type { Locale } from '@/lib/i18n';
 import { githubUrl, localePath } from '@/lib/site';
 import { CopyButton } from './copy-button';
 
 const install = 'npm install coaction @coaction/react';
-const LAYERS = 14;
 
 const copy = {
   en: {
@@ -28,45 +26,6 @@ const copy = {
     copied: '已复制'
   }
 } as const;
-
-/** The mark stacked in depth: a CSS 3D coin of the octopus. */
-function ExtrudedOctopus() {
-  return (
-    <div className="extruded" aria-hidden="true">
-      <div className="extruded__body">
-        {Array.from({ length: LAYERS }, (_, layer) => (
-          <svg
-            key={layer}
-            className="extruded__layer"
-            viewBox={octopus.viewBox}
-            style={{ '--layer': layer } as CSSProperties}
-          >
-            {layer === 0 ? (
-              <defs>
-                <linearGradient
-                  id="extruded-face"
-                  x1="0"
-                  y1="0"
-                  x2="0.4"
-                  y2="1"
-                >
-                  <stop offset="0" stopColor="#ff8f6b" />
-                  <stop offset="0.5" stopColor="#f3512f" />
-                  <stop offset="1" stopColor="#d23f19" />
-                </linearGradient>
-              </defs>
-            ) : null}
-            <path
-              d={octopus.path}
-              fill={layer === 0 ? 'url(#extruded-face)' : 'currentColor'}
-            />
-          </svg>
-        ))}
-      </div>
-      <div className="extruded__shadow" />
-    </div>
-  );
-}
 
 export function CallToAction({ lang }: { lang: Locale }) {
   const text = copy[lang];

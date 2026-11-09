@@ -12,6 +12,11 @@ const siteUrl = (
 /** @type {import('next').NextConfig} */
 const config = {
   basePath,
+  experimental: {
+    // The site has two root layouts (the root and /[lang]), so its 404 page
+    // comes from app/global-not-found.tsx.
+    globalNotFound: true
+  },
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
     NEXT_PUBLIC_SITE_URL: siteUrl

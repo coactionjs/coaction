@@ -19,6 +19,8 @@
 @import '../components/home/fit.css';
 @import '../components/home/cta.css';
 @import '../components/site-footer.css';
+@import '../components/extruded-octopus.css';
+@import '../components/not-found.css';
 @import './[lang]/docs/docs.css';
 
 @theme inline {
