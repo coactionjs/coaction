@@ -6,6 +6,9 @@
  * Component styles live next to their components but load through this one
  * stylesheet, so no route preloads CSS it never uses.
  */
+@import '../components/home/home.css';
+@import '../components/home/hero.css';
+@import '../components/home/octopus-stage.css';
 @import '../components/home/landing-page.css';
 
 @theme inline {

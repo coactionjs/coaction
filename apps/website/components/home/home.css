@@ -1,0 +1,90 @@
+/* Shared building blocks of the homepage. */
+
+.home-page {
+  position: relative;
+  overflow-x: clip;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0 1.35rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition:
+    transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button:active {
+  transform: translateY(0);
+}
+
+.button--primary {
+  color: #fff;
+  background: linear-gradient(180deg, #f65c39, #d43f19);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 28%),
+    0 0.7rem 1.6rem -0.7rem rgb(212 63 25 / 75%);
+}
+
+.button--primary:hover {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 28%),
+    0 1rem 2rem -0.7rem rgb(212 63 25 / 80%);
+}
+
+.button--secondary {
+  border-color: var(--color-fd-border);
+  background: color-mix(in srgb, var(--color-fd-card) 82%, transparent);
+  color: var(--color-fd-foreground);
+  backdrop-filter: blur(8px);
+}
+
+.button--secondary:hover {
+  border-color: color-mix(in srgb, var(--co-coral) 55%, var(--color-fd-border));
+  box-shadow: var(--co-shadow);
+}
+
+.copy-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  border-radius: 0.6rem;
+  color: var(--color-fd-muted-foreground);
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.copy-button:hover {
+  background: var(--color-fd-accent);
+  color: var(--color-fd-accent-foreground);
+}
+
+.copy-button[data-copied] {
+  color: var(--co-sea);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .button:hover {
+    transform: none;
+    transition: none;
+  }
+}
