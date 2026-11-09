@@ -12,7 +12,7 @@ import { Transitions } from './transitions';
 
 export function LandingPage({ lang }: { lang: Locale }) {
   return (
-    <main className="home-page">
+    <div className="home-page">
       <Hero lang={lang} />
       <Ideas lang={lang} />
       <PlaygroundSection lang={lang} />
@@ -23,6 +23,6 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <Ecosystem lang={lang} />
       <Fit lang={lang} />
       <TiltEffects />
-    </main>
+    </div>
   );
 }
