@@ -11,6 +11,7 @@
 @import '../components/home/octopus-stage.css';
 @import '../components/home/playground.css';
 @import '../components/home/ideas.css';
+@import '../components/home/compare-code.css';
 
 @theme inline {
   --font-sans:

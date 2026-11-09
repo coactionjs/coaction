@@ -1,4 +1,5 @@
 import type { Locale } from '@/lib/i18n';
+import { CompareCode } from './compare-code';
 import { Hero } from './hero';
 import { Ideas } from './ideas';
 import { PlaygroundSection } from './playground-section';
@@ -10,6 +11,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <Hero lang={lang} />
       <Ideas lang={lang} />
       <PlaygroundSection lang={lang} />
+      <CompareCode lang={lang} />
       <TiltEffects />
     </main>
   );
