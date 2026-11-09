@@ -13,6 +13,7 @@
 @import '../components/home/ideas.css';
 @import '../components/home/compare-code.css';
 @import '../components/home/transitions.css';
+@import '../components/home/runtime.css';
 
 @theme inline {
   --font-sans:

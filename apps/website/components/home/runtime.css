@@ -1,0 +1,486 @@
+.runtime {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.runtime__visual {
+  display: grid;
+  justify-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.runtime__switch {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.25rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 999px;
+  background: var(--color-fd-card);
+  box-shadow: var(--co-shadow);
+}
+
+.runtime__switch button {
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.86rem;
+  font-weight: 620;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.runtime__switch button:hover {
+  color: var(--color-fd-foreground);
+}
+
+.runtime__switch button[aria-selected='true'] {
+  background: var(--co-ink);
+  color: #fff;
+}
+
+.dark .runtime__switch button[aria-selected='true'] {
+  background: var(--co-coral);
+  color: #1b0c07;
+}
+
+/* Isometric threads: planes are laid out flat, then the scene is tilted. */
+.layers {
+  position: relative;
+  width: 100%;
+  height: 25rem;
+  perspective: 1800px;
+}
+
+.layers__scene {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: rotateX(57deg) rotateZ(-36deg);
+  transform-style: preserve-3d;
+}
+
+.layer {
+  --w: 17rem;
+  --h: 11rem;
+  --x: 0rem;
+  --y: 0rem;
+  --z: 0rem;
+  position: absolute;
+  top: calc(var(--h) / -2);
+  left: calc(var(--w) / -2);
+  width: var(--w);
+  height: var(--h);
+  border: 1px solid
+    color-mix(in srgb, var(--color-fd-foreground) 14%, transparent);
+  border-radius: 1.1rem;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-fd-card) 92%, transparent),
+    color-mix(in srgb, var(--color-fd-card) 70%, transparent)
+  );
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 40%, transparent) inset,
+    0 2.5rem 3rem -1.5rem rgb(70 30 16 / 28%);
+  transform: translate3d(var(--x), var(--y), var(--z));
+  transition:
+    transform 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    top 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    left 900ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 500ms ease;
+  backdrop-filter: blur(2px);
+}
+
+.dark .layer {
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 6%) inset,
+    0 2.5rem 3rem -1.5rem rgb(0 0 0 / 70%);
+}
+
+.layer--worker {
+  border-color: color-mix(in srgb, var(--co-coral) 45%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--co-coral) 16%, var(--color-fd-card)),
+    color-mix(in srgb, var(--co-coral) 6%, var(--color-fd-card))
+  );
+}
+
+.layer__label {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.95rem;
+  color: var(--color-fd-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.layer--worker .layer__label {
+  color: var(--color-fd-primary);
+}
+
+.layer__chip {
+  position: absolute;
+  bottom: 0.9rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.55rem;
+  background: var(--color-fd-card);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  transition: opacity 400ms ease;
+}
+
+.layer__chip--ui {
+  left: 0.9rem;
+}
+
+.layer__chip--store {
+  right: 0.9rem;
+  border-color: color-mix(in srgb, var(--co-sea) 55%, transparent);
+  color: var(--co-sea);
+}
+
+.layer__chip--authority {
+  left: 50%;
+  border-color: var(--co-coral);
+  background: color-mix(in srgb, var(--co-coral) 14%, var(--color-fd-card));
+  color: var(--color-fd-primary);
+  font-weight: 650;
+  transform: translateX(-50%);
+}
+
+.layer--tab {
+  --w: 8.5rem;
+  --h: 6.5rem;
+  opacity: 0;
+}
+
+.layer--tab .layer__chip--store {
+  right: 50%;
+  transform: translateX(50%);
+}
+
+/* Local: a single thread holds the store. */
+.runtime[data-mode='local'] .layer--worker {
+  --z: -0.5rem;
+  opacity: 0;
+}
+
+.runtime[data-mode='local'] .layer__chip--store {
+  border-color: var(--co-coral);
+  background: color-mix(in srgb, var(--co-coral) 14%, var(--color-fd-card));
+  color: var(--color-fd-primary);
+}
+
+/* Worker: the authority sinks to its own thread under the page. */
+.runtime[data-mode='worker'] .layer--main {
+  --z: 5.5rem;
+}
+
+.runtime[data-mode='worker'] .layer--worker {
+  --z: -5.5rem;
+}
+
+/* SharedWorker: three tabs mirror one authority. */
+.runtime[data-mode='shared'] .layer--main {
+  --w: 8.5rem;
+  --h: 6.5rem;
+  --x: -10rem;
+  --z: 6rem;
+}
+
+.runtime[data-mode='shared'] .layer--tab-b {
+  --z: 6rem;
+  opacity: 1;
+}
+
+.runtime[data-mode='shared'] .layer--tab-c {
+  --x: 10rem;
+  --z: 6rem;
+  opacity: 1;
+}
+
+.runtime[data-mode='shared'] .layer--worker {
+  --w: 29rem;
+  --h: 9rem;
+  --z: -6rem;
+}
+
+.runtime[data-mode='shared'] .layer--main .layer__chip {
+  font-size: 0.64rem;
+}
+
+/* Tab A is narrow: its component sits above its mirror. */
+.runtime[data-mode='shared'] .layer--main .layer__chip--ui {
+  bottom: 2.7rem;
+  left: 0.6rem;
+}
+
+.runtime[data-mode='shared'] .layer--main .layer__chip--store {
+  right: 50%;
+  transform: translateX(50%);
+}
+
+/* Packets turn back toward the viewer so they stay round. */
+.packet {
+  position: absolute;
+  top: -0.45rem;
+  left: -0.45rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.packet--action,
+.packet--local {
+  background: radial-gradient(circle at 35% 30%, #ffc2ad, var(--co-coral) 55%);
+  box-shadow: 0 0 0.9rem var(--co-coral);
+}
+
+.packet--patch {
+  background: radial-gradient(circle at 35% 30%, #c9fff8, var(--co-sea) 55%);
+  box-shadow: 0 0 0.9rem var(--co-sea);
+}
+
+.runtime[data-mode='local'] .packet--local {
+  animation: packet-local 2.8s ease-in-out infinite;
+}
+
+.runtime[data-mode='worker'] .packet--action {
+  animation: packet-action-worker 3s ease-in-out infinite;
+}
+
+.runtime[data-mode='worker']
+  .packet--patch:not(.packet--patch-b, .packet--patch-c) {
+  animation: packet-patch-worker 3s ease-in-out infinite;
+}
+
+.runtime[data-mode='shared'] .packet--action {
+  animation: packet-action-shared 3.2s ease-in-out infinite;
+}
+
+.runtime[data-mode='shared'] .packet--patch {
+  --to: 0rem;
+  animation: packet-patch-shared 3.2s ease-in-out infinite;
+}
+
+.runtime[data-mode='shared']
+  .packet--patch:not(.packet--patch-b, .packet--patch-c) {
+  --to: -10rem;
+}
+
+.runtime[data-mode='shared'] .packet--patch-c {
+  --to: 10rem;
+}
+
+@keyframes packet-local {
+  0% {
+    opacity: 0;
+    transform: translate3d(-4.5rem, 3.6rem, 0.5rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+  15%,
+  45% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+    transform: translate3d(4.5rem, 3.6rem, 0.5rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(-4.5rem, 3.6rem, 0.5rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+}
+
+@keyframes packet-action-worker {
+  0% {
+    opacity: 0;
+    transform: translate3d(-4.5rem, 3.6rem, 5.8rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+  8%,
+  38% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0;
+    transform: translate3d(0rem, 3.6rem, -5.2rem) rotateZ(36deg) rotateX(-57deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0rem, 3.6rem, -5.2rem) rotateZ(36deg) rotateX(-57deg);
+  }
+}
+
+@keyframes packet-patch-worker {
+  0%,
+  48% {
+    opacity: 0;
+    transform: translate3d(0rem, 3.6rem, -5.2rem) rotateZ(36deg) rotateX(-57deg);
+  }
+  56%,
+  86% {
+    opacity: 1;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translate3d(4.5rem, 3.6rem, 5.8rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+}
+
+@keyframes packet-action-shared {
+  0% {
+    opacity: 0;
+    transform: translate3d(-11.2rem, 0rem, 6.3rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+  8%,
+  36% {
+    opacity: 1;
+  }
+  44%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0rem, 2.85rem, -5.7rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+}
+
+@keyframes packet-patch-shared {
+  0%,
+  46% {
+    opacity: 0;
+    transform: translate3d(0rem, 2.85rem, -5.7rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+  54%,
+  84% {
+    opacity: 1;
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--to), 1.6rem, 6.3rem) rotateZ(36deg)
+      rotateX(-57deg);
+  }
+}
+
+.runtime__legend {
+  display: flex;
+  gap: 1.2rem;
+  margin: -0.5rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.runtime__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.runtime__legend span::before {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--co-coral);
+  content: '';
+}
+
+.runtime__legend span[data-kind='patch']::before {
+  background: var(--co-sea);
+}
+
+.runtime__caption {
+  max-width: 30rem;
+  min-height: 3em;
+  margin: 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.runtime__code {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.runtime__code pre {
+  min-height: 21rem;
+}
+
+.runtime__facts {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.runtime__facts li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 560;
+}
+
+.runtime__facts svg {
+  flex: none;
+  color: var(--co-sea);
+}
+
+@media (max-width: 62rem) {
+  .runtime {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 40rem) {
+  .layers {
+    height: 18rem;
+  }
+
+  .layers__scene {
+    scale: 0.66;
+  }
+
+  .runtime__code pre {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layer {
+    transition: none;
+  }
+
+  .packet {
+    animation: none !important;
+  }
+}

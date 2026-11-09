@@ -3,6 +3,7 @@ import { CompareCode } from './compare-code';
 import { Hero } from './hero';
 import { Ideas } from './ideas';
 import { PlaygroundSection } from './playground-section';
+import { Runtime } from './runtime';
 import { TiltEffects } from './tilt-effects';
 import { Transitions } from './transitions';
 
@@ -14,6 +15,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <PlaygroundSection lang={lang} />
       <CompareCode lang={lang} />
       <Transitions lang={lang} />
+      <Runtime lang={lang} />
       <TiltEffects />
     </main>
   );
