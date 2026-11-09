@@ -1,6 +1,7 @@
 import type { Locale } from '@/lib/i18n';
 import { CompareCode } from './compare-code';
 import { Ecosystem } from './ecosystem';
+import { Fit } from './fit';
 import { Hero } from './hero';
 import { Ideas } from './ideas';
 import { Performance } from './performance';
@@ -20,6 +21,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <Runtime lang={lang} />
       <Performance lang={lang} />
       <Ecosystem lang={lang} />
+      <Fit lang={lang} />
       <TiltEffects />
     </main>
   );

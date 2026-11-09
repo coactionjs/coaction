@@ -16,6 +16,7 @@
 @import '../components/home/runtime.css';
 @import '../components/home/performance.css';
 @import '../components/home/ecosystem.css';
+@import '../components/home/fit.css';
 
 @theme inline {
   --font-sans:
