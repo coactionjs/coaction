@@ -1,0 +1,187 @@
+.cta {
+  width: min(100% - 2.5rem, 80rem);
+  margin: clamp(1rem, 4vw, 3rem) auto clamp(4rem, 8vw, 6rem);
+}
+
+.cta__panel {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 2rem;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2rem, 5vw, 4rem);
+  border: 1px solid rgb(243 81 47 / 30%);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 78% 35%, rgb(243 81 47 / 34%), transparent 46%),
+    linear-gradient(140deg, #1a1210, #2a160f 62%, #3a1b10);
+  box-shadow: 0 2.5rem 5rem -2rem rgb(40 14 6 / 55%);
+  color: #fbf1eb;
+}
+
+.cta__panel::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgb(255 255 255 / 9%) 1px,
+    transparent 0
+  );
+  background-size: 24px 24px;
+  mask-image: linear-gradient(90deg, transparent, #000 40%, #000);
+  content: '';
+}
+
+.cta h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.2rem, 4.6vw, 3.8rem);
+  font-weight: 750;
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+:lang(zh) .cta h2 {
+  line-height: 1.18;
+  letter-spacing: -0.01em;
+}
+
+.cta p {
+  max-width: 34rem;
+  margin: 1.2rem 0 0;
+  color: rgb(251 241 235 / 76%);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.cta__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.cta__github {
+  border-color: rgb(255 255 255 / 20%);
+  background: rgb(255 255 255 / 6%);
+  color: #fff;
+}
+
+.cta__github:hover {
+  border-color: rgb(255 255 255 / 40%);
+}
+
+.cta__install {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 1.1rem;
+  padding: 0.35rem 0.35rem 0.35rem 1rem;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 0.9rem;
+  background: rgb(0 0 0 / 22%);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.cta__install > span {
+  color: #ff9b80;
+  font-weight: 700;
+}
+
+.cta__install code {
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.cta__install .copy-button {
+  color: rgb(255 255 255 / 70%);
+}
+
+.cta__install .copy-button:hover {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+}
+
+/* The octopus extruded in CSS 3D: fourteen copies of the mark stacked in
+   depth, the front one lit, the rest darker toward the back. */
+.extruded {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 20rem;
+  perspective: 900px;
+}
+
+.extruded__body {
+  position: relative;
+  width: min(100%, 22rem);
+  aspect-ratio: 125.39 / 79.2;
+  transform: rotateY(-24deg) rotateX(10deg);
+  transform-style: preserve-3d;
+  animation: extruded-rock 10s ease-in-out infinite;
+}
+
+.extruded__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: #b8340f;
+  filter: brightness(calc(0.92 - var(--layer) * 0.03));
+  transform: translateZ(calc(var(--layer) * -2.4px));
+}
+
+.extruded__layer:first-child {
+  filter: drop-shadow(0 0 1.4rem rgb(255 106 69 / 45%));
+}
+
+.extruded__shadow {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  width: 62%;
+  height: 1.4rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 50%), transparent);
+  filter: blur(4px);
+  transform: translateX(-50%);
+}
+
+@keyframes extruded-rock {
+  0%,
+  100% {
+    transform: rotateY(-26deg) rotateX(12deg) translateY(0);
+  }
+  50% {
+    transform: rotateY(26deg) rotateX(4deg) translateY(-0.6rem);
+  }
+}
+
+@media (max-width: 56rem) {
+  .cta__panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .extruded {
+    order: -1;
+    height: 14rem;
+  }
+
+  .extruded__body {
+    width: min(70%, 18rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .extruded__body {
+    animation: none;
+  }
+}

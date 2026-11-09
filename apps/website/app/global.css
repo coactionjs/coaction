@@ -17,6 +17,8 @@
 @import '../components/home/performance.css';
 @import '../components/home/ecosystem.css';
 @import '../components/home/fit.css';
+@import '../components/home/cta.css';
+@import '../components/site-footer.css';
 
 @theme inline {
   --font-sans:
