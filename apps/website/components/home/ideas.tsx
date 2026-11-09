@@ -269,7 +269,7 @@ export function Ideas({ lang }: { lang: Locale }) {
         title={text.title}
         lede={text.lede}
       />
-      <div className="ideas__grid">
+      <div className="ideas__grid" data-reveal="stagger">
         <Card
           wide
           icon={<Boxes size={18} />}

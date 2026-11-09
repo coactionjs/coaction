@@ -189,7 +189,7 @@ export function Fit({ lang }: { lang: Locale }) {
         title={text.title}
         lede={text.lede}
       />
-      <div className="fit__layout">
+      <div className="fit__layout" data-reveal="stagger">
         <aside className="fit-card" data-tilt="4">
           <p className="fit-card__kicker">{text.honest}</p>
           <p className="fit-card__headline">{text.headline}</p>

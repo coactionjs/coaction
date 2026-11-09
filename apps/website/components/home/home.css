@@ -244,3 +244,26 @@
   vertical-align: top;
   transition: background-color 200ms ease;
 }
+
+/* Scroll reveal (see reveal-effects.tsx). An animation on the separate
+   translate property, so it never replaces a card's own transform or
+   transitions. */
+.reveal-pending {
+  opacity: 0;
+}
+
+.reveal-in {
+  animation: reveal-up 850ms cubic-bezier(0.22, 1, 0.36, 1)
+    var(--reveal-delay, 0ms) both;
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 1.75rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}

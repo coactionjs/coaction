@@ -72,7 +72,7 @@ export function CallToAction({ lang }: { lang: Locale }) {
   const text = copy[lang];
   return (
     <section className="cta" aria-labelledby="cta-title">
-      <div className="cta__panel">
+      <div className="cta__panel" data-reveal>
         <div className="cta__copy">
           <h2 id="cta-title">{text.title}</h2>
           <p>{text.body}</p>

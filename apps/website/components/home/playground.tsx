@@ -328,7 +328,7 @@ export function Playground({
   };
 
   return (
-    <div className="playground">
+    <div className="playground" data-reveal>
       <div
         className="code-panel pg-code"
         data-active={result?.action}

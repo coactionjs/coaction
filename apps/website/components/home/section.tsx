@@ -14,7 +14,7 @@ export function SectionHeader({
   align?: 'start' | 'center';
 }) {
   return (
-    <header className="section-header" data-align={align}>
+    <header className="section-header" data-align={align} data-reveal>
       <p className="section-eyebrow">{eyebrow}</p>
       <h2 className="section-title" id={id}>
         {title}

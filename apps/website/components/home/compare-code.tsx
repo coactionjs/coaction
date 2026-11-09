@@ -109,7 +109,7 @@ export function CompareCode({ lang }: { lang: Locale }) {
         title={text.title}
         lede={text.lede}
       />
-      <div className="compare__panels">
+      <div className="compare__panels" data-reveal="stagger">
         <figure className="code-panel compare__panel" data-library="coaction">
           <figcaption className="code-panel__bar">
             <CoactionMark className="compare__mark" />

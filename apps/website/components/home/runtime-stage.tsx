@@ -67,7 +67,7 @@ export function RuntimeStage({
   const [mode, setMode] = useState<Mode>('worker');
 
   return (
-    <div className="runtime" data-mode={mode}>
+    <div className="runtime" data-mode={mode} data-reveal>
       <div className="runtime__visual">
         <div className="runtime__switch" role="tablist" aria-label="Runtime">
           {(Object.keys(text.modes) as Mode[]).map((name) => (

@@ -107,7 +107,7 @@ export function Transitions({ lang }: { lang: Locale }) {
         lede={text.lede}
         align="center"
       />
-      <div className="fanout">
+      <div className="fanout" data-reveal>
         <div className="fanout__top">
           <svg
             className="fanout__wires"

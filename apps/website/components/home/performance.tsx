@@ -277,7 +277,7 @@ export function Performance({ lang }: { lang: Locale }) {
         <span data-series="coaction">Coaction</span>
         <span data-series="zustand">Zustand</span>
       </p>
-      <div className="perf__charts">
+      <div className="perf__charts" data-reveal="stagger">
         <Chart
           headline={`${readsGain}×`}
           claim={text.reads.claim}

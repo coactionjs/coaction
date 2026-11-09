@@ -7,6 +7,7 @@ import { Hero } from './hero';
 import { Ideas } from './ideas';
 import { Performance } from './performance';
 import { PlaygroundSection } from './playground-section';
+import { RevealEffects } from './reveal-effects';
 import { Runtime } from './runtime';
 import { TiltEffects } from './tilt-effects';
 import { Transitions } from './transitions';
@@ -25,6 +26,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <Fit lang={lang} />
       <CallToAction lang={lang} />
       <TiltEffects />
+      <RevealEffects />
     </div>
   );
 }

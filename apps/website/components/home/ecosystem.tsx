@@ -85,7 +85,7 @@ function Orbit() {
     ));
 
   return (
-    <div className="orbit" aria-hidden="true">
+    <div className="orbit" aria-hidden="true" data-reveal>
       <div className="orbit__scene">
         <div className="orbit__track orbit__track--inner" />
         <div className="orbit__track orbit__track--outer" />
@@ -116,7 +116,7 @@ export function Ecosystem({ lang }: { lang: Locale }) {
             title={text.title}
             lede={text.lede}
           />
-          <div className="ecosystem__groups">
+          <div className="ecosystem__groups" data-reveal="stagger">
             {groups.map((items, index) => (
               <div key={text.groups[index]} className="ecosystem__group">
                 <h3>
