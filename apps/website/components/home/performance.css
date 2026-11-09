@@ -132,13 +132,6 @@
   position: relative;
   display: grid;
   gap: 0.35rem;
-  border-radius: 0.4rem;
-  outline: none;
-}
-
-.perf-bar:focus-visible {
-  outline: 2px solid var(--color-fd-ring);
-  outline-offset: 4px;
 }
 
 .perf-bar__label {
@@ -169,8 +162,7 @@
   white-space: nowrap;
 }
 
-.perf-bar:hover .perf-bar__fill,
-.perf-bar:focus-visible .perf-bar__fill {
+.perf-bar:hover .perf-bar__fill {
   filter: brightness(1.14);
 }
 
@@ -204,8 +196,7 @@
   color: var(--color-fd-muted-foreground);
 }
 
-.perf-bar:hover .perf-bar__tip,
-.perf-bar:focus-visible .perf-bar__tip {
+.perf-bar:hover .perf-bar__tip {
   opacity: 1;
   transform: none;
 }

@@ -233,7 +233,6 @@ function Chart({
               key={row.id}
               className="perf-bar"
               data-series={row.series}
-              tabIndex={0}
               aria-label={`${names[row.id]}: ${full.format(row.value)} ops/sec`}
             >
               <span className="perf-bar__label">{names[row.id]}</span>
