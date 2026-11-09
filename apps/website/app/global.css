@@ -12,6 +12,7 @@
 @import '../components/home/playground.css';
 @import '../components/home/ideas.css';
 @import '../components/home/compare-code.css';
+@import '../components/home/transitions.css';
 
 @theme inline {
   --font-sans:

@@ -1,0 +1,277 @@
+.fanout {
+  position: relative;
+}
+
+/* Shares the 1000 × 300 coordinates of the wires drawn inside it. */
+.fanout__top {
+  position: relative;
+  aspect-ratio: 1000 / 300;
+}
+
+.fanout__wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.fanout__stem,
+.fanout__wire {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-fd-foreground) 18%, transparent);
+  stroke-width: 1.5;
+}
+
+.fanout__stem {
+  stroke: var(--co-coral);
+  stroke-dasharray: 3 5;
+  animation: fanout-flow 1s linear infinite;
+}
+
+.fanout__wire {
+  stroke: color-mix(in srgb, var(--co-sea) 45%, transparent);
+}
+
+.fanout__pulse {
+  fill: var(--co-sea);
+  filter: drop-shadow(0 0 5px var(--co-sea));
+}
+
+@keyframes fanout-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.fanout__call {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.8rem;
+  background: var(--color-fd-card);
+  box-shadow: var(--co-shadow);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+}
+
+.fanout__commit {
+  position: absolute;
+  top: 50.5%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 6.6rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    #ff9a7a,
+    var(--co-coral) 45%,
+    #c33a14
+  );
+  box-shadow:
+    inset 0 -6px 14px rgb(0 0 0 / 18%),
+    0 1rem 2.4rem -0.6rem rgb(212 63 25 / 60%);
+  transform: translate(-50%, -50%);
+}
+
+.fanout__commit-ring {
+  position: absolute;
+  inset: -0.6rem;
+  border: 2px solid color-mix(in srgb, var(--co-coral) 45%, transparent);
+  border-radius: 50%;
+  animation: fanout-ring 2.6s ease-out infinite;
+}
+
+.fanout__commit-label {
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+.fanout__patches {
+  position: absolute;
+  top: calc(100% + 0.55rem);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-fd-card) 92%, transparent);
+  color: var(--color-fd-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+@keyframes fanout-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.92);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+.fanout__outputs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fanout__output {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 1.1rem;
+  background: var(--color-fd-card);
+  box-shadow: var(--co-shadow);
+  transform: perspective(800px) rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg));
+  transition:
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 300ms ease;
+}
+
+.fanout__output.is-tilting {
+  border-color: color-mix(in srgb, var(--co-sea) 45%, var(--color-fd-border));
+  transition:
+    transform 120ms ease-out,
+    border-color 300ms ease;
+}
+
+.fanout__output::before {
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 2px solid var(--co-sea);
+  border-radius: 50%;
+  background: var(--color-fd-background);
+  transform: translate(-50%, -50%);
+  content: '';
+}
+
+.fanout__output svg {
+  color: var(--co-sea);
+}
+
+.fanout__output strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.fanout__output code {
+  color: var(--color-fd-primary);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.fanout__output p {
+  margin: 0.15rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.fanout__backends {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 2rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.85rem;
+}
+
+.fanout__backends span {
+  margin-right: 0.3rem;
+}
+
+.fanout__backends code {
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 999px;
+  background: var(--color-fd-card);
+  color: var(--color-fd-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 64rem) {
+  .fanout__top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.2rem;
+    aspect-ratio: auto;
+    padding-bottom: 3.2rem;
+  }
+
+  .fanout__wires {
+    display: none;
+  }
+
+  .fanout__call,
+  .fanout__commit {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+  }
+
+  .fanout__call {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .fanout__outputs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fanout__output::before {
+    display: none;
+  }
+}
+
+@media (max-width: 40rem) {
+  .fanout__outputs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fanout__output {
+    padding: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fanout__stem,
+  .fanout__commit-ring {
+    animation: none;
+  }
+
+  .fanout__pulse {
+    display: none;
+  }
+
+  .fanout__output,
+  .fanout__output.is-tilting {
+    transform: none;
+  }
+}
