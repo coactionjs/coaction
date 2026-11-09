@@ -15,6 +15,7 @@
 @import '../components/home/transitions.css';
 @import '../components/home/runtime.css';
 @import '../components/home/performance.css';
+@import '../components/home/ecosystem.css';
 
 @theme inline {
   --font-sans:

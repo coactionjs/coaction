@@ -1,0 +1,209 @@
+.ecosystem__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: clamp(1rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.ecosystem__groups {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.ecosystem__group h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.ecosystem__group h3 a,
+.ecosystem__note a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--color-fd-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.ecosystem__group h3 a:hover,
+.ecosystem__note a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ecosystem__group ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ecosystem__group li a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.8rem;
+  background: var(--color-fd-card);
+  font-size: 0.88rem;
+  font-weight: 620;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.ecosystem__group li a:hover {
+  border-color: color-mix(in srgb, var(--co-coral) 50%, var(--color-fd-border));
+  transform: translateY(-1px);
+}
+
+.ecosystem__group li code {
+  color: var(--color-fd-muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 450;
+}
+
+.ecosystem__note {
+  margin: 1.6rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+/* The orbit: rings turn in 3D around the octopus; their chips keep facing
+   the viewer by undoing the ring's turn and the scene's tilt. */
+@property --orbit-turn {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+.orbit {
+  position: relative;
+  height: 30rem;
+  perspective: 1300px;
+}
+
+.orbit__scene {
+  position: absolute;
+  inset: 0;
+  transform: rotateX(-28deg);
+  transform-style: preserve-3d;
+}
+
+.orbit__track {
+  --radius: 9.5rem;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--radius) * 2);
+  height: calc(var(--radius) * 2);
+  border: 1px dashed
+    color-mix(in srgb, var(--color-fd-foreground) 18%, transparent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotateX(90deg);
+}
+
+.orbit__track--outer {
+  --radius: 15rem;
+  border-color: color-mix(in srgb, var(--co-sea) 30%, transparent);
+}
+
+.orbit__core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 9rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--co-glow), transparent);
+  transform: translate(-50%, -50%) rotateX(28deg);
+}
+
+.orbit__core svg {
+  width: 7rem;
+  height: auto;
+  color: var(--co-coral);
+  filter: drop-shadow(0 0.8rem 1rem rgb(195 58 20 / 35%));
+}
+
+.orbit__ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-style: preserve-3d;
+  animation: orbit-turn 48s linear infinite;
+}
+
+.orbit__ring--outer {
+  animation-duration: 72s;
+  animation-direction: reverse;
+}
+
+.orbit__item {
+  --radius: 9.5rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 0.42rem 0.85rem;
+  border: 1px solid
+    color-mix(in srgb, var(--co-coral) 40%, var(--color-fd-border));
+  border-radius: 999px;
+  background: var(--color-fd-card);
+  box-shadow: var(--co-shadow);
+  font-size: 0.86rem;
+  font-weight: 650;
+  white-space: nowrap;
+  transform: translate(-50%, -50%)
+    rotateY(calc(var(--angle) + var(--orbit-turn))) translateZ(var(--radius))
+    rotateY(calc(-1 * (var(--angle) + var(--orbit-turn)))) rotateX(28deg);
+}
+
+.orbit__item[data-ring='outer'] {
+  --radius: 15rem;
+  border-color: color-mix(in srgb, var(--co-sea) 45%, var(--color-fd-border));
+  font-size: 0.8rem;
+}
+
+@keyframes orbit-turn {
+  to {
+    --orbit-turn: 360deg;
+  }
+}
+
+@media (max-width: 62rem) {
+  .ecosystem__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .orbit {
+    order: -1;
+    height: 26rem;
+  }
+}
+
+@media (max-width: 40rem) {
+  .orbit {
+    height: 19rem;
+  }
+
+  .orbit__scene {
+    scale: 0.62;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit__ring {
+    animation: none;
+  }
+}
