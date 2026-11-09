@@ -20,10 +20,14 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "collections/*": ["./.source/*"]
+      "collections/*": ["./.source/*"],
+      "coaction": ["../../packages/core/index.ts"],
+      "coaction/*": ["../../packages/core/*.ts"],
+      "@coaction/react": ["../../packages/coaction-react/index.ts"]
     }
   },
   "include": [
+    "../../global.d.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts",
     ".source/**/*.ts",

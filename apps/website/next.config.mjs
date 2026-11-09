@@ -21,7 +21,17 @@ const config = {
   },
   output: 'export',
   reactStrictMode: true,
-  trailingSlash: true
+  trailingSlash: true,
+  // The homepage demos run the workspace's own Coaction. Compiling its
+  // sources (as tsconfig.json's paths do for types) means the website builds
+  // without building the packages first.
+  turbopack: {
+    resolveAlias: {
+      coaction: '../../packages/core/index.ts',
+      'coaction/adapter': '../../packages/core/adapter.ts',
+      '@coaction/react': '../../packages/coaction-react/index.ts'
+    }
+  }
 };
 
 export default createMDX()(config);

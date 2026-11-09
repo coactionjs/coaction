@@ -1,6 +1,7 @@
 import { Boxes, Cpu, Gauge, ScanSearch } from 'lucide-react';
 import type { Locale } from '@/lib/i18n';
 import { Hero } from './hero';
+import { PlaygroundSection } from './playground-section';
 
 const copy = {
   en: {
@@ -43,6 +44,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
   return (
     <main className="home-page">
       <Hero lang={lang} />
+      <PlaygroundSection lang={lang} />
 
       <section className="feature-grid" aria-label="Features">
         {text.features.map(([title, description, Icon]) => (

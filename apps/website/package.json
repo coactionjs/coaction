@@ -10,9 +10,11 @@
     "typecheck": "fumadocs-mdx && next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@coaction/react": "workspace:*",
     "@fumadocs/language": "^0.2.0",
     "@orama/orama": "^3.1.18",
     "@orama/tokenizers": "^3.1.18",
+    "coaction": "workspace:*",
     "fumadocs-core": "^16.11.3",
     "fumadocs-mdx": "^15.1.0",
     "fumadocs-ui": "^16.11.3",

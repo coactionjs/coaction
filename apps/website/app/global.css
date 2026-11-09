@@ -9,6 +9,7 @@
 @import '../components/home/home.css';
 @import '../components/home/hero.css';
 @import '../components/home/octopus-stage.css';
+@import '../components/home/playground.css';
 @import '../components/home/landing-page.css';
 
 @theme inline {
