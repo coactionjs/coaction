@@ -14,6 +14,7 @@
 @import '../components/home/compare-code.css';
 @import '../components/home/transitions.css';
 @import '../components/home/runtime.css';
+@import '../components/home/performance.css';
 
 @theme inline {
   --font-sans:

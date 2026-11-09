@@ -2,6 +2,7 @@ import type { Locale } from '@/lib/i18n';
 import { CompareCode } from './compare-code';
 import { Hero } from './hero';
 import { Ideas } from './ideas';
+import { Performance } from './performance';
 import { PlaygroundSection } from './playground-section';
 import { Runtime } from './runtime';
 import { TiltEffects } from './tilt-effects';
@@ -16,6 +17,7 @@ export function LandingPage({ lang }: { lang: Locale }) {
       <CompareCode lang={lang} />
       <Transitions lang={lang} />
       <Runtime lang={lang} />
+      <Performance lang={lang} />
       <TiltEffects />
     </main>
   );

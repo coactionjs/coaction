@@ -1,0 +1,294 @@
+/* Bar colours validated against both card surfaces: emphasis on Coaction,
+   Zustand in the de-emphasis grey. */
+.perf [data-series='coaction'] {
+  --bar-color: #e8492a;
+}
+
+.perf [data-series='zustand'] {
+  --bar-color: #8e847e;
+}
+
+.dark .perf [data-series='coaction'] {
+  --bar-color: #f45b38;
+}
+
+.dark .perf [data-series='zustand'] {
+  --bar-color: #7a8591;
+}
+
+.perf__legend {
+  display: flex;
+  gap: 1.3rem;
+  margin: 0 0 1rem;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.85rem;
+}
+
+.perf__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.perf__legend span::before {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 3px;
+  background: var(--bar-color);
+  content: '';
+}
+
+.perf__charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.perf-chart {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 1.4rem 1.5rem 1.2rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 1.3rem;
+  background: var(--color-fd-card);
+  box-shadow: var(--co-shadow);
+}
+
+.perf-chart__figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin: 0;
+}
+
+.perf-chart__headline {
+  flex: none;
+  font-family: var(--font-sans);
+  font-size: clamp(2.6rem, 4vw, 3.4rem);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.perf-chart__claim {
+  max-width: 17rem;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.perf-chart h3 {
+  margin: 1.2rem 0 0.15rem;
+  font-size: 1.02rem;
+  font-weight: 650;
+}
+
+.perf-chart__unit {
+  margin: 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.78rem;
+}
+
+.perf-chart__plot {
+  position: relative;
+  margin: 1.4rem 0.6rem 0 0;
+  padding-bottom: 1.6rem;
+}
+
+.perf-chart__grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.perf-chart__tick {
+  position: absolute;
+  top: 0;
+  bottom: 1.2rem;
+  border-left: 1px solid var(--color-fd-border);
+}
+
+.perf-chart__tick span {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  transform: translateX(-50%);
+}
+
+.perf-chart__bars {
+  position: relative;
+  display: grid;
+  gap: 0.95rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.perf-bar {
+  position: relative;
+  display: grid;
+  gap: 0.35rem;
+  border-radius: 0.4rem;
+  outline: none;
+}
+
+.perf-bar:focus-visible {
+  outline: 2px solid var(--color-fd-ring);
+  outline-offset: 4px;
+}
+
+.perf-bar__label {
+  padding-right: 3rem;
+  font-size: 0.8rem;
+  line-height: 1.3;
+}
+
+.perf-bar__track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 0.9rem;
+}
+
+.perf-bar__fill {
+  height: 0.9rem;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--bar-color);
+  transition: filter 160ms ease;
+}
+
+.perf-bar__value {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.perf-bar:hover .perf-bar__fill,
+.perf-bar:focus-visible .perf-bar__fill {
+  filter: brightness(1.14);
+}
+
+.perf-bar__tip {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + 0.35rem);
+  left: 0;
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 0.6rem;
+  background: var(--color-fd-popover);
+  box-shadow: var(--co-shadow);
+  font-size: 0.74rem;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+  pointer-events: none;
+}
+
+.perf-bar__tip strong {
+  font-size: 0.86rem;
+}
+
+.perf-bar__tip span {
+  color: var(--color-fd-muted-foreground);
+}
+
+.perf-bar:hover .perf-bar__tip,
+.perf-bar:focus-visible .perf-bar__tip {
+  opacity: 1;
+  transform: none;
+}
+
+.perf-chart__note {
+  margin: auto 0 0;
+  padding-top: 1rem;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.perf__table {
+  margin-top: 1rem;
+  border: 1px solid var(--color-fd-border);
+  border-radius: 1rem;
+  background: var(--color-fd-card);
+}
+
+.perf__table summary {
+  padding: 0.85rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 620;
+  cursor: pointer;
+}
+
+.perf__table table {
+  width: 100%;
+  margin-bottom: 0.8rem;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.perf__table caption {
+  padding: 0.6rem 1.1rem 0.4rem;
+  color: var(--color-fd-muted-foreground);
+  font-weight: 620;
+  text-align: left;
+}
+
+.perf__table th,
+.perf__table td {
+  padding: 0.45rem 1.1rem;
+  border-top: 1px solid var(--color-fd-border);
+  text-align: left;
+}
+
+.perf__table thead th {
+  color: var(--color-fd-muted-foreground);
+  font-weight: 600;
+}
+
+.perf__table td {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.perf__table tbody th {
+  font-weight: 450;
+}
+
+.perf__source {
+  margin: 1rem 0 0;
+  color: var(--color-fd-muted-foreground);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.perf__source a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  color: var(--color-fd-primary);
+  font-weight: 600;
+}
+
+.perf__source a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 62rem) {
+  .perf__charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
