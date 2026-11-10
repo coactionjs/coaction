@@ -34,8 +34,11 @@ jobs:
 
   react-versions:
     name: React ${{ matrix.react }}
-    # Playwright 1.58.2 provides browser builds for Ubuntu 24.04.
     runs-on: ubuntu-24.04
+    # Match @playwright/test in pnpm-lock.yaml so its browsers are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001 --ipc=host
     strategy:
       matrix:
         react: ['18', '19']
@@ -54,7 +57,6 @@ jobs:
         run: pnpm --filter @coaction/react add -D react@^${{ matrix.react }} react-dom@^${{ matrix.react }} @types/react@^${{ matrix.react }} @types/react-dom@^${{ matrix.react }}
       - run: pnpm --filter @coaction/react test
       - run: pnpm typecheck
-      - run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Hydrate React ${{ matrix.react }} in real browsers
         run: pnpm test:e2e:browser hydration.spec.ts
         env:

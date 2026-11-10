@@ -46,8 +46,11 @@ jobs:
   browser-e2e:
     name: Browser E2E (${{ matrix.browser }})
     if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
-    # Playwright 1.58.2 provides browser builds for Ubuntu 24.04.
     runs-on: ubuntu-24.04
+    # Match @playwright/test in pnpm-lock.yaml so its browsers are preinstalled.
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble
+      options: --user 1001 --ipc=host
     strategy:
       fail-fast: false
       matrix:
@@ -70,8 +73,6 @@ jobs:
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
       - name: Run browser E2E
         run: pnpm exec playwright test -c playwright.config.ts --project=${{ matrix.browser }}
   benchmark:
