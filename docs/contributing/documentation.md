@@ -31,6 +31,13 @@ and the sitemap. It does not compare prose semantics. Check examples against
 their actual imports, and keep the English and Chinese code blocks aligned.
 Use the deployment's `SITE_BASE_PATH` and `SITE_URL` when checking a Pages build.
 
+Run `pnpm website:deploy` at the repository root to publish the current working
+tree. It reads the site's URL using the authenticated GitHub CLI, builds and
+verifies the static export locally, then pushes it to `origin`'s `gh-pages`
+branch. The first deployment also selects that branch's root as the Pages
+publishing source, which requires permission to manage the repository's Pages
+settings.
+
 Performance claims need the measured revision, runtime, dependency versions,
 workload and command. Label historical runs. Entry sizes with dependencies
 externalized are not application bundle sizes. A cached read, update plus read,

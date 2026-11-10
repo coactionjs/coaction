@@ -19,7 +19,7 @@
     "dev": "turbo run dev --parallel",
     "website:build": "pnpm --filter coaction-website build",
     "website:check": "pnpm --filter coaction-website check:export",
-    "website:deploy": "gh workflow run pages.yml --ref main",
+    "website:deploy": "node ./scripts/deploy-website.mjs",
     "website:dev": "pnpm --filter coaction-website dev",
     "watch": "pnpm dev",
     "clean": "turbo run clean && rm -rf coverage .turbo .publish",
