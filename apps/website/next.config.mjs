@@ -1,4 +1,5 @@
 import { createMDX } from 'fumadocs-mdx/next';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 const repositoryName =
   process.env.GITHUB_REPOSITORY?.split('/')[1] ?? 'coaction';
@@ -24,7 +25,6 @@ const config = {
   images: {
     unoptimized: true
   },
-  output: 'export',
   reactStrictMode: true,
   trailingSlash: true,
   // The homepage demos run the workspace's own Coaction. Compiling its
@@ -39,4 +39,12 @@ const config = {
   }
 };
 
-export default createMDX()(config);
+const withMDX = createMDX();
+
+export default function nextConfig(phase) {
+  return withMDX({
+    ...config,
+    // In export mode, next dev throws before unknown locales can return a 404.
+    output: phase === PHASE_DEVELOPMENT_SERVER ? undefined : 'export'
+  });
+}
