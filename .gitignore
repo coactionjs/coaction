@@ -83,6 +83,7 @@ web_modules/
 .next
 .source
 out
+/apps/website/next-env.d.ts
 
 # Nuxt.js build / generate output
 .nuxt
