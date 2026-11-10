@@ -78,25 +78,23 @@ jobs:
   benchmark:
     name: Benchmark Gate
     if: contains(github.event.pull_request.labels.*.name, 'run-ci') && !github.event.pull_request.draft
-    runs-on: ubuntu-latest
+    # Keep the runner and Node version aligned with the profile in scripts/BENCHMARK-GATE.md.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
-        with:
-          # `pnpm check` replays known defects from history to confirm the fuzz
-          # suites still catch them, so it needs more than the default shallow
-          # clone. See scripts/check-fuzz-catches.mjs.
-          fetch-depth: 0
       - uses: pnpm/action-setup@v6
-      - name: Use Node.js 22.x
+      - name: Use the benchmark reference Node.js version
         uses: actions/setup-node@v6
         with:
-          node-version: 22.x
+          node-version: 24.22.0
           cache: pnpm
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build packages
-        run: pnpm build
+      - name: Build the core benchmark entries
+        run: pnpm --filter coaction build
       - name: Run benchmark regression gate
+        env:
+          COACTION_BENCHMARK_PROFILE: ubuntu-24.04-arm
         run: |
           set -o pipefail
           pnpm benchmark:check 2>&1 | tee benchmark.txt

@@ -22,6 +22,10 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const thresholds = JSON.parse(
   readFileSync(join(scriptDir, 'benchmark-regression-thresholds.json'), 'utf8')
 );
+const profile = process.env.COACTION_BENCHMARK_PROFILE;
+if (profile !== undefined && !Object.hasOwn(thresholds.minHzByProfile, profile))
+  throw new Error(`Unknown benchmark profile: ${profile}`);
+const minRates = { ...thresholds.minHz, ...thresholds.minHzByProfile[profile] };
 const results = {};
 const selectedGroup = process.env.COACTION_BENCHMARK_GROUP;
 
@@ -582,7 +586,7 @@ if (selectedGroup) {
 
 const failures = [];
 
-for (const [name, minHz] of Object.entries(thresholds.minHz)) {
+for (const [name, minHz] of Object.entries(minRates)) {
   const result = results[name];
 
   if (!result) {
@@ -624,6 +628,8 @@ const reportRows = Object.entries(results).map(([name, result]) => ({
 
 const report = [
   '# Benchmark Regression Report',
+  '',
+  `Throughput profile: ${profile ?? 'reference'} (Node ${process.version}, ${process.arch}).`,
   '',
   'Each workload group runs in a fresh Node process. The three observation modes use the same 100,000-write warmup on 1,000 items.',
   '',
