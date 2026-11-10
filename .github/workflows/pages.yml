@@ -1,17 +1,6 @@
 name: Deploy website
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/pages.yml
-      - .oxfmtrc.json
-      - apps/website/**
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
   workflow_dispatch:
 
 permissions:
