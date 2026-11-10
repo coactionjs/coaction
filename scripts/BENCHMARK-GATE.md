@@ -3,6 +3,24 @@
 `pnpm benchmark:check` measures `scripts/check-benchmark-regression.mjs` against
 the floors in `benchmark-regression-thresholds.json`.
 
+## GitHub Actions runner
+
+The PR gate uses `ubuntu-24.04-arm` and Node 24.22.0. For two workloads it
+sets absolute floors measured on this runner. The default local command keeps
+the reference-machine floors. Both profiles use the same comparison ratios.
+
+| Workload (writes/s)        | M1 Max main | Hosted ARM main | Hosted ARM #71 | Local floor | Hosted floor |
+| :------------------------- | ----------: | --------------: | -------------: | ----------: | -----------: |
+| Path effect                |     195,883 |          94,593 |         96,988 |     100,000 |       80,000 |
+| A reader for each of 1,000 |      91,794 |          49,425 |         49,086 |      60,000 |       40,000 |
+
+The hosted comparison used the same VM for `b4e60cb6` and the Immer update.
+In a separate run on the same runner type, the historical row-tracking
+regression (`bac85085`) reached 26,417 writes/s for 1,000 readers and 4,281
+for 10,000. It fails both hosted floors (40,000 and 11,000 respectively).
+See the [base and PR measurements](https://github.com/coactionjs/coaction/actions/runs/42816718626)
+and the [historical regression measurements](https://github.com/coactionjs/coaction/actions/runs/42816958533).
+
 ## Sampling during final 4.0 qualification
 
 Each workload group now runs in its own Node process. Libraries compared within

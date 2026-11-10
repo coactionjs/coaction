@@ -19,6 +19,12 @@
     "Coaction object replacement, nothing watching": 2000,
     "Coaction recipe replacement, nothing watching": 400000
   },
+  "minHzByProfile": {
+    "ubuntu-24.04-arm": {
+      "Coaction write, a path effect": 80000,
+      "Coaction write, a reader for each of 1,000 elements": 40000
+    }
+  },
   "minRatios": [
     {
       "left": "Coaction cached accessor getter",
